@@ -1,8 +1,5 @@
 #include <OpenNI.h>
 #include "ST_Client.h"
-
-#include <vector>
-
 #define ENABLE_KINECT_COLOR 0
 
 

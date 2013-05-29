@@ -30,13 +30,20 @@ protected:
 	virtual openni::Status initOpenGL(int argc, char **argv);
 	void initOpenGLHooks();
 
-	openni::VideoFrameRef		m_depthFrame;
-	openni::VideoFrameRef		m_colorFrame;
+	openni::VideoFrameRef m_depthFrame;
+	openni::VideoFrameRef m_colorFrame;
 
-	openni::Device&			m_device;
-	openni::VideoStream&			m_depthStream;
-	openni::VideoStream&			m_colorStream;
-	openni::VideoStream**		m_streams;
+	openni::Device&       m_device;
+	openni::VideoStream&  m_depthStream;
+	openni::VideoStream&  m_colorStream;
+	openni::VideoStream** m_streams;
+
+private:
+	void displayDepthGraphic();
+	void displayBlackScreen();
+	void displayPictureScreen();
+
+	void doCommand();
 
 private:
 	SampleViewer(const SampleViewer&);
@@ -56,9 +63,12 @@ private:
 	unsigned int		m_nTexMapX;
 	unsigned int		m_nTexMapY;
 	DisplayModes		m_eViewState;
-	openni::RGB888Pixel*	m_pTexMap;
 
 	RGBA_raw* video_ram;
+	uint vram_tex;
+
+	RGBA_raw* video_ram2;
+	uint vram_tex2;
 
 	int			m_width;
 	int			m_height;

@@ -22,7 +22,6 @@ bool zlibpp::compress(byte* src, int srcsize, bytes& dest, int compress_level)
 	if (Z_OK!=deflateInit(&strm, compress_level))
 		return false;
 
-
 	// Input data
 	strm.avail_in = srcsize;
 	strm.next_in  = src;

@@ -154,7 +154,9 @@ void AudioBuffer::free()
 	if (_buffer)
 	{
 		puts("audiobuffer, free");
+#if 0
 		alDeleteBuffers(1, &_buffer);
+#endif
 		_buffer = 0;
 	}
 }

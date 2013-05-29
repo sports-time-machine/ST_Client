@@ -19,12 +19,61 @@
 #pragma comment(lib,"OpenNI2_x32.lib")
 #endif
 
+#include "miUdpReceiver.h"
+
 
 
 static inline uint8 uint8crop(int x)
 {
 	return (x<0) ? 0 : (x>255) ? 255 : 0;
 }
+
+
+class miFps
+{
+public:
+	miFps();
+
+	void update();
+	float getFps() const;
+
+private:
+	static const int SIZE = 180;
+	uint _frame_tick[SIZE];
+	int _frame_index;
+};
+
+
+miFps::miFps()
+{
+	_frame_index = 0;
+}
+
+void miFps::update()
+{
+	_frame_index = (_frame_index+1) % SIZE;
+	_frame_tick[_frame_index] = timeGetTime();
+}
+
+float miFps::getFps() const
+{
+	const int tail_index = (_frame_index - 1 + SIZE) % SIZE;
+	const int tail = _frame_tick[tail_index];
+	const int head = _frame_tick[_frame_index];
+	if (tail==0)
+	{
+		return 0;
+	}
+	else
+	{
+		return 1000.0f / (head-tail);
+	}
+}
+
+
+miFps fps_counter;
+
+
 
 
 #if SHOW_RAW_NEAR_AND_FAR
@@ -76,9 +125,6 @@ struct Mode
 } mode;
 
 
-GLuint graphic_tex;
-
-
 using namespace mi;
 
 
@@ -121,22 +167,25 @@ int movie_index = 0;
 
 openni::RGB888Pixel* moviex = nullptr;
 
+miUdpReceiver udp;
 
 
+// @constructor
 SampleViewer::SampleViewer(const char* strSampleName, openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color) :
 	m_device(device), m_depthStream(depth), m_colorStream(color), m_streams(NULL),
 	m_eViewState(DEFAULT_DISPLAY_MODE),
-	m_pTexMap(NULL),
-	video_ram(NULL),
+	video_ram(nullptr),
+	video_ram2(nullptr),
 	audio(Audio::self())
 {
+	udp.init(38707);
 	ms_self = this;
 	strncpy(m_strSampleName, strSampleName, ONI_MAX_STR);
 }
 SampleViewer::~SampleViewer()
 {
-	delete[] m_pTexMap;
 	delete[] video_ram;
+	delete[] video_ram2;
 
 	ms_self = NULL;
 
@@ -205,9 +254,9 @@ openni::Status SampleViewer::init(int argc, char **argv)
 	printf("%d x %d\n", m_width, m_height);
 	m_nTexMapX = MIN_CHUNKS_SIZE(m_width, TEXTURE_SIZE);
 	m_nTexMapY = MIN_CHUNKS_SIZE(m_height, TEXTURE_SIZE);
-	m_pTexMap = new openni::RGB888Pixel[m_nTexMapX * m_nTexMapY];
 
-	video_ram = new RGBA_raw[m_nTexMapX * m_nTexMapY];
+	video_ram  = new RGBA_raw[m_nTexMapX * m_nTexMapY];
+	video_ram2 = new RGBA_raw[m_nTexMapX * m_nTexMapY];
 
 
 	{
@@ -228,6 +277,9 @@ openni::Status SampleViewer::init(int argc, char **argv)
 	{
 		return openni::STATUS_ERROR;
 	}
+
+	glGenTextures(1, &vram_tex);
+	glGenTextures(1, &vram_tex2);
 
 	// Init routine @init@
 	{
@@ -373,17 +425,50 @@ void decoding(const std::vector<uint8>& byte_stream, uint8* dest)
 
 
 
-void drawBitmap(
+void buildBitmap(
+		int tex,
 		int dx, int dy, int dw, int dh,
 		RGBA_raw* bitmap,
-		int bw, int bh,
-		float u1, float v1, float u2, float v2)
+		int bw, int bh)
 {
-	glBindTexture(GL_TEXTURE_2D, graphic_tex);
+	glBindTexture(GL_TEXTURE_2D, tex);
 	glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bw, bh, 0, GL_RGBA, GL_UNSIGNED_BYTE, bitmap);
+}
+
+void drawBitmap(
+		int dx, int dy, int dw, int dh,
+		float u1, float v1, float u2, float v2)
+{
+	const int x1 = dx;
+	const int y1 = dy;
+	const int x2 = dx + dw;
+	const int y2 = dy + dh;
+
+	glColor4f(1,1,1,1);
+	glBegin(GL_QUADS);
+	glTexCoord2f(u1, v1); glVertex2f(x1, y1);
+	glTexCoord2f(u2, v1); glVertex2f(x2, y1);
+	glTexCoord2f(u2, v2); glVertex2f(x2, y2);
+	glTexCoord2f(u1, v2); glVertex2f(x1, y2);
+	glEnd();
+}
+
+
+void drawBitmapLuminance(
+		int tex,
+		int dx, int dy, int dw, int dh,
+		const uint8* bitmap,
+		int bw, int bh,
+		float u1, float v1, float u2, float v2)
+{
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 640, 480, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, bitmap);
 
 	const int x1 = dx;
 	const int y1 = dy;
@@ -400,22 +485,27 @@ void drawBitmap(
 }
 
 
+
 void SampleViewer::drawImageMode()
 {
 	using namespace openni;
 
 	const RGB888Pixel* source_row = (const RGB888Pixel*)m_colorFrame.getData();
-	RGB888Pixel* dest_row = m_pTexMap + m_colorFrame.getCropOriginY() * m_nTexMapX;
+	RGBA_raw* dest_row = video_ram + m_colorFrame.getCropOriginY() * m_nTexMapX;
 	const int source_rows = m_colorFrame.getStrideInBytes() / sizeof(RGB888Pixel);
 
 	for (int y=0; y<m_colorFrame.getHeight(); ++y)
 	{
 		const RGB888Pixel* src = source_row;
-		RGB888Pixel* dest = dest_row + m_colorFrame.getCropOriginX();
+		RGBA_raw* dest = dest_row + m_colorFrame.getCropOriginX();
 
 		for (int x=0; x<m_colorFrame.getWidth(); ++x)
 		{
-			*dest++ = *src++;
+			dest->r = src->r;
+			dest->g = src->g;
+			dest->b = src->b;
+			dest->a = 255;
+			++dest, ++src;
 		}
 
 		dest_row   += m_nTexMapX;
@@ -433,6 +523,9 @@ void SampleViewer::drawImageMode()
 		(float)m_height / m_nTexMapY);
 #endif
 }
+
+int decomp_time = 0;
+int draw_time = 0;
 
 void SampleViewer::drawDepthMode()
 {
@@ -504,12 +597,11 @@ void SampleViewer::drawDepthMode()
 			{
 				uint8 depth = *src++;
 
-				if (depth>=100 && depth<=200 && depth/2%2==0)
+				if (depth>=100 && depth<=200 && depth%2==0)
 				//if (depth==200)
 				{
 					depth = 20;
 				}
-
 
 				*dest++ = depth;
 			}
@@ -568,13 +660,58 @@ void SampleViewer::drawDepthMode()
 		}
 		else
 		{
-			zlibpp::bytes& byte_stream = recorded_frames[movie_index++];
-			zlibpp::bytes outdata;
-			zlibpp::decompress(byte_stream, outdata);
-			for (int i=0; i<640*480; ++i)
+#if 1
+			int xx = timeGetTime();
+			static zlibpp::bytes outdata;
+			if (outdata.size()==0)
 			{
-				curr[i] = (curr[i] + outdata[i])>>1;
+				outdata.resize(640*480);
+				puts("resize outdata");
 			}
+			zlibpp::bytes& byte_stream = recorded_frames[movie_index++];
+			zlibpp::decompress(byte_stream, outdata);
+			decomp_time += timeGetTime()-xx;
+#endif
+#if 1
+			int yy = timeGetTime();
+			const auto* src = outdata.data();
+			for (int y=0; y<480; ++y)
+			{
+				RGBA_raw* dest = video_ram2 + y*m_nTexMapX;
+				for (int x=0; x<640; ++x, ++dest, ++src)
+				{
+					const int d = *src;
+					switch (d)
+					{
+					case 0:
+						dest->a = 0;
+						break;
+					default:
+						dest->r = d;
+						dest->g = d;
+						dest->b = 0;
+						dest->a = 199;
+						break;
+					}
+				}
+			}
+			draw_time += timeGetTime()-yy;
+#endif
+
+#if 1
+			// @draw
+			buildBitmap(
+				vram_tex2,
+				0, 0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y,
+				video_ram2,
+				m_nTexMapX, m_nTexMapY);
+			drawBitmap(
+				0, 0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y,
+				0.0f,
+				0.0f,
+				(float)m_width  / m_nTexMapX,
+				(float)m_height / m_nTexMapY);
+#endif
 		}
 		break;
 	}
@@ -590,7 +727,6 @@ void SampleViewer::drawDepthMode()
 
 			for (int x=0; x<640; ++x, ++dest, ++src)
 			{
-#if 1
 				switch (*src)
 				{
 				case 0:
@@ -612,90 +748,211 @@ void SampleViewer::drawDepthMode()
 					dest->a = 220;
 					break;
 				}
-#elif 0
-				dest->r = (x*255/640);
-				dest->g = (y*255/640);
-				dest->b = (255-x*255/640);
-				dest->a = (*src>=1 && *src<255) ? (mode.alpha_mode ? *src : 255) : 0;
-#elif 0
-				dest->r = uint8crop(x*255/640 + *src);
-				dest->g = (y*255/640);
-				dest->b = (255-x*255/640);
-				dest->a = 100;
-#else
-				if (mode.zero255_show)
-				{
-					if (*src==0)
-					{
-						pTex->r = 20; //BLUE
-						pTex->g = 50;
-						pTex->b = 90;
-						continue;
-					}
-					else if (*src==255)
-					{
-						pTex->r = 80; //RED
-						pTex->g = 20;
-						pTex->b = 20;
-						continue;
-					}
-				}
-				else
-				{
-					if (*src==0 || *src==255)
-					{
-						pTex->r = 0;
-						pTex->g = 0;
-						pTex->b = 0;
-						continue;
-					}
-				}
-
-				int lum = *src;
-				pTex->r = lum;
-				pTex->g = 255-lum;
-				pTex->b = lum;
-#endif
 			}
 		}
 	}
 
 	// @draw
-	drawBitmap(
+	buildBitmap(
+		vram_tex,
 		0, 0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y,
 		video_ram,
-		m_nTexMapX, m_nTexMapY,
+		m_nTexMapX, m_nTexMapY);
+#if 1
+	drawBitmap(
+		0, 0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y,
 		0.0f,
 		0.0f,
 		(float)m_width  / m_nTexMapX,
 		(float)m_height / m_nTexMapY);
+#endif
+#if 1
+	drawBitmap(
+		GL_WIN_SIZE_X, 0, -GL_WIN_SIZE_X, GL_WIN_SIZE_Y,
+		0.0f,
+		0.0f,
+		(float)m_width  / m_nTexMapX,
+		(float)m_height / m_nTexMapY);
+#endif
+}
+
+void SampleViewer::displayDepthGraphic()
+{
+	m_depthStream.readFrame(&m_depthFrame);
+//	m_colorStream.readFrame(&m_colorFrame);
+
+	if (m_depthFrame.isValid())
+		drawDepthMode();
+
+	static float r;
+	r += 0.7;
+	clam.drawRotated(170,70, 80,150, r, 80);
+}
+
+void SampleViewer::displayBlackScreen()
+{
+}
+
+void SampleViewer::displayPictureScreen()
+{
+	eureka.draw(0,0, 640,480, 255);
+}
+
+enum Scene
+{
+	SCENE_BLACKSCREEN,
+	SCENE_DEPTHGRAPHIC,
+	SCENE_PICTURESCREEN,
+};
+
+Scene scene = SCENE_DEPTHGRAPHIC;
+
+
+class VariantType
+{
+public:
+	VariantType(const std::string&);
+	int to_i() const  { return intvalue; }
+	const char* to_s() const { return strvalue.c_str(); }
+	bool is_int() const { return intvalue!=0 || (intvalue==0 && strvalue[0]=='0'); }
+
+private:
+	std::string strvalue;
+	int intvalue;
+};
+
+VariantType::VariantType(const std::string& s)
+{
+	strvalue = s;
+	char* endptr = nullptr;
+	intvalue = (int)strtol(s.c_str(), &endptr, 0);
+}
+
+
+
+
+
+bool splitString(const std::string& rawstring, std::string& cmd, std::vector<VariantType>& arg)
+{
+	cmd.clear();
+	arg.clear();
+
+	const char* src = rawstring.c_str();
+
+	auto skip_whitespaces = [&](){
+		while (*src!='\0' && isspace(*src))
+		{
+			++src;
+		}
+	};
+
+	auto word_copy_to_dest = [&](std::string& dest, bool upper)->bool{
+		dest.clear();
+		skip_whitespaces();
+		if (*src=='\0')
+			return false;
+
+		// Create 'cmd'
+		while (*src && !isspace(*src))
+		{
+			dest += upper ? toupper(*src) : *src;
+			++src;
+		}
+		return true;
+	};
+
+	if (!word_copy_to_dest(cmd, true))
+		return false;
+
+	// Create 'args'
+	for (;;)
+	{
+		std::string temp;
+		if (!word_copy_to_dest(temp, false))
+			break;
+		arg.push_back(temp);
+	}
+	return true;
+}
+
+bool commandIs(const std::string& cmd, const char* cmd1, const char* cmd2)
+{
+	if (cmd.compare(cmd1)==0)
+		return true;
+	if (cmd.compare(cmd2)==0)
+		return true;
+	return false;
+}
+
+void SampleViewer::doCommand()
+{
+	std::string rawstring;
+	if (udp.receive(rawstring)<=0)
+	{
+		return;
+	}
+
+	std::string cmd;
+	std::vector<VariantType> arg;
+	splitString(rawstring, cmd, arg);
+
+	printf("[UDP COMMAND] '%s' ", cmd.c_str());
+	for (int i=0; i<arg.size(); ++i)
+	{
+		if (arg[i].is_int())
+		{
+			printf("[int:%d]", arg[i].to_i());
+		}
+		else
+		{
+			printf("[str:%s]", arg[i].to_s());
+		}
+	}
+	printf("\n");
+
+	if (commandIs(cmd, "BS", "BLACKSCREEN"))
+	{
+		scene = SCENE_BLACKSCREEN;
+		return;
+	}
+	if (commandIs(cmd, "DG", "DEPTHGRAPHIC"))
+	{
+		scene = SCENE_DEPTHGRAPHIC;
+		return;
+	}
+	if (commandIs(cmd, "PS", "PICTURESCREEN"))
+	{
+		scene = SCENE_PICTURESCREEN;
+		return;
+	}
+	if (commandIs(cmd, "GB", "BYE"))
+	{
+		exit(0);
+		return;
+	}
+
+	printf("Invalid udp-command '%s'\n", cmd.c_str());
 }
 
 void SampleViewer::display()
 {
+	doCommand();
+
+
+
+#if 0
+	int changedIndex = 0;
 	//‚¤‚²‚©‚È‚¢?
 	m_device.setDepthColorSyncEnabled(mode.sync_enabled);
 	//END
 
-	int changedIndex;
 	openni::Status rc = openni::OpenNI::waitForAnyStream(m_streams, 2, &changedIndex);
 	if (rc != openni::STATUS_OK)
 	{
 		printf("Wait failed\n");
 		return;
 	}
-
-	switch (changedIndex)
-	{
-	case 0:
-		m_depthStream.readFrame(&m_depthFrame);
-		break;
-	case 1:
-		m_colorStream.readFrame(&m_colorFrame);
-		break;
-	default:
-		printf("Error in wait\n");
-	}
+#endif
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -704,36 +961,19 @@ void SampleViewer::display()
 	glLoadIdentity();
 	glOrtho(0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y, 0, -1.0, 1.0);
 
-	if (m_depthFrame.isValid())
-	{
-	//	calculateHistogram(m_pDepthHist, MAX_DEPTH, m_depthFrame);
-	}
-
-	memset(m_pTexMap, 0, m_nTexMapX*m_nTexMapY*sizeof(openni::RGB888Pixel));
-
-	eureka.draw(0,0, 640,480, 255);
 
 #if SHOW_RAW_NEAR_AND_FAR
 	near_value = 10000;
 	far_value = 0;
 #endif
-	switch (m_eViewState)
+
+
+	switch (scene)
 	{
-	case DISPLAY_MODE_IMAGE:
-		if (m_colorFrame.isValid())
-			drawImageMode();
-		break;
-	case DISPLAY_MODE_DEPTH:
-		if (m_depthFrame.isValid())
-			drawDepthMode();
-		break;
+	case SCENE_BLACKSCREEN:    displayBlackScreen();   break;
+	case SCENE_DEPTHGRAPHIC:   displayDepthGraphic();  break;
+	case SCENE_PICTURESCREEN:  displayPictureScreen(); break;
 	}
-
-
-	static float r;
-	r += 0.7;
-
-	clam.drawRotated(170,70, 80,150, r, 80);
 
 
 	// RED TEXT
@@ -755,13 +995,18 @@ void SampleViewer::display()
 		glScalef(1.2f, 1.2f+0.3f*cosf(cnt/5), 1.f);
 		glTranslatef(-180.f, 0.f, 0.f);
 		int time_diff = (timeGetTime() - time_begin);
-	// @fps
-		freetype::print(monospace, 20, 240, "%d, %d, %.1ffps",
+		// @fps
+		freetype::print(monospace, 20, 240, "%d, %d, %.1ffps, %.2ffps, %d, %d",
 				frames,
 				time_diff,
-				1000.0f * frames/time_diff);
+				1000.0f * frames/time_diff,
+				fps_counter.getFps(),
+				decomp_time,
+				draw_time);
 		glPopMatrix();
 	}
+
+	fps_counter.update();
 
 #if SHOW_RAW_NEAR_AND_FAR
 	{
@@ -775,8 +1020,6 @@ void SampleViewer::display()
 		glPopMatrix();
 	}
 #endif
-
-
 
 	// Swap the OpenGL display buffers
 	glutSwapBuffers();
@@ -1060,10 +1303,6 @@ openni::Status SampleViewer::initOpenGL(int argc, char **argv)
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_TEXTURE_2D);
 
-	glGenTextures(1, &graphic_tex);
-	glBindTexture(GL_TEXTURE_2D , graphic_tex);
-
-
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -1077,6 +1316,7 @@ openni::Status SampleViewer::initOpenGL(int argc, char **argv)
 
 	return openni::STATUS_OK;
 }
+
 void SampleViewer::initOpenGLHooks()
 {
 	glutKeyboardFunc(glutKeyboard);
