@@ -39,7 +39,7 @@ protected:
 	openni::VideoStream** m_streams;
 
 private:
-	void displayDepthGraphic();
+	void displayDepthScreen();
 	void displayBlackScreen();
 	void displayPictureScreen();
 

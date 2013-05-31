@@ -19,10 +19,25 @@ static inline int getBestTexSize(int value)
 
 
 
-void miImage::createFromImageA(const char* filename)
+bool miImage::createFromImageA(const char* filename)
 {
+	this->_tex_h = 0;
+	this->_tex_w = 0;
+	this->_gl_tex = 0u;
+
 	auto format = FreeImage_GetFIFFromFilename(filename);
+	if (format==FIF_UNKNOWN)
+	{
+		fprintf(stderr, "createFromImage format error: path('%s')\n", filename);
+		return false;
+	}
+
 	FIBITMAP* bitmap = FreeImage_Load(format, filename);
+	if (bitmap==nullptr)
+	{
+		fprintf(stderr, "createFromImage load error: path('%s')\n", filename);
+		return false;
+	}
 
 	this->_img_w = static_cast<int>(FreeImage_GetWidth(bitmap));
 	this->_img_h = static_cast<int>(FreeImage_GetHeight(bitmap));
@@ -50,6 +65,7 @@ void miImage::createFromImageA(const char* filename)
 
 	_DibToPicture(bitmap);
 	FreeImage_Unload(bitmap);
+	return true;
 }
 
 void miImage::_DibToPicture(void* void_dib)

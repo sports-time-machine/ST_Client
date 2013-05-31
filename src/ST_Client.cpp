@@ -22,6 +22,24 @@
 #include "miUdpReceiver.h"
 
 
+enum ClientStatus
+{
+	STATUS_BLACK,
+	STATUS_PICTURE,
+	STATUS_DEPTH,
+	STATUS_IDLE,
+	STATUS_GAME,
+	STATUS_GAME_END,
+};
+
+ClientStatus client_status = STATUS_IDLE;
+
+
+
+
+miImage pic;
+miImage clam;
+
 
 static inline uint8 uint8crop(int x)
 {
@@ -122,7 +140,29 @@ struct Mode
 	bool zero255_show;
 	bool alpha_mode;
 	bool pixel_completion;
+	bool mirroring;
 } mode;
+
+void toggle(bool& ref)
+{
+	auto log = [&](bool state, int key, const char* text){
+		printf("%12s (%c): %s\n",
+			text,
+			key,
+			state ? "YES" : "NO");
+	};
+
+	ref = !ref;
+	puts("-----------------------------");
+	log(mode.sync_enabled,     'k', "sync");
+	log(mode.mixed_enabled,    'm', "mixed");
+	log(mode.zero255_show,     'z', "zero255");
+	log(mode.alpha_mode,       'a', "alpha");
+	log(mode.pixel_completion, 'e', "pixel completion");
+	log(mode.mirroring,        '?', "mirroring");
+	puts("-----------------------------");
+}
+
 
 
 using namespace mi;
@@ -162,15 +202,22 @@ typedef std::map<int,RgbScreen> RgbScreenMovie;
 
 std::vector<zlibpp::bytes> recorded_frames;
 
-int recorded_tail = 0;
-int movie_index = 0;
+size_t recorded_tail = 0;
+size_t movie_index = 0;
 
 openni::RGB888Pixel* moviex = nullptr;
 
-miUdpReceiver udp;
+
+miUdpReceiver udp_recv;
+miUdpSender   udp_send;
+
+const int UDP_SERVER_RECV = 38702;
+const int UDP_CLIENT_RECV = 38708;
+const int UDP_CLIENT_SEND = 38709;
 
 
-// @constructor
+
+// @constructor, @init
 SampleViewer::SampleViewer(const char* strSampleName, openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color) :
 	m_device(device), m_depthStream(depth), m_colorStream(color), m_streams(NULL),
 	m_eViewState(DEFAULT_DISPLAY_MODE),
@@ -178,9 +225,11 @@ SampleViewer::SampleViewer(const char* strSampleName, openni::Device& device, op
 	video_ram2(nullptr),
 	audio(Audio::self())
 {
-	udp.init(38707);
+	udp_recv.init(UDP_CLIENT_RECV);
 	ms_self = this;
 	strncpy(m_strSampleName, strSampleName, ONI_MAX_STR);
+	printf("host: %s\n", miUdp::getComputerName().c_str());
+	printf("ip: %s\n", miUdp::getIpAddress().c_str());
 }
 SampleViewer::~SampleViewer()
 {
@@ -197,6 +246,7 @@ SampleViewer::~SampleViewer()
 
 AudioBuffer se0,se1;
 freetype::font_data monospace, serif;
+
 
 
 openni::Status SampleViewer::init(int argc, char **argv)
@@ -292,9 +342,6 @@ openni::Status SampleViewer::init(int argc, char **argv)
 
 	return openni::STATUS_OK;
 }
-
-miImage eureka;
-miImage clam;
 
 openni::Status SampleViewer::run()	//Does not return
 {
@@ -427,7 +474,6 @@ void decoding(const std::vector<uint8>& byte_stream, uint8* dest)
 
 void buildBitmap(
 		int tex,
-		int dx, int dy, int dw, int dh,
 		RGBA_raw* bitmap,
 		int bw, int bh)
 {
@@ -461,7 +507,6 @@ void drawBitmapLuminance(
 		int tex,
 		int dx, int dy, int dw, int dh,
 		const uint8* bitmap,
-		int bw, int bh,
 		float u1, float v1, float u2, float v2)
 {
 	glBindTexture(GL_TEXTURE_2D, tex);
@@ -568,7 +613,7 @@ void SampleViewer::drawDepthMode()
 				}
 				else
 				{
-					depth = depth*255/3000;
+					depth = depth*255/8000;
 					if (depth>255)
 					{
 						// too far
@@ -597,7 +642,7 @@ void SampleViewer::drawDepthMode()
 			{
 				uint8 depth = *src++;
 
-				if (depth>=100 && depth<=200 && depth%2==0)
+				if (depth>=100 && depth<=240 && depth%2==0)
 				//if (depth==200)
 				{
 					depth = 20;
@@ -702,7 +747,6 @@ void SampleViewer::drawDepthMode()
 			// @draw
 			buildBitmap(
 				vram_tex2,
-				0, 0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y,
 				video_ram2,
 				m_nTexMapX, m_nTexMapY);
 			drawBitmap(
@@ -752,31 +796,23 @@ void SampleViewer::drawDepthMode()
 		}
 	}
 
+	// @build
+	buildBitmap(vram_tex, video_ram, m_nTexMapX, m_nTexMapY);
+
 	// @draw
-	buildBitmap(
-		vram_tex,
-		0, 0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y,
-		video_ram,
-		m_nTexMapX, m_nTexMapY);
-#if 1
+	const int draw_x = mode.mirroring ? GL_WIN_SIZE_X : 0;
+	const int draw_w = mode.mirroring ? -GL_WIN_SIZE_X : GL_WIN_SIZE_X;
+		
 	drawBitmap(
-		0, 0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y,
+		draw_x, 0,
+		draw_w, GL_WIN_SIZE_Y,
 		0.0f,
 		0.0f,
 		(float)m_width  / m_nTexMapX,
 		(float)m_height / m_nTexMapY);
-#endif
-#if 1
-	drawBitmap(
-		GL_WIN_SIZE_X, 0, -GL_WIN_SIZE_X, GL_WIN_SIZE_Y,
-		0.0f,
-		0.0f,
-		(float)m_width  / m_nTexMapX,
-		(float)m_height / m_nTexMapY);
-#endif
 }
 
-void SampleViewer::displayDepthGraphic()
+void SampleViewer::displayDepthScreen()
 {
 	m_depthStream.readFrame(&m_depthFrame);
 //	m_colorStream.readFrame(&m_colorFrame);
@@ -795,17 +831,11 @@ void SampleViewer::displayBlackScreen()
 
 void SampleViewer::displayPictureScreen()
 {
-	eureka.draw(0,0, 640,480, 255);
+	if (pic.enabled())
+	{
+		pic.draw(0,0, 640,480, 255);
+	}
 }
-
-enum Scene
-{
-	SCENE_BLACKSCREEN,
-	SCENE_DEPTHGRAPHIC,
-	SCENE_PICTURESCREEN,
-};
-
-Scene scene = SCENE_DEPTHGRAPHIC;
 
 
 class VariantType
@@ -875,19 +905,151 @@ bool splitString(const std::string& rawstring, std::string& cmd, std::vector<Var
 	return true;
 }
 
-bool commandIs(const std::string& cmd, const char* cmd1, const char* cmd2)
+bool commandIs(const std::string& cmd,
+		const char* cmd1,
+		const char* cmd2=nullptr,
+		const char* cmd3=nullptr)
 {
-	if (cmd.compare(cmd1)==0)
+	if (cmd1!=nullptr && cmd.compare(cmd1)==0)
 		return true;
-	if (cmd.compare(cmd2)==0)
+	if (cmd2!=nullptr && cmd.compare(cmd2)==0)
+		return true;
+	if (cmd3!=nullptr && cmd.compare(cmd3)==0)
 		return true;
 	return false;
 }
 
+
+
+	enum InvalidFormat
+	{
+		INVALID_FORMAT,
+	};
+
+typedef const std::vector<VariantType> Args;
+
+
+void arg_check(Args& arg, size_t x)
+{
+	if (arg.size()!=x)
+		throw INVALID_FORMAT;
+}
+
+
+
+
+void commandDepth(Args& arg)
+{
+	arg_check(arg, 0);
+	client_status = STATUS_DEPTH;
+}
+
+void commandBlack(Args& arg)
+{
+	arg_check(arg, 0);
+	client_status = STATUS_BLACK;
+}
+
+void commandMirror(Args& arg)
+{
+	arg_check(arg, 0);
+	toggle(mode.mirroring);
+}
+
+void commandDiskInfo(Args& arg)
+{
+	arg_check(arg, 0);
+
+	static const ULARGE_INTEGER zero = {};
+	ULARGE_INTEGER free_bytes;
+	ULARGE_INTEGER total_bytes;
+
+	if (GetDiskFreeSpaceEx("C:", &free_bytes, &total_bytes, nullptr)==0)
+	{
+		free_bytes  = zero;
+		total_bytes = zero;
+		fprintf(stderr, "(error) GetDiskFreeSpaceEx\n");
+	}
+
+	auto mega_bytes = [](ULARGE_INTEGER ul)->uint32{
+		const uint64 size = ((uint64)ul.HighPart<<32) | ((uint64)ul.LowPart);
+		return (uint32)(size / 1000000);
+	};
+
+	uint32 free  = mega_bytes(free_bytes);
+	uint32 total = mega_bytes(total_bytes);
+	printf("%u MB free(%.1f%%), %u MB total\n",
+			free,
+			free*100.0f/total,
+			total);
+}
+
+void commandStatus(Args& arg)
+{
+	arg_check(arg, 0);
+
+	std::string s;
+	s += "STATUS ";
+	s += miUdp::getComputerName();
+	s += " ";
+	s += (
+		(client_status==STATUS_BLACK) ? "BLACK" :
+		(client_status==STATUS_PICTURE) ? "PICTURE" :
+		(client_status==STATUS_IDLE) ? "IDLE" :
+		(client_status==STATUS_GAME) ? "GAME" :
+		(client_status==STATUS_GAME_END) ? "GAME_END" :
+		(client_status==STATUS_DEPTH) ? "DEPTH" :
+			"UNKNOWN-STATUS");
+	udp_send.send(s);
+}
+
+void commandPing(Args& arg)
+{
+	arg_check(arg, 1);
+
+	printf("PING received: server is '%s'\n", arg[0].to_s());
+
+	std::string s;
+	s += "PONG ";
+	s += miUdp::getComputerName();
+	s += " ";
+	s += miUdp::getIpAddress();
+	s += " ";
+	s += "1";
+
+	udp_send.init(arg[0].to_s(), UDP_SERVER_RECV);
+	udp_send.send(s);
+}
+
+void commandPict(Args& arg)
+{
+	arg_check(arg, 1);
+
+	std::string path;
+	path += "//STMX64/ST/Picture/";
+	path += arg[0].to_s();
+	if (pic.createFromImageA(path.c_str()))
+	{
+		client_status = STATUS_PICTURE;
+		return;
+	}
+	else
+	{
+		printf("picture load error. %s\n", arg[0].to_s());
+	}
+}
+
+void commandBye(Args& arg)
+{
+	arg_check(arg, 0);
+	exit(0);
+}
+
+
 void SampleViewer::doCommand()
 {
 	std::string rawstring;
-	if (udp.receive(rawstring)<=0)
+	if (udp_recv.receive(rawstring)<=0)
 	{
 		return;
 	}
@@ -897,7 +1059,7 @@ void SampleViewer::doCommand()
 	splitString(rawstring, cmd, arg);
 
 	printf("[UDP COMMAND] '%s' ", cmd.c_str());
-	for (int i=0; i<arg.size(); ++i)
+	for (size_t i=0; i<arg.size(); ++i)
 	{
 		if (arg[i].is_int())
 		{
@@ -910,28 +1072,30 @@ void SampleViewer::doCommand()
 	}
 	printf("\n");
 
-	if (commandIs(cmd, "BS", "BLACKSCREEN"))
-	{
-		scene = SCENE_BLACKSCREEN;
-		return;
-	}
-	if (commandIs(cmd, "DG", "DEPTHGRAPHIC"))
-	{
-		scene = SCENE_DEPTHGRAPHIC;
-		return;
-	}
-	if (commandIs(cmd, "PS", "PICTURESCREEN"))
-	{
-		scene = SCENE_PICTURESCREEN;
-		return;
-	}
-	if (commandIs(cmd, "GB", "BYE"))
-	{
-		exit(0);
-		return;
-	}
+	const int argc = arg.size();
 
-	printf("Invalid udp-command '%s'\n", cmd.c_str());
+	try
+	{
+#define COMMAND(CMD, PROC)    if (cmd.compare(CMD)==0) { PROC(arg); return; }
+
+		COMMAND("DISKINFO", commandDiskInfo);
+		COMMAND("MIRROR",   commandMirror);
+		COMMAND("BLACK",    commandBlack);
+		COMMAND("DEPTH",    commandDepth);
+		COMMAND("STATUS",   commandStatus);
+
+		COMMAND("PING",     commandPing);
+		COMMAND("PICT",     commandPict);
+		COMMAND("BYE",   commandBye);
+		COMMAND("QUIT",  commandBye);
+		COMMAND("EXIT",  commandBye);
+		
+		printf("Invalid udp-command '%s'\n", cmd.c_str());
+	}
+	catch (InvalidFormat)
+	{
+		printf("Invalid format '%s' argc=%d\n", cmd.c_str(), argc);
+	}
 }
 
 void SampleViewer::display()
@@ -968,11 +1132,11 @@ void SampleViewer::display()
 #endif
 
 
-	switch (scene)
+	switch (client_status)
 	{
-	case SCENE_BLACKSCREEN:    displayBlackScreen();   break;
-	case SCENE_DEPTHGRAPHIC:   displayDepthGraphic();  break;
-	case SCENE_PICTURESCREEN:  displayPictureScreen(); break;
+	case STATUS_BLACK:    displayBlackScreen();   break;
+	case STATUS_DEPTH:    displayDepthScreen();   break;
+	case STATUS_PICTURE:  displayPictureScreen(); break;
 	}
 
 
@@ -1025,25 +1189,6 @@ void SampleViewer::display()
 	glutSwapBuffers();
 }
 
-void toggle(bool& ref)
-{
-	auto log = [&](bool state, int key, const char* text){
-		printf("%12s (%c): %s\n",
-			text,
-			key,
-			state ? "YES" : "NO");
-	};
-
-	ref = !ref;
-	puts("-----------------------------");
-	log(mode.sync_enabled,     'k', "sync");
-	log(mode.mixed_enabled,    'm', "mixed");
-	log(mode.zero255_show,     'z', "zero255");
-	log(mode.alpha_mode,       'a', "alpha");
-	log(mode.pixel_completion, 'e', "pixel completion");
-	puts("-----------------------------");
-}
-
 struct FileHeader
 {
 	unsigned __int8
@@ -1072,7 +1217,7 @@ void saveToFile(FILE* fp, const std::vector<zlibpp::bytes>& recorded_frames)
 	header.total_frames = recorded_tail;
 
 	fwrite(&header, sizeof(header), 1, fp);
-	for (int i=0; i<recorded_tail; ++i)
+	for (size_t i=0; i<recorded_tail; ++i)
 	{
 		const auto& frame = recorded_frames[i];
 		uint32 frame_size = (uint32)frame.size();
@@ -1241,7 +1386,7 @@ void SampleViewer::onKey(int key, int /*x*/, int /*y*/)
 		printf("recoding stop. %d frames recorded.\n", recorded_tail);
 		{
 			size_t total_bytes = 0;
-			for (int i=0; i<recorded_tail; ++i)
+			for (size_t i=0; i<recorded_tail; ++i)
 			{
 				total_bytes += recorded_frames[i].size();
 			}
@@ -1306,13 +1451,7 @@ openni::Status SampleViewer::initOpenGL(int argc, char **argv)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-
-	eureka.createFromImageA("C:/Users/STM/Desktop/eureka.jpg");
-	printf("%d\n", eureka.getTexture());
-
 	clam.createFromImageA("C:/Users/STM/Desktop/clam.jpg");
-	printf("%d\n", clam.getTexture());
-
 
 	return openni::STATUS_OK;
 }

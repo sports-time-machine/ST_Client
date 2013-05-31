@@ -5,16 +5,16 @@
 class miImage
 {
 public:
-	void createFromImageA(const char* filename);
+	bool createFromImageA(const char* filename);
 
 	void draw(int x, int y, int w, int h, int alpha=255);
 	void drawRotated(int x, int y, int w, int h, float rot, int alpha=255);
 
 
 	// miImage is GLuint compatible
-	operator uint() const { return _gl_tex; }
+	operator uint()   const { return _gl_tex; }
 	uint getTexture() const { return _gl_tex; }
-
+	bool enabled()    const { return _gl_tex!=0u; }
 
 private:
 	void miImage::_DibToPicture(void* void_dib);
