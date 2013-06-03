@@ -38,6 +38,12 @@ public:
 		return fopen_s(&fp, path, "rb")==0;
 	}
 
+	bool openForWrite(const char* path)
+	{
+		close();
+		return fopen_s(&fp, path, "wb")==0;
+	}
+
 	void close()
 	{
 		if (fp!=nullptr)

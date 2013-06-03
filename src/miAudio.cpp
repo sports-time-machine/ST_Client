@@ -409,7 +409,9 @@ Audio::Audio()
 
 Audio::~Audio()
 {
+#if 0
 	destroy();
+#endif
 }
 
 void Audio::destroy()

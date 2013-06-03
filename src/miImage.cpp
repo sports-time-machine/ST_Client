@@ -157,6 +157,7 @@ void miImage::_DibToPicture(void* void_dib)
 
 void miImage::draw(int x, int y, int w, int h, int alpha)
 {
+	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, this->_gl_tex);
 	glColor4f(1, 1, 1, alpha/255.0f);
 

@@ -22,23 +22,161 @@
 #include "miUdpReceiver.h"
 
 
+struct glRGBA
+{
+	uint8 r,g,b,a;
+
+	glRGBA() : r(255),g(255),b(255),a(255) { }
+
+	glRGBA(int r, int g, int b)
+	{
+		set(r,g,b,255);
+	}
+
+	glRGBA(int r, int g, int b, int a)
+	{
+		set(r,g,b,a);
+	}
+
+	void set(int r, int g, int b, int a=255)
+	{
+		this->r = (uint8)r;
+		this->g = (uint8)g;
+		this->b = (uint8)b;
+		this->a = (uint8)a;
+	}
+
+	void glColorUpdate();
+};
+
+void glRGBA::glColorUpdate()
+{
+	glColor4ub(r,g,b,a);
+}
+
+struct Box
+{
+	int left,top,right,bottom;
+	void set(int a, int b, int c, int d)
+	{
+		left = a;
+		top = b;
+		right = c;
+		bottom = d;
+	}
+};
+
+struct Point
+{
+	int x,y;
+	Point() : x(0),y(0) { }
+	Point(int a, int b) : x(a),y(b) { }
+
+	bool in(const Box& box)
+	{
+		return x>=box.left && y>=box.top && x<=box.right && y<=box.bottom;
+	}
+};
+
+
+struct HitObject
+{
+	Point point;
+	glRGBA color;
+};
+
+std::vector<HitObject> hit_objects;
+
+
+struct VodyInfo
+{
+	int near_d;         // 最近デプス（255に近い）
+	int far_d;          // 最遠デプス（0に近い）
+	int raw_near_d;     // データ上の最近
+	int raw_far_d;      // データ上の最近
+	Box body;           // バーチャルボディ本体の矩形
+	Box near_box;       // 近いもの（手とか）の矩形
+	Box far_box;        // 遠いもの（体幹など）の矩形
+	int total_pixels;   // バーチャルボディが占めるピクセル数
+	int histogram[256]; // バーチャルボディのデプスヒストグラム
+};
+
+VodyInfo vody;
+
+
+
+// WINNT.H
+#undef STATUS_TIMEOUT
+
+
 enum ClientStatus
 {
+	// Idle
+	STATUS_IDLE,
+
+	// Demo status
 	STATUS_BLACK,
 	STATUS_PICTURE,
 	STATUS_DEPTH,
-	STATUS_IDLE,
-	STATUS_GAME,
-	STATUS_GAME_END,
+
+	// Main status
+	STATUS_GAMEREADY,   // IDENTを受けてから
+	STATUS_GAME,        // STARTしてから
+
+	// Game end status
+	STATUS_TIMEOUT,
+	STATUS_GAMESTOP,
+	STATUS_GOAL,
 };
 
-ClientStatus client_status = STATUS_IDLE;
+ClientStatus client_status = STATUS_DEPTH;
+
+
+
+
+void glRectangle(glRGBA rgba, int x, int y, int w, int h)
+{
+	glDisable(GL_TEXTURE_2D);
+	rgba.glColorUpdate();
+
+	const int x1 = x;
+	const int y1 = y;
+	const int x2 = x+w;
+	const int y2 = y+h;
+	glBegin(GL_LINE_LOOP);
+	glVertex2i(x1, y1);
+	glVertex2i(x2, y1);
+	glVertex2i(x2, y2);
+	glVertex2i(x1, y2);
+	glEnd();
+}
+
+void glRectangleFill(glRGBA rgba, int x, int y, int w, int h)
+{
+	glDisable(GL_TEXTURE_2D);
+	rgba.glColorUpdate();
+
+	const int x1 = x;
+	const int y1 = y;
+	const int x2 = x+w;
+	const int y2 = y+h;
+	glBegin(GL_QUADS);
+	glVertex2i(x1, y1);
+	glVertex2i(x2, y1);
+	glVertex2i(x2, y2);
+	glVertex2i(x1, y2);
+	glEnd();
+}
+
+
 
 
 
 
 miImage pic;
 miImage clam;
+miImage background_image;
+
 
 
 static inline uint8 uint8crop(int x)
@@ -141,6 +279,7 @@ struct Mode
 	bool alpha_mode;
 	bool pixel_completion;
 	bool mirroring;
+	bool borderline;
 } mode;
 
 void toggle(bool& ref)
@@ -160,6 +299,7 @@ void toggle(bool& ref)
 	log(mode.alpha_mode,       'a', "alpha");
 	log(mode.pixel_completion, 'e', "pixel completion");
 	log(mode.mirroring,        '?', "mirroring");
+	log(mode.borderline,       'b', "borderline");
 	puts("-----------------------------");
 }
 
@@ -230,6 +370,27 @@ SampleViewer::SampleViewer(const char* strSampleName, openni::Device& device, op
 	strncpy(m_strSampleName, strSampleName, ONI_MAX_STR);
 	printf("host: %s\n", miUdp::getComputerName().c_str());
 	printf("ip: %s\n", miUdp::getIpAddress().c_str());
+
+	{
+		HitObject ho;
+		ho.point = Point(3,2);
+		ho.color = glRGBA(20, 100, 250);
+		hit_objects.push_back(ho);
+	}
+
+	{
+		HitObject ho;
+		ho.point = Point(529,380);
+		ho.color = glRGBA(250, 50, 50);
+		hit_objects.push_back(ho);
+	}
+
+	{
+		HitObject ho;
+		ho.point = Point(622,50);
+		ho.color = glRGBA(255, 200, 120);
+		hit_objects.push_back(ho);
+	}
 }
 SampleViewer::~SampleViewer()
 {
@@ -310,14 +471,15 @@ openni::Status SampleViewer::init(int argc, char **argv)
 
 
 	{
+		// @audio
 		puts("Init audio...");
 		audio.init();
-		audio.createChannels(1, 8);
+		audio.createChannels(0,4);
 
-		PCM pcm("C:/Users/STM/Desktop/wav/se_maoudamashii_onepoint30.wav");
+		PCM pcm("C:/ST/Sound/se_maoudamashii_onepoint30.wav");
 		se0.attach(pcm);
 
-		PCM pcm2("C:/Users/STM/Desktop/wav/se_maoudamashii_onepoint15.wav");
+		PCM pcm2("C:/ST/Sound/se_maoudamashii_onepoint15.wav");
 		se1.attach(pcm2);
 		puts("Init audio...done!");
 	}
@@ -339,6 +501,9 @@ openni::Status SampleViewer::init(int argc, char **argv)
 	//	serif    .init(font_folder + "verdana.ttf", 16);
 		puts("Init font...done!");
 	}
+
+	// @init @image
+	background_image.createFromImageA("C:/ST/Picture/Pretty-Blue-Heart-Design.jpg");
 
 	return openni::STATUS_OK;
 }
@@ -493,6 +658,7 @@ void drawBitmap(
 	const int x2 = dx + dw;
 	const int y2 = dy + dh;
 
+	glEnable(GL_TEXTURE_2D);
 	glColor4f(1,1,1,1);
 	glBegin(GL_QUADS);
 	glTexCoord2f(u1, v1); glVertex2f(x1, y1);
@@ -571,6 +737,75 @@ void SampleViewer::drawImageMode()
 
 int decomp_time = 0;
 int draw_time = 0;
+const uint8* last_depth_image = nullptr;
+uint8 floor_depth[640*480];
+int floor_depth_count = 0;
+
+void SampleViewer::BuildDepthImage(uint8* dest)
+{
+	using namespace openni;
+
+	const auto* depth_row = (const DepthPixel*)m_depthFrame.getData();
+	const int rowsize = m_depthFrame.getStrideInBytes() / sizeof(DepthPixel);
+	int index = 0;
+	for (int y=0; y<480; ++y)
+	{
+		const auto* src = depth_row;
+
+		for (int x=0; x<640; ++x, ++index)
+		{
+			int depth = *src++;
+
+#if SHOW_RAW_NEAR_AND_FAR
+			far_value  = max(far_value, depth);
+			near_value = (near_value > depth && depth!=0) ? depth : near_value;
+#endif
+
+			if (depth==0)
+			{
+				// invalid data (too near, too far)
+				dest[index] = 0;
+			}
+			else
+			{
+				const int NEAR_DIST = 50;
+				const int FAR_DIST  = 1500;
+
+				depth = (depth-NEAR_DIST)*255/(FAR_DIST-NEAR_DIST);
+
+#if 0
+				if (y>=50 && y<=80)
+				{
+					if (x>=20 && x<=20+600)
+					{
+						depth = (x-20)*250/600;
+					}
+				}
+#endif
+
+				if (depth>255)
+				{
+					// too far
+					dest[index] = 0;
+				}
+				else if (depth <= floor_depth[index])
+				{
+					dest[index] = 1;
+				}
+				else 
+				{
+					//depth = depth - floor_depth[index];
+					if (depth>255) depth=255;
+					if (depth<2) depth=2;
+					dest[index] = 255-depth;
+				}
+			}
+		}
+
+		depth_row += rowsize;
+	}
+}
+
 
 void SampleViewer::drawDepthMode()
 {
@@ -590,47 +825,9 @@ void SampleViewer::drawDepthMode()
 	work_index = (work_index+1) % WORK;
 
 	// Depth raw => Current pre buffer
-	{
-		const auto* depth_row = (const DepthPixel*)m_depthFrame.getData();
-		const int rowsize = m_depthFrame.getStrideInBytes() / sizeof(DepthPixel);
-		uint8* dest = curr_pre;
-		for (int y=0; y<480; ++y)
-		{
-			const auto* src = depth_row;
 
-			for (int x=0; x<640; ++x)
-			{
-				int depth = *src++;
-#if SHOW_RAW_NEAR_AND_FAR
-				far_value  = max(far_value, depth);
-				near_value = (near_value > depth && depth!=0) ? depth : near_value;
-#endif
-
-				if (depth==0)
-				{
-					// invalid data (too near, too far)
-					*dest++ = 0;
-				}
-				else
-				{
-					depth = depth*255/8000;
-					if (depth>255)
-					{
-						// too far
-						*dest++ = 0;
-					}
-					else
-					{
-						if (depth>255) depth=255;
-						if (depth<1) depth=1;
-						*dest++ = 255-depth;
-					}
-				}
-			}
-
-			depth_row += rowsize;
-		}
-	}
+	BuildDepthImage(curr_pre);
+	last_depth_image = curr_pre;
 
 
 	{
@@ -642,8 +839,7 @@ void SampleViewer::drawDepthMode()
 			{
 				uint8 depth = *src++;
 
-				if (depth>=100 && depth<=240 && depth%2==0)
-				//if (depth==200)
+				if (mode.borderline && depth>=100 && depth<=240 && depth%2==0)
 				{
 					depth = 20;
 				}
@@ -731,6 +927,12 @@ void SampleViewer::drawDepthMode()
 					case 0:
 						dest->a = 0;
 						break;
+					case 255:
+						dest->r = 200;
+						dest->g = 140;
+						dest->b = 100;
+						dest->a = 199;
+						break;
 					default:
 						dest->r = d;
 						dest->g = d;
@@ -771,25 +973,42 @@ void SampleViewer::drawDepthMode()
 
 			for (int x=0; x<640; ++x, ++dest, ++src)
 			{
-				switch (*src)
+				const int value = *src;
+				switch (value)
 				{
 				case 0:
-					dest->r = 40;
-					dest->g = 80;
-					dest->b = 110;
+					dest->r = 30;
+					dest->g = 50;
+					dest->b = 70;
 					dest->a = 200;
 					break;
-				case 20:
-					dest->r = 40;
-					dest->g = 80;
-					dest->b = 110;
-					dest->a = 10;
+				case 1:
+					dest->r = 220;
+					dest->g = 160;
+					dest->b = 100;
+					dest->a = 240;
+					break;
+				case 255:
+					dest->r = 80;
+					dest->g = 50;
+					dest->b = 20;
+					dest->a = 200;
 					break;
 				default:
-					dest->r = *src;
-					dest->g = *src;
-					dest->b = *src;
-					dest->a = 220;
+					if (mode.alpha_mode)
+					{
+						dest->r = 100;
+						dest->g = value;
+						dest->b = 255-value;
+						dest->a = 255;
+					}
+					else
+					{
+						dest->r = value;
+						dest->g = value;
+						dest->b = value;
+						dest->a = 220;
+					}
 					break;
 				}
 			}
@@ -815,7 +1034,6 @@ void SampleViewer::drawDepthMode()
 void SampleViewer::displayDepthScreen()
 {
 	m_depthStream.readFrame(&m_depthFrame);
-//	m_colorStream.readFrame(&m_colorFrame);
 
 	if (m_depthFrame.isValid())
 		drawDepthMode();
@@ -845,6 +1063,7 @@ public:
 	int to_i() const  { return intvalue; }
 	const char* to_s() const { return strvalue.c_str(); }
 	bool is_int() const { return intvalue!=0 || (intvalue==0 && strvalue[0]=='0'); }
+	const std::string& string() const { return strvalue; }
 
 private:
 	std::string strvalue;
@@ -861,6 +1080,30 @@ VariantType::VariantType(const std::string& s)
 
 
 
+
+void splitStringToLines(const std::string& rawstring, std::vector<std::string>& lines)
+{
+	lines.clear();
+
+	const char* src = rawstring.c_str();
+
+	while (*src!='\0')
+	{
+		// blank
+		if (*src=='\n' || *src=='\r')
+		{
+			++src;
+			continue;
+		}
+
+		std::string line;
+		while (*src!='\0' && *src!='\n' && *src!='\r')
+		{
+			line += *src++;
+		}
+		lines.push_back(line);
+	}
+}
 
 bool splitString(const std::string& rawstring, std::string& cmd, std::vector<VariantType>& arg)
 {
@@ -984,10 +1227,8 @@ void commandDiskInfo(Args& arg)
 			total);
 }
 
-void commandStatus(Args& arg)
+void sendStatus()
 {
-	arg_check(arg, 0);
-
 	std::string s;
 	s += "STATUS ";
 	s += miUdp::getComputerName();
@@ -996,11 +1237,34 @@ void commandStatus(Args& arg)
 		(client_status==STATUS_BLACK) ? "BLACK" :
 		(client_status==STATUS_PICTURE) ? "PICTURE" :
 		(client_status==STATUS_IDLE) ? "IDLE" :
+		(client_status==STATUS_GAMEREADY) ? "GAMEREADY" :
 		(client_status==STATUS_GAME) ? "GAME" :
-		(client_status==STATUS_GAME_END) ? "GAME_END" :
 		(client_status==STATUS_DEPTH) ? "DEPTH" :
+		(client_status==STATUS_GAMESTOP) ? "GAMESTOP" :
+		(client_status==STATUS_TIMEOUT) ? "TIMEOUT" :
+		(client_status==STATUS_GOAL) ? "GOAL" :
 			"UNKNOWN-STATUS");
 	udp_send.send(s);
+}
+
+void commandStatus(Args& arg)
+{
+	arg_check(arg, 0);
+	sendStatus();
+}
+
+void commandStart(Args& arg)
+{
+	arg_check(arg, 0);
+
+	client_status = STATUS_GAME;
+	sendStatus();
+}
+
+void commandBorderLine(Args& arg)
+{
+	arg_check(arg, 0);
+	toggle(mode.borderline);
 }
 
 void commandPing(Args& arg)
@@ -1039,6 +1303,32 @@ void commandPict(Args& arg)
 	}
 }
 
+
+File save_file;
+
+
+
+
+void commandIdent(Args& arg)
+{
+	arg_check(arg, 2);
+
+
+	printf("%s, %s\n", arg[0].to_s(), arg[1].to_s());
+	
+	std::string filename = (arg[0].string() + "-" + arg[1].string());
+	if (!save_file.openForWrite(filename.c_str()))
+	{
+		puts("Open error (savefile)");
+		return;
+	}
+
+	printf("Filename %s ok\n", filename.c_str());
+
+	client_status = STATUS_GAMEREADY;
+	sendStatus();
+}
+
 void commandBye(Args& arg)
 {
 	arg_check(arg, 0);
@@ -1046,17 +1336,29 @@ void commandBye(Args& arg)
 }
 
 
-void SampleViewer::doCommand()
+bool SampleViewer::doCommand()
 {
 	std::string rawstring;
 	if (udp_recv.receive(rawstring)<=0)
 	{
-		return;
+		return false;
 	}
 
+	std::vector<std::string> lines;
+	splitStringToLines(rawstring, lines);
+
+	for (size_t i=0; i<lines.size(); ++i)
+	{
+		doCommand2(lines[i]);
+	}
+	return true;
+}
+
+bool SampleViewer::doCommand2(const std::string& line)
+{
 	std::string cmd;
 	std::vector<VariantType> arg;
-	splitString(rawstring, cmd, arg);
+	splitString(line, cmd, arg);
 
 	printf("[UDP COMMAND] '%s' ", cmd.c_str());
 	for (size_t i=0; i<arg.size(); ++i)
@@ -1076,14 +1378,17 @@ void SampleViewer::doCommand()
 
 	try
 	{
-#define COMMAND(CMD, PROC)    if (cmd.compare(CMD)==0) { PROC(arg); return; }
+#define COMMAND(CMD, PROC)    if (cmd.compare(CMD)==0) { PROC(arg); return true; }
 
 		COMMAND("DISKINFO", commandDiskInfo);
 		COMMAND("MIRROR",   commandMirror);
 		COMMAND("BLACK",    commandBlack);
 		COMMAND("DEPTH",    commandDepth);
 		COMMAND("STATUS",   commandStatus);
+		COMMAND("START",    commandStart);
 
+		COMMAND("BORDERLINE", commandBorderLine);
+		COMMAND("IDENT",    commandIdent);
 		COMMAND("PING",     commandPing);
 		COMMAND("PICT",     commandPict);
 		COMMAND("BYE",   commandBye);
@@ -1096,12 +1401,24 @@ void SampleViewer::doCommand()
 	{
 		printf("Invalid format '%s' argc=%d\n", cmd.c_str(), argc);
 	}
+
+	return false;
 }
+
+
+size_t hit_object_stage = 0;
+
 
 void SampleViewer::display()
 {
-	doCommand();
+	while (doCommand())
+	{
+	}
 
+
+	_CrtCheckMemory();
+
+	// @display
 
 
 #if 0
@@ -1125,6 +1442,9 @@ void SampleViewer::display()
 	glLoadIdentity();
 	glOrtho(0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y, 0, -1.0, 1.0);
 
+	background_image.draw(0,0,640,480);
+
+
 
 #if SHOW_RAW_NEAR_AND_FAR
 	near_value = 10000;
@@ -1135,8 +1455,14 @@ void SampleViewer::display()
 	switch (client_status)
 	{
 	case STATUS_BLACK:    displayBlackScreen();   break;
-	case STATUS_DEPTH:    displayDepthScreen();   break;
 	case STATUS_PICTURE:  displayPictureScreen(); break;
+
+	case STATUS_DEPTH:    displayDepthScreen();   break;
+	
+	case STATUS_GAMEREADY:
+	case STATUS_GAME:
+		displayDepthScreen();
+		break;
 	}
 
 
@@ -1160,13 +1486,39 @@ void SampleViewer::display()
 		glTranslatef(-180.f, 0.f, 0.f);
 		int time_diff = (timeGetTime() - time_begin);
 		// @fps
-		freetype::print(monospace, 20, 240, "%d, %d, %.1ffps, %.2ffps, %d, %d",
+		freetype::print(monospace, 20, 200, "%d, %d, %.1ffps, %.2ffps, %d, %d",
 				frames,
 				time_diff,
 				1000.0f * frames/time_diff,
 				fps_counter.getFps(),
 				decomp_time,
 				draw_time);
+
+		freetype::print(monospace, 20, 240, "(n=%d,f=%d) raw(n=%d,f=%d) (TP:%d)",
+				vody.near_d,
+				vody.far_d,
+				vody.raw_near_d,
+				vody.raw_far_d,
+				vody.total_pixels);
+
+		freetype::print(monospace, 20, 280, "(%d,%d,%d,%d)",
+				vody.body.top,
+				vody.body.bottom,
+				vody.body.left,
+				vody.body.right);
+
+		freetype::print(monospace, 20, 320, "far(%d,%d,%d,%d)",
+				vody.far_box.top,
+				vody.far_box.bottom,
+				vody.far_box.left,
+				vody.far_box.right);
+
+		freetype::print(monospace, 20, 360, "near(%d,%d,%d,%d)",
+				vody.near_box.top,
+				vody.near_box.bottom,
+				vody.near_box.left,
+				vody.near_box.right);
+
 		glPopMatrix();
 	}
 
@@ -1184,6 +1536,185 @@ void SampleViewer::display()
 		glPopMatrix();
 	}
 #endif
+
+
+	const int VODY_RESO = 20; //pixels per 1 body-cel
+
+	const int VODY_W = 640/VODY_RESO;
+	const int VODY_H = 480/VODY_RESO;
+	uint8 virtual_body[VODY_W * VODY_H];
+
+	const uint8* const src = last_depth_image;
+	const int step = 20;
+
+	enum VodyCel
+	{
+		VODYCEL_NONE,
+		VODYCEL_NEAR,
+		VODYCEL_FAR,
+		VODYCEL_MEDIUM,
+	};
+
+
+	{
+		vody.body.top    = 9999;
+		vody.body.bottom = 0;
+		vody.body.left   = 9999;
+		vody.body.right  = 0;
+
+		int index = 0;
+		for (int y=step/2; y<480; y+=step)
+		{
+			for (int x=step/2; x<640; x+=step)
+			{
+				int farvalue = src[x + y*640];
+				virtual_body[index++] = (farvalue>0 ? VODYCEL_MEDIUM : VODYCEL_NONE);
+				if (farvalue>10)
+				{
+					vody.body.top    = min(vody.body.top,    y-step/2);
+					vody.body.bottom = max(vody.body.bottom, y+step/2);
+					vody.body.left   = min(vody.body.left,   x-step/2);
+					vody.body.right  = max(vody.body.right,  x+step/2);
+				}
+			}
+		}
+	}
+
+	// VODYBOXのなかのヒストグラムをとる
+	{
+		const uint8* src = last_depth_image;
+		int index = 0;
+		int histgram[256] = {};
+		for (int y=vody.body.top; y<=vody.body.bottom; ++y)
+		{
+			for (int x=vody.body.left; x<=vody.body.right; ++x)
+			{
+				++histgram[src[x + y*640]];
+			}
+		}
+
+		// デプスが存在しているピクセル数
+		vody.total_pixels = 0;
+		for (int i=1; i<256; ++i)
+		{
+			vody.total_pixels += histgram[i];
+		}
+
+		// 最近最遠の閾値 (5%)
+		const int LIMIT = vody.total_pixels*5/100;
+
+		// depth:0が近い方向、depth:255は遠い方向
+		vody.far_d = 0;
+		vody.near_d = 0;
+		vody.raw_far_d = 0;
+		vody.raw_near_d = 0;
+		{
+			int pixels = 0;
+			for (int i=1; i<256; ++i)
+			{
+				if (histgram[i]!=0 && vody.raw_far_d==0)
+				{
+					vody.raw_far_d = i;
+				}
+				pixels += histgram[i];
+				if (pixels >= LIMIT)
+				{
+					vody.far_d = i;
+					break;
+				}
+			}
+		}
+
+		{
+			int pixels = 0;
+			for (int i=1; i<256; ++i)
+			{
+				const int ii = 255-i;
+				if (histgram[ii]!=0 && vody.raw_near_d==0)
+				{
+					vody.raw_near_d = ii;
+				}
+				pixels += histgram[ii];
+				if (pixels >= LIMIT)
+				{
+					vody.near_d = ii;
+					break;
+				}
+			}
+		}
+	}
+
+	{
+		// near box
+		vody.near_box.set(9999,9999,0,0);
+		for (int y=vody.body.top; y<=vody.body.bottom; ++y)
+		{
+			for (int x=vody.body.left; x<=vody.body.right; ++x)
+			{
+				if (src[x + y*640] >= vody.near_d)
+				{
+					vody.near_box.top    = min(vody.near_box.top,    y-step/2);
+					vody.near_box.bottom = max(vody.near_box.bottom, y+step/2);
+					vody.near_box.left   = min(vody.near_box.left,   x-step/2);
+					vody.near_box.right  = max(vody.near_box.right,  x+step/2);
+				}
+			}
+		}
+	}
+
+	{
+		int index = 0;
+		for (int y=0; y<VODY_H; ++y)
+		{
+			for (int x=0; x<VODY_W; ++x)
+			{
+				int value = virtual_body[index++];
+				glRectangleFill(
+					(value==VODYCEL_NONE) ? glRGBA(0,0,0,0) :
+					(value==VODYCEL_NEAR) ? glRGBA(200,0,0,128) :
+					(value==VODYCEL_FAR) ? glRGBA(0,0,200,128) :
+					(value==VODYCEL_MEDIUM) ? glRGBA(0,200,0,128)
+							: glRGBA(255,0,0,255),
+					x*VODY_RESO, y*VODY_RESO,
+					VODY_RESO-1,
+					VODY_RESO-1);
+			}
+		}
+
+		if (vody.body.left!=9999)
+		{
+			glRectangleFill(
+				glRGBA(20,240,100, 64),
+				vody.body.left,
+				vody.body.top,
+				vody.body.right  - vody.body.left,
+				vody.body.bottom - vody.body.top);
+		}
+
+#if 0
+		// Draw near-box
+		if (vody.near_box.left!=9999)
+		{
+			glRectangleFill(
+				glRGBA(200,20,60, 64),
+				vody.near_box.left,
+				vody.near_box.top,
+				vody.near_box.right  - vody.near_box.left,
+				vody.near_box.bottom - vody.near_box.top);
+		}
+#endif
+	}
+
+
+	if (hit_object_stage < hit_objects.size())
+	{
+		if (hit_objects[hit_object_stage].point.in(vody.near_box))
+		{
+			++hit_object_stage;
+			audio.se.play(se0);
+		}
+	}
+
 
 	// Swap the OpenGL display buffers
 	glutSwapBuffers();
@@ -1344,6 +1875,19 @@ void loadAgent(int slot)
 	}
 }
 
+void saveFloorDepth()
+{
+	if (last_depth_image==nullptr)
+		return;
+
+	for (int i=0; i<640*480; ++i)
+	{
+		floor_depth[i] = last_depth_image[i];
+	}
+}
+
+
+
 void SampleViewer::onKey(int key, int /*x*/, int /*y*/)
 {
 	switch (key)
@@ -1360,16 +1904,7 @@ void SampleViewer::onKey(int key, int /*x*/, int /*y*/)
 		openni::OpenNI::shutdown();
 		exit(1);
 	case '1':
-		m_eViewState = DISPLAY_MODE_OVERLAY;
-		m_device.setImageRegistrationMode(openni::IMAGE_REGISTRATION_DEPTH_TO_COLOR);
-		break;
-	case '2':
-		m_eViewState = DISPLAY_MODE_DEPTH;
-		m_device.setImageRegistrationMode(openni::IMAGE_REGISTRATION_OFF);
-		break;
-	case '3':
-		m_eViewState = DISPLAY_MODE_IMAGE;
-		m_device.setImageRegistrationMode(openni::IMAGE_REGISTRATION_OFF);
+		client_status = STATUS_DEPTH;
 		break;
 	case 'M':
 		m_depthStream.setMirroringEnabled(!m_depthStream.getMirroringEnabled());
@@ -1415,6 +1950,12 @@ void SampleViewer::onKey(int key, int /*x*/, int /*y*/)
 	case 'z':  toggle(mode.zero255_show);  break;
 	case 'a':  toggle(mode.alpha_mode);    break;
 	case 'e':  toggle(mode.pixel_completion);    break;
+	case 'b':  toggle(mode.borderline); break;
+
+	case '\t':
+		saveFloorDepth();
+		break;
+
 
 	case 'x':
 		puts("play sound 1");

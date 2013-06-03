@@ -43,7 +43,8 @@ private:
 	void displayBlackScreen();
 	void displayPictureScreen();
 
-	void doCommand();
+	bool doCommand();
+	bool doCommand2(const std::string& line);
 
 private:
 	SampleViewer(const SampleViewer&);
@@ -51,6 +52,7 @@ private:
 
 	void drawImageMode();
 	void drawDepthMode();
+	void BuildDepthImage(uint8* dest);
 
 	static SampleViewer* ms_self;
 	static void glutIdle();
