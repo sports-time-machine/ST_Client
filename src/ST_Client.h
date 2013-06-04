@@ -1,7 +1,6 @@
 #pragma once
 #include <OpenNI.h>
 #include "miCore.h"
-#include "miAudio.h"
 
 #define MAX_DEPTH 10000
 
@@ -74,6 +73,4 @@ private:
 
 	int			m_width;
 	int			m_height;
-
-	mi::Audio& audio;
 };

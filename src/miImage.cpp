@@ -83,7 +83,6 @@ void miImage::_DibToPicture(void* void_dib)
 	const int total_size = this->_tex_w * this->_tex_h;
 	std::vector<RGBA_raw> pixels;
 	pixels.resize(total_size);
-	RGBA_raw black = {0,0,0,0};
 	int i=0;
 	for (int y=0; y<_tex_h; ++y)
 	{

@@ -4,17 +4,6 @@
 
 
 
-const std::string& miUdp::getComputerName()
-{
-	static char name[1024];
-	DWORD size = sizeof(name);
-	::GetComputerNameA(name, &size);
-
-	static std::string res;
-	res = name;
-	return res;
-}
-
 const std::string& miUdp::getIpAddress()
 {
 	static std::string res;

@@ -3,7 +3,6 @@
 class miUdp
 {
 public:
-	static const std::string& getComputerName();
 	static const std::string& getIpAddress();
 
 	static miUdp& get() { static miUdp obj; return obj; }

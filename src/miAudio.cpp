@@ -8,6 +8,15 @@
 #pragma comment(lib,"OpenAL32_x32.lib")
 #endif
 
+
+#if 1
+#define DEBUG_PRINT(x) fprintf(stderr, "%s (this=%p)\n", x, this);
+#else
+#define DEBUG_PRINT(x) /*nop*/
+#endif
+
+
+
 namespace mi {
 
 
@@ -192,6 +201,7 @@ AudioSource::AudioSource()
 
 AudioSource::~AudioSource()
 {
+	DEBUG_PRINT("~AudioSource");
 	destroy();
 }
 
@@ -199,7 +209,7 @@ void AudioSource::destroy()
 {
 	if (_source)
 	{
-		puts("audiosource, free");
+		DEBUG_PRINT("AudioSource::destroy");
 		alDeleteSources(1, &_source);
 		_source = 0;
 	}
@@ -409,17 +419,18 @@ Audio::Audio()
 
 Audio::~Audio()
 {
-#if 0
+	DEBUG_PRINT("~Audio");
 	destroy();
-#endif
 }
 
 void Audio::destroy()
 {
+	DEBUG_PRINT("Audio::destroy");
 	if (_alc_context)
 	{
 		puts("audio, free");
 		alcMakeContextCurrent(nullptr);
+		fprintf(stderr, "alcontext=%p\n", alcontext);
 		alcDestroyContext(alcontext);
 		_alc_context = nullptr;
 	}
@@ -451,6 +462,9 @@ void Audio::init()
 	{
 		throw "AudioContextException()";
 	}
+
+	fprintf(stderr, "(init) alcontext=%p\n", alcontext);
+
 
 
 	// Default listener
@@ -545,6 +559,11 @@ void Audio::setMasterPitch(float pitch)
 //*********************
 // AUDIO PLAYER OBJECT
 //*********************
+AudioPlayer::~AudioPlayer()
+{
+	DEBUG_PRINT("~AudioPlayer");
+}
+
 void AudioPlayer::create(bool is_bgm, int channels)
 {
 	_is_bgm = is_bgm;

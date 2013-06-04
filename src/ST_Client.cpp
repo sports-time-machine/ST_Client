@@ -20,6 +20,17 @@
 #endif
 
 #include "miUdpReceiver.h"
+#include "Config.h"
+
+extern void load_config();
+
+
+inline int minmax(int x, int min, int max)
+{
+	return (x<min) ? min : (x>max) ? max : x;
+}
+
+
 
 
 struct glRGBA
@@ -305,9 +316,6 @@ void toggle(bool& ref)
 
 
 
-using namespace mi;
-
-
 //#define DEFAULT_DISPLAY_MODE	DISPLAY_MODE_OVERLAY
 #define DEFAULT_DISPLAY_MODE	DISPLAY_MODE_DEPTH
 
@@ -362,14 +370,19 @@ SampleViewer::SampleViewer(const char* strSampleName, openni::Device& device, op
 	m_device(device), m_depthStream(depth), m_colorStream(color), m_streams(NULL),
 	m_eViewState(DEFAULT_DISPLAY_MODE),
 	video_ram(nullptr),
-	video_ram2(nullptr),
-	audio(Audio::self())
+	video_ram2(nullptr)
 {
 	udp_recv.init(UDP_CLIENT_RECV);
 	ms_self = this;
 	strncpy(m_strSampleName, strSampleName, ONI_MAX_STR);
-	printf("host: %s\n", miUdp::getComputerName().c_str());
+	printf("host: %s\n", Core::getComputerName().c_str());
 	printf("ip: %s\n", miUdp::getIpAddress().c_str());
+
+
+
+	mode.mirroring = true;
+
+
 
 	{
 		HitObject ho;
@@ -405,7 +418,6 @@ SampleViewer::~SampleViewer()
 	}
 }
 
-AudioBuffer se0,se1;
 freetype::font_data monospace, serif;
 
 
@@ -468,21 +480,6 @@ openni::Status SampleViewer::init(int argc, char **argv)
 
 	video_ram  = new RGBA_raw[m_nTexMapX * m_nTexMapY];
 	video_ram2 = new RGBA_raw[m_nTexMapX * m_nTexMapY];
-
-
-	{
-		// @audio
-		puts("Init audio...");
-		audio.init();
-		audio.createChannels(0,4);
-
-		PCM pcm("C:/ST/Sound/se_maoudamashii_onepoint30.wav");
-		se0.attach(pcm);
-
-		PCM pcm2("C:/ST/Sound/se_maoudamashii_onepoint15.wav");
-		se1.attach(pcm2);
-		puts("Init audio...done!");
-	}
 
 
 	if (initOpenGL(argc, argv) != openni::STATUS_OK)
@@ -750,11 +747,12 @@ void SampleViewer::BuildDepthImage(uint8* dest)
 	int index = 0;
 	for (int y=0; y<480; ++y)
 	{
-		const auto* src = depth_row;
+		const auto* src = depth_row + (mode.mirroring ? 639 : 0);
 
 		for (int x=0; x<640; ++x, ++index)
 		{
-			int depth = *src++;
+			int depth = *src;
+			mode.mirroring ? --src : ++src;
 
 #if SHOW_RAW_NEAR_AND_FAR
 			far_value  = max(far_value, depth);
@@ -768,8 +766,12 @@ void SampleViewer::BuildDepthImage(uint8* dest)
 			}
 			else
 			{
-				const int NEAR_DIST = 50;
-				const int FAR_DIST  = 1500;
+				int NEAR_DIST = minmax(config.near_threshold, 50, 10000);
+				int FAR_DIST  = minmax(config.far_threshold, 50, 10000);
+				if (NEAR_DIST==FAR_DIST)
+				{
+					++FAR_DIST;
+				}
 
 				depth = (depth-NEAR_DIST)*255/(FAR_DIST-NEAR_DIST);
 
@@ -1019,9 +1021,14 @@ void SampleViewer::drawDepthMode()
 	buildBitmap(vram_tex, video_ram, m_nTexMapX, m_nTexMapY);
 
 	// @draw
+#if 0//do it
 	const int draw_x = mode.mirroring ? GL_WIN_SIZE_X : 0;
 	const int draw_w = mode.mirroring ? -GL_WIN_SIZE_X : GL_WIN_SIZE_X;
-		
+#else
+	const int draw_x = 0;
+	const int draw_w = GL_WIN_SIZE_X;
+#endif
+
 	drawBitmap(
 		draw_x, 0,
 		draw_w, GL_WIN_SIZE_Y,
@@ -1231,7 +1238,7 @@ void sendStatus()
 {
 	std::string s;
 	s += "STATUS ";
-	s += miUdp::getComputerName();
+	s += Core::getComputerName();
 	s += " ";
 	s += (
 		(client_status==STATUS_BLACK) ? "BLACK" :
@@ -1267,6 +1274,13 @@ void commandBorderLine(Args& arg)
 	toggle(mode.borderline);
 }
 
+const char* to_s(int x)
+{
+	static char to_s_buf[1000];
+	_ltoa(x, to_s_buf, 10);
+	return to_s_buf;
+}
+
 void commandPing(Args& arg)
 {
 	arg_check(arg, 1);
@@ -1275,11 +1289,11 @@ void commandPing(Args& arg)
 
 	std::string s;
 	s += "PONG ";
-	s += miUdp::getComputerName();
+	s += Core::getComputerName();
 	s += " ";
 	s += miUdp::getIpAddress();
 	s += " ";
-	s += "1";
+	s += to_s(client_config.client_number);
 
 	udp_send.init(arg[0].to_s(), UDP_SERVER_RECV);
 	udp_send.send(s);
@@ -1485,6 +1499,12 @@ void SampleViewer::display()
 		glScalef(1.2f, 1.2f+0.3f*cosf(cnt/5), 1.f);
 		glTranslatef(-180.f, 0.f, 0.f);
 		int time_diff = (timeGetTime() - time_begin);
+				
+		freetype::print(monospace, 20, 160, "#%d Near(%dcm) Far(%dcm)",
+				client_config.client_number,
+				config.near_threshold,
+				config.far_threshold);
+
 		// @fps
 		freetype::print(monospace, 20, 200, "%d, %d, %.1ffps, %.2ffps, %d, %d",
 				frames,
@@ -1583,7 +1603,6 @@ void SampleViewer::display()
 	// VODYBOX‚Ì‚È‚©‚ÌƒqƒXƒgƒOƒ‰ƒ€‚ð‚Æ‚é
 	{
 		const uint8* src = last_depth_image;
-		int index = 0;
 		int histgram[256] = {};
 		for (int y=vody.body.top; y<=vody.body.bottom; ++y)
 		{
@@ -1711,7 +1730,7 @@ void SampleViewer::display()
 		if (hit_objects[hit_object_stage].point.in(vody.near_box))
 		{
 			++hit_object_stage;
-			audio.se.play(se0);
+			printf("hit %d of %d\n", hit_object_stage, hit_objects.size());
 		}
 	}
 
@@ -1930,16 +1949,11 @@ void SampleViewer::onKey(int key, int /*x*/, int /*y*/)
 		movie_mode = MOVIE_READY;
 		movie_index = 0;
 		break;
-	case KEY_F1: saveAgent(1); break;
-	case KEY_F2: saveAgent(2); break;
-	case KEY_F3: saveAgent(3); break;
-	case KEY_F4: saveAgent(4); break;
-	case KEY_F5: saveAgent(5); break;
-	case KEY_F6: loadAgent(1); break;
-	case KEY_F7: loadAgent(2); break;
-	case KEY_F8: loadAgent(3); break;
-	case KEY_F9: loadAgent(4); break;
-	case KEY_F10: loadAgent(5); break;
+	
+	case KEY_F3:
+		load_config();
+		break;
+
 	case 'p':
 		printf("playback movie.\n");
 		movie_mode = MOVIE_PLAYBACK;
@@ -1954,23 +1968,6 @@ void SampleViewer::onKey(int key, int /*x*/, int /*y*/)
 
 	case '\t':
 		saveFloorDepth();
-		break;
-
-
-	case 'x':
-		puts("play sound 1");
-		audio.setMasterPitch(1.0);
-		audio.se.play(se0);
-		break;
-	case 'c':
-		puts("play sound 2");
-		audio.setMasterPitch(1.0);
-		audio.se.play(se1);
-		break;
-	case 'v':
-		puts("play sound 2");
-		audio.setMasterPitch(0.2);
-		audio.se.play(se0);
 		break;
 	}
 }

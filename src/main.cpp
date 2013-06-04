@@ -1,10 +1,78 @@
+#define THIS_IS_MAIN
 #include <OpenNI.h>
 #include "ST_Client.h"
 #define ENABLE_KINECT_COLOR 0
 
+#include "Config.h"
+
+#pragma warning(push)
+#pragma warning(disable: 4100) // unused variable
+#pragma warning(disable: 4201) // non-standard expanded function
+#pragma warning(disable: 4512) // 
+#include "PSL/PSL.h"
+#pragma warning(pop)
+
+
+void ErrorDialog(const char* title)
+{
+	const char* text = openni::OpenNI::getExtendedError();
+	Core::dialog(title, text);
+}
+
+void load_config()
+{
+	PSL::PSLVM psl;
+
+	auto load_psl = [&](PSL::string filename)->bool{
+		auto path = PSL::string("C:/ST/Config/");
+		path += filename;
+		fprintf(stderr, "[PSL] Load '%s'...", path.c_str());
+		auto err = psl.loadScript(path);
+		if (err==PSL::PSLVM::NONE)
+		{
+			fprintf(stderr, "Ok\n");
+			return true;
+		}
+		switch (err)
+		{
+		case PSL::PSLVM::FOPEN_ERROR:
+			Core::dialog("設定ファイルが開けません (Config.psl)");
+			return false;
+		case PSL::PSLVM::PARSE_ERROR:
+			Core::dialog("設定ファイルのパースエラー（文法ミスかも？）");
+			return false;
+		default:
+			Core::dialog("設定ファイルにおける未知のエラー");
+			return false;
+		}
+	};
+
+	if (!load_psl("Config.psl"))
+	{
+		return;
+	}
+	if (!load_psl(PSL::string("Client_")+Core::getComputerName().c_str()+".psl"))
+	{
+		return;
+	}
+
+	psl.run();
+
+#define CONFIG_INT(DEST,NAME) DEST.NAME = PSL::variable(psl.get(#NAME)).toInt()
+	CONFIG_INT(config, far_threshold);
+	CONFIG_INT(config, near_threshold);
+	CONFIG_INT(client_config, client_number);
+#undef CONFIG_INT
+}
 
 int main(int argc, char** argv)
 {
+	load_config();
+
+
+
+
+
 	openni::Status rc = openni::STATUS_OK;
 
 	openni::Device device;
@@ -23,10 +91,8 @@ int main(int argc, char** argv)
 		rc = device.open(deviceURI);
 		if (rc != openni::STATUS_OK)
 		{
-			printf("SimpleViewer: Device open failed:\n%s\n", openni::OpenNI::getExtendedError());
-			throw "exception";
-//			openni::OpenNI::shutdown();
-//			return 1;
+			ErrorDialog("Device open failed");
+			exit(1);
 		}
 	};
 
@@ -37,14 +103,14 @@ int main(int argc, char** argv)
 			rc = depth.start();
 			if (rc != openni::STATUS_OK)
 			{
-				printf("SimpleViewer: Couldn't start depth stream:\n%s\n", openni::OpenNI::getExtendedError());
-				throw "exception";
-//				depth.destroy();
+				ErrorDialog("Couldn't start depth stream");
+				exit(1);
 			}
 		}
 		else
 		{
-			printf("SimpleViewer: Couldn't find depth stream:\n%s\n", openni::OpenNI::getExtendedError());
+			ErrorDialog("Couldn't find depth stream");
+			exit(1);
 		}
 	};
 
@@ -55,14 +121,14 @@ int main(int argc, char** argv)
 			rc = color.start();
 			if (rc != openni::STATUS_OK)
 			{
-				printf("SimpleViewer: Couldn't start color stream:\n%s\n", openni::OpenNI::getExtendedError());
-				throw "exception";
-//				color.destroy();
+				ErrorDialog("Couldn't start color stream");
+				exit(1);
 			}
 		}
 		else
 		{
-			printf("SimpleViewer: Couldn't find color stream:\n%s\n", openni::OpenNI::getExtendedError());
+			ErrorDialog("Couldn't find color stream");
+			exit(1);
 		}
 	};
 
@@ -82,11 +148,6 @@ int main(int argc, char** argv)
 		puts("done.");
 #endif
 	}
-	catch (const char*)
-	{
-		puts("Fault.");
-		return -1;
-	}
 	catch (...)
 	{
 		puts("Unknown fault.");
@@ -104,9 +165,8 @@ int main(int argc, char** argv)
 #else
 	if (!depth.isValid())
 	{
-		printf("SimpleViewer: No valid streams. Exiting\n");
-		openni::OpenNI::shutdown();
-		return 2;
+		ErrorDialog("No valid streams.");
+		exit(1);
 	}
 #endif
 

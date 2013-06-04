@@ -61,7 +61,7 @@ class AudioSource
 public:
 	// Create & Destroy
 	AudioSource();
-	~AudioSource();
+	virtual ~AudioSource();
 	void create();
 	void destroy();
 	void attach(const AudioBuffer& buffer, float gain, int user_id=0);
@@ -97,6 +97,7 @@ private:
 	void _PlaySound(bool);
 
 private:
+	char guard1[1000];
 	IdNumber _source;
 	bool     _is_bgm;
 	int      _buffer_size;
@@ -111,6 +112,7 @@ private:
 		_Pause,
 	};
 	_Status _status;
+	char guard2[1000];
 };
 
 
@@ -119,6 +121,8 @@ class AudioPlayer
 	friend class Audio;
 
 public:
+	virtual ~AudioPlayer();
+
 	void       play(const AudioBuffer& buffer, int user_id=0, bool oneshot=false);
 	void   play_one(const AudioBuffer& buffer);
 	void operator()(const AudioBuffer& buffer, int user_id=0)    { play(buffer,user_id); }
@@ -154,7 +158,7 @@ public:
 
 private:
 	Audio();
-	~Audio();
+	virtual ~Audio();
 
 public:
 	// Open & Close

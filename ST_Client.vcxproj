@@ -65,7 +65,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>$(ProjectDir)..\Bin\</OutDir>
+    <OutDir>C:\ST\Bin\</OutDir>
     <IntDir>$(ProjectDir)..\Bin\Intermediate\$(Platform)-$(Configuration)\$(ProjectName)\</IntDir>
     <IncludePath>$(WindowsSdkDir)\include;$(VCInstallDir)include;C:\Users\STM\Dev\Include</IncludePath>
     <LibraryPath>$(LibraryPath);$(VSInstallDir);$(VSInstallDir)lib;C:\Users\STM\Dev\Lib</LibraryPath>
@@ -79,7 +79,7 @@
     <TargetName>$(ProjectName)_x64</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>$(ProjectDir)..\Bin\</OutDir>
+    <OutDir>C:\ST\Bin\</OutDir>
     <IntDir>$(ProjectDir)..\Bin\Intermediate\$(Platform)-$(Configuration)\$(ProjectName)\</IntDir>
     <IncludePath>$(WindowsSdkDir)\include;$(VCInstallDir)include;C:\Users\STM\Dev\Include</IncludePath>
     <LibraryPath>$(LibraryPath);$(VSInstallDir);$(VSInstallDir)lib;C:\Users\STM\Dev\Lib</LibraryPath>
@@ -183,6 +183,7 @@
     <ClCompile Include="src\zlibpp.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Config.h" />
     <ClInclude Include="src\FreeType.h" />
     <ClInclude Include="src\miAudio.h" />
     <ClInclude Include="src\miCore.h" />
