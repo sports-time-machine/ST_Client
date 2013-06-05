@@ -98,6 +98,9 @@ VodyInfo vody;
 
 enum ClientStatus
 {
+	// Kinect Calibration
+	STATUS_CALIBRATION,
+
 	// Idle
 	STATUS_IDLE,
 
@@ -116,7 +119,7 @@ enum ClientStatus
 	STATUS_GOAL,
 };
 
-ClientStatus client_status = STATUS_DEPTH;
+ClientStatus client_status = STATUS_CALIBRATION;
 
 
 
@@ -360,6 +363,7 @@ freetype::font_data monospace, serif;
 
 openni::Status SampleViewer::init(int argc, char **argv)
 {
+#if !WITHOUT_KINECT
 	openni::VideoMode depthVideoMode;
 	openni::VideoMode colorVideoMode;
 
@@ -404,6 +408,10 @@ openni::Status SampleViewer::init(int argc, char **argv)
 		printf("Error - expects at least one of the streams to be valid...\n");
 		return openni::STATUS_ERROR;
 	}
+#else
+	m_width = 0;
+	m_height = 0;
+#endif
 
 	m_streams = new openni::VideoStream*[2];
 	m_streams[0] = &m_depthStream;
@@ -430,7 +438,7 @@ openni::Status SampleViewer::init(int argc, char **argv)
 	{
 		puts("Init font...");
 		const std::string font_folder = "C:/Windows/Fonts/";
-		monospace.init(font_folder + "Courbd.ttf", 16);
+		monospace.init(font_folder + "Courbd.ttf", 12);
 	//	serif    .init(font_folder + "verdana.ttf", 16);
 		puts("Init font...done!");
 	}
@@ -852,11 +860,6 @@ void SampleViewer::drawDepthMode()
 
 void SampleViewer::displayDepthScreen()
 {
-	m_depthStream.readFrame(&m_depthFrame);
-
-	if (m_depthFrame.isValid())
-		drawDepthMode();
-
 	static float r;
 	r += 0.7;
 	clam.drawRotated(170,70, 80,150, r, 80);
@@ -1059,6 +1062,7 @@ void sendStatus()
 	s += Core::getComputerName();
 	s += " ";
 	s += (
+		(client_status==STATUS_CALIBRATION) ? "CALIBRATION" :
 		(client_status==STATUS_BLACK) ? "BLACK" :
 		(client_status==STATUS_PICTURE) ? "PICTURE" :
 		(client_status==STATUS_IDLE) ? "IDLE" :
@@ -1258,6 +1262,127 @@ bool SampleViewer::doCommand2(const std::string& line)
 
 size_t hit_object_stage = 0;
 
+float eye_rad = -0.43f;
+
+float
+	eye_x=-4.69,
+	eye_y=+1.65,
+	eye_z=+3.68;
+
+
+void SampleViewer::displayCalibration()
+{
+	// @calibration @tool
+	//glOrtho(-3.0f, +3.0f, 0.0f, 3.0f, 0.0f, 5.0f);
+	glOrtho(-1.0f, +1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(60.0, 4.0/3.0, 1.0, 200.0);
+	glTranslatef(0.0f,0.0f,-5.0f);
+	gluLookAt(
+		eye_x, eye_y, eye_z,
+		eye_x + cos(eye_rad)*10,
+		0.0,
+		eye_z + sin(eye_rad)*10,
+		0.0, 1.0, 0.0);	//éãì_Ç∆éãê¸ÇÃê›íË
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+
+	glDisable(GL_TEXTURE_2D);
+
+	static GLUquadricObj* sphere = gluNewQuadric();
+	glRGBA(200,100,100,99).glColorUpdate();
+	gluSphere(sphere, 1.0, 10, 10);
+
+	vec cube[]={
+		vec(-2,0,0),
+		vec( 2,0,0),
+		vec( 2,0,4),
+		vec(-2,0,4),
+		vec(-2,3,0),
+		vec( 2,3,0),
+		vec( 2,3,4),
+		vec(-2,3,4),
+	};
+
+	glRGBA(200,100,100).glColorUpdate();
+	glBegin(GL_QUADS);
+		cube[0].glVertexUpdate();
+		cube[1].glVertexUpdate();
+		cube[2].glVertexUpdate();
+		cube[3].glVertexUpdate();
+	glEnd();
+
+	for (int i=0; i<2; ++i)
+	{
+		const int mod = (i==0) ? GL_QUADS : GL_LINE_LOOP;
+		((i==0)
+			? glRGBA(100,120,50,53)
+			: glRGBA(255,255,255)).glColorUpdate();
+		glBegin(mod);
+			cube[1].glVertexUpdate();
+			cube[2].glVertexUpdate();
+			cube[6].glVertexUpdate();
+			cube[5].glVertexUpdate();
+		glEnd();
+		glBegin(mod);
+			cube[0].glVertexUpdate();
+			cube[3].glVertexUpdate();
+			cube[7].glVertexUpdate();
+			cube[4].glVertexUpdate();
+		glEnd();
+		glBegin(mod);
+			cube[0].glVertexUpdate();
+			cube[1].glVertexUpdate();
+			cube[5].glVertexUpdate();
+			cube[4].glVertexUpdate();
+		glEnd();
+		glBegin(mod);
+			cube[2].glVertexUpdate();
+			cube[3].glVertexUpdate();
+			cube[7].glVertexUpdate();
+			cube[6].glVertexUpdate();
+		glEnd();
+	}
+
+	glRGBA(255,255,255).glColorUpdate();
+	glBegin(GL_LINE_LOOP);
+		cube[4].glVertexUpdate();
+		cube[5].glVertexUpdate();
+		cube[6].glVertexUpdate();
+		cube[7].glVertexUpdate();
+	glEnd();
+
+//	glRGBA(25,55,255).glColorUpdate();
+//	glRectangle(10, 0, 50, 50);
+
+	glRGBA(64,64,80,128).glColorUpdate();
+	glBegin(GL_QUADS);
+		glVertex3f(-50, 0, -50);
+		glVertex3f( 50, 0, -50);
+		glVertex3f( 50, 0,  50);
+		glVertex3f(-50, 0,  50);
+	glEnd();
+
+	glBegin(GL_LINES);
+	for (int i=-50; i<=50; i++)
+	{
+		((i==0)
+			? glRGBA(220,150,50)
+			: glRGBA(60,60,60)).glColorUpdate();
+		vec(-50.0f, 0, i).glVertexUpdate();
+		vec(+50.0f, 0, i).glVertexUpdate();
+		((i==0)
+			? glRGBA(220,150,50)
+			: glRGBA(60,60,60)).glColorUpdate();
+		vec(i, 0, -50.0f).glVertexUpdate();
+		vec(i, 0, +50.0f).glVertexUpdate();
+	}
+	glEnd();
+}
+
+
 
 void SampleViewer::display()
 {
@@ -1265,8 +1390,10 @@ void SampleViewer::display()
 	{
 	}
 
+	m_depthStream.readFrame(&m_depthFrame);
 
-	_CrtCheckMemory();
+	if (m_depthFrame.isValid())
+		drawDepthMode();
 
 	// @display
 
@@ -1288,11 +1415,7 @@ void SampleViewer::display()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();
 	glLoadIdentity();
-	glOrtho(0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y, 0, -1.0, 1.0);
-
-	background_image.draw(0,0,640,480);
 
 
 
@@ -1301,19 +1424,25 @@ void SampleViewer::display()
 	far_value = 0;
 #endif
 
+	glOrtho(0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y, 0, -1.0, 1.0);
+
 
 	switch (client_status)
 	{
-	case STATUS_BLACK:    displayBlackScreen();   break;
-	case STATUS_PICTURE:  displayPictureScreen(); break;
-
-	case STATUS_DEPTH:    displayDepthScreen();   break;
+	case STATUS_CALIBRATION:  displayCalibration();   break;
+	case STATUS_BLACK:        displayBlackScreen();   break;
+	case STATUS_PICTURE:      displayPictureScreen(); break;
+	case STATUS_DEPTH:        displayDepthScreen();   break;
 	
 	case STATUS_GAMEREADY:
 	case STATUS_GAME:
 		displayDepthScreen();
 		break;
 	}
+
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
 
 
 	// RED TEXT
@@ -1335,14 +1464,19 @@ void SampleViewer::display()
 		glScalef(1.2f, 1.2f+0.3f*cosf(cnt/5), 1.f);
 		glTranslatef(-180.f, 0.f, 0.f);
 		int time_diff = (timeGetTime() - time_begin);
-				
+
+		freetype::print(monospace, 20, 140, "(%+.2f, %+.2f, %+.2f)(%+.2f)",
+			eye_x,
+			eye_y,
+			eye_z,
+			eye_rad);
 		freetype::print(monospace, 20, 160, "#%d Near(%dcm) Far(%dcm)",
 				client_config.client_number,
 				config.near_threshold,
 				config.far_threshold);
 
 		// @fps
-		freetype::print(monospace, 20, 200, "%d, %d, %.1ffps, %.2ffps, %d, %d",
+		freetype::print(monospace, 20, 180, "%d, %d, %.1ffps, %.2ffps, %d, %d",
 				frames,
 				time_diff,
 				1000.0f * frames/time_diff,
@@ -1350,30 +1484,32 @@ void SampleViewer::display()
 				decomp_time,
 				draw_time);
 
-		freetype::print(monospace, 20, 240, "(n=%d,f=%d) raw(n=%d,f=%d) (TP:%d)",
+#if !WITHOUT_KINECT
+		freetype::print(monospace, 20, 200, "(n=%d,f=%d) raw(n=%d,f=%d) (TP:%d)",
 				vody.near_d,
 				vody.far_d,
 				vody.raw_near_d,
 				vody.raw_far_d,
 				vody.total_pixels);
 
-		freetype::print(monospace, 20, 280, "(%d,%d,%d,%d)",
+		freetype::print(monospace, 20, 220, "(%d,%d,%d,%d)",
 				vody.body.top,
 				vody.body.bottom,
 				vody.body.left,
 				vody.body.right);
 
-		freetype::print(monospace, 20, 320, "far(%d,%d,%d,%d)",
+		freetype::print(monospace, 20, 240, "far(%d,%d,%d,%d)",
 				vody.far_box.top,
 				vody.far_box.bottom,
 				vody.far_box.left,
 				vody.far_box.right);
 
-		freetype::print(monospace, 20, 360, "near(%d,%d,%d,%d)",
+		freetype::print(monospace, 20, 260, "near(%d,%d,%d,%d)",
 				vody.near_box.top,
 				vody.near_box.bottom,
 				vody.near_box.left,
 				vody.near_box.right);
+#endif//!WITHOUT_KINECT
 
 		glPopMatrix();
 	}
@@ -1400,9 +1536,6 @@ void SampleViewer::display()
 	const int VODY_H = 480/VODY_RESO;
 	uint8 virtual_body[VODY_W * VODY_H];
 
-	const uint8* const src = last_depth_image;
-	const int step = 20;
-
 	enum VodyCel
 	{
 		VODYCEL_NONE,
@@ -1411,6 +1544,9 @@ void SampleViewer::display()
 		VODYCEL_MEDIUM,
 	};
 
+#if !WITHOUT_KINECT
+	const uint8* const src = last_depth_image;
+	const int step = 20;
 
 	{
 		vody.body.top    = 9999;
@@ -1516,52 +1652,43 @@ void SampleViewer::display()
 			}
 		}
 	}
+#endif//!WITHOUT_KINECT
 
+
+	if (mode.show_hit_boxes)
 	{
-		if (mode.show_hit_boxes)
+		int index = 0;
+		for (int y=0; y<VODY_H; ++y)
 		{
-			int index = 0;
-			for (int y=0; y<VODY_H; ++y)
+			for (int x=0; x<VODY_W; ++x)
 			{
-				for (int x=0; x<VODY_W; ++x)
-				{
-					int value = virtual_body[index++];
-					glRectangleFill(
-						(value==VODYCEL_NONE) ? glRGBA(0,0,0,0) :
-						(value==VODYCEL_NEAR) ? glRGBA(200,0,0,128) :
-						(value==VODYCEL_FAR) ? glRGBA(0,0,200,128) :
-						(value==VODYCEL_MEDIUM) ? glRGBA(0,200,0,128)
-								: glRGBA(255,0,0,255),
-						x*VODY_RESO, y*VODY_RESO,
-						VODY_RESO-1,
-						VODY_RESO-1);
-				}
+				int value = virtual_body[index++];
+				
+				((value==VODYCEL_NONE) ? glRGBA(0,0,0,0) :
+				(value==VODYCEL_NEAR) ? glRGBA(200,0,0,128) :
+				(value==VODYCEL_FAR) ? glRGBA(0,0,200,128) :
+				(value==VODYCEL_MEDIUM) ? glRGBA(0,200,0,128)
+					: glRGBA(255,0,0,255)).glColorUpdate();
+					
+				glRectangleFill(
+					x*VODY_RESO, y*VODY_RESO,
+					VODY_RESO-1,
+					VODY_RESO-1);
 			}
 		}
-
-		if (vody.body.left!=9999)
-		{
-			glRectangleFill(
-				glRGBA(20,240,100, 64),
-				vody.body.left,
-				vody.body.top,
-				vody.body.right  - vody.body.left,
-				vody.body.bottom - vody.body.top);
-		}
+	}
 
 #if 0
-		// Draw near-box
-		if (vody.near_box.left!=9999)
-		{
-			glRectangleFill(
-				glRGBA(200,20,60, 64),
-				vody.near_box.left,
-				vody.near_box.top,
-				vody.near_box.right  - vody.near_box.left,
-				vody.near_box.bottom - vody.near_box.top);
-		}
-#endif
+	if (vody.body.left!=9999)
+	{
+		glRectangleFill(
+			glRGBA(20,240,100, 64),
+			vody.body.left,
+			vody.body.top,
+			vody.body.right  - vody.body.left,
+			vody.body.bottom - vody.body.top);
 	}
+#endif
 
 	if (hit_object_stage < hit_objects.size())
 	{
@@ -1661,6 +1788,28 @@ void SampleViewer::onKey(int key, int /*x*/, int /*y*/)
 	default:
 		printf("[key %d]\n", key);
 		break;
+	case 1100://left
+		eye_rad -= 0.01;
+		break;
+	case 1102://right
+		eye_rad += 0.01;
+		break;
+	case 1101://up
+		eye_x += cos(eye_rad)*0.2;
+		eye_z += sin(eye_rad)*0.2;
+		break;
+	case 1103://down
+		eye_x -= cos(eye_rad)*0.2;
+		eye_z -= sin(eye_rad)*0.2;
+		break;
+	case 1104://pageup
+		eye_y += 0.5;
+		break;
+	case 1105://pagedown
+		eye_y -= 0.5;
+		break;
+
+
 	case 27:
 		m_depthStream.stop();
 		m_colorStream.stop();
@@ -1725,12 +1874,15 @@ openni::Status SampleViewer::initOpenGL(int argc, char **argv)
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
 	glutInitWindowSize(GL_WIN_SIZE_X, GL_WIN_SIZE_Y);
 	glutCreateWindow (m_strSampleName);
-	// 	glutFullScreen();
-	glutSetCursor(GLUT_CURSOR_NONE);
+	// glutFullScreen();
+	// glutSetCursor(GLUT_CURSOR_NONE);
 
 	initOpenGLHooks();
 
-	glDisable(GL_DEPTH_TEST);
+	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
+	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_TEXTURE_2D);
 
 	glEnable(GL_BLEND);

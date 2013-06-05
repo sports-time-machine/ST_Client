@@ -2,6 +2,9 @@
 #include <OpenNI.h>
 #include "miCore.h"
 
+#define WITHOUT_KINECT 1
+
+
 #define MAX_DEPTH 10000
 
 enum DisplayModes
@@ -41,6 +44,7 @@ private:
 	void displayDepthScreen();
 	void displayBlackScreen();
 	void displayPictureScreen();
+	void displayCalibration();
 
 	bool doCommand();
 	bool doCommand2(const std::string& line);

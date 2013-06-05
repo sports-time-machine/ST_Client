@@ -70,7 +70,7 @@ int main(int argc, char** argv)
 
 
 
-
+#if !WITHOUT_KINECT
 	openni::Status rc = openni::STATUS_OK;
 
 	openni::Device device;
@@ -167,14 +167,22 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 #endif
+#endif//WITHOUT_KINECT
 
-
+#if !WITHOUT_KINECT
 	SampleViewer sampleViewer("ST Client", device, depth, color);
+#else
+	openni::Device device;
+	openni::VideoStream depth, color;
+	SampleViewer sampleViewer("ST Client (wok)", device, depth, color);
+#endif//WITHOUT_KINECT
 
-	rc = sampleViewer.init(argc, argv);
+	int rc = sampleViewer.init(argc, argv);
 	if (rc != openni::STATUS_OK)
 	{
+#if !WITHOUT_KINECT
 		openni::OpenNI::shutdown();
+#endif//WITHOUT_KINECT
 		return 3;
 	}
 	sampleViewer.run();

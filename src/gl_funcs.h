@@ -31,6 +31,19 @@ struct glRGBA
 	void glColorUpdate();
 };
 
+struct vec
+{
+	float x,y,z;
 
-extern void glRectangle(glRGBA rgba, int x, int y, int w, int h);
-extern void glRectangleFill(glRGBA rgba, int x, int y, int w, int h);
+	vec() { x=y=z=0.0f; }
+	vec(float x, float y, float z) { this->x=x; this->y=y; this->z=z; }
+
+	void glVertexUpdate();
+};
+
+
+
+
+extern void glRectangle(int x, int y, int w, int h);
+extern void glRectangleFill(int x, int y, int w, int h);
+extern void glLine3D(vec p1, vec p2);
