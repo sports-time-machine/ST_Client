@@ -23,9 +23,7 @@ void load_config()
 {
 	PSL::PSLVM psl;
 
-	auto load_psl = [&](PSL::string filename)->bool{
-		auto path = PSL::string("C:/ST/Config/");
-		path += filename;
+	auto load_psl = [&](PSL::string path)->bool{
 		fprintf(stderr, "[PSL] Load '%s'...", path.c_str());
 		auto err = psl.loadScript(path);
 		if (err==PSL::PSLVM::NONE)
@@ -36,22 +34,22 @@ void load_config()
 		switch (err)
 		{
 		case PSL::PSLVM::FOPEN_ERROR:
-			Core::dialog("設定ファイルが開けません (Config.psl)");
+			fprintf(stderr, "Cannot open file '%s'\n", path.c_str());
 			return false;
 		case PSL::PSLVM::PARSE_ERROR:
-			Core::dialog("設定ファイルのパースエラー（文法ミスかも？）");
+			fprintf(stderr, "PSL parse error (Syntax error?)\n");
 			return false;
 		default:
-			Core::dialog("設定ファイルにおける未知のエラー");
+			fprintf(stderr, "PSL unknown error\n");
 			return false;
 		}
 	};
 
-	if (!load_psl("Config.psl"))
+	if (!load_psl("//STMx64/ST/Config.psl"))
 	{
 		return;
 	}
-	if (!load_psl(PSL::string("Client_")+Core::getComputerName().c_str()+".psl"))
+	if (!load_psl(PSL::string("C:/ST/")+Core::getComputerName().c_str()+".psl"))
 	{
 		return;
 	}
@@ -171,7 +169,7 @@ int main(int argc, char** argv)
 #endif
 
 
-	SampleViewer sampleViewer("Simple Viewer", device, depth, color);
+	SampleViewer sampleViewer("ST Client", device, depth, color);
 
 	rc = sampleViewer.init(argc, argv);
 	if (rc != openni::STATUS_OK)

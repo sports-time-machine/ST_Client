@@ -146,8 +146,8 @@
       <AdditionalLibraryDirectories>$(OutDir);$(OPENNI2_LIB);..\GL</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(TargetPath) C:\ST\Bin\ST_Client_x32_org.exe
-</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

@@ -219,6 +219,7 @@ const int PIXELS_PER_SCREEN = 640*480;
 
 struct Mode
 {
+	bool show_hit_boxes;
 	bool sync_enabled;
 	bool mixed_enabled;
 	bool zero255_show;
@@ -1045,6 +1046,12 @@ void commandDiskInfo(Args& arg)
 			total);
 }
 
+void commandReloadConfig(Args& arg)
+{
+	arg_check(arg, 0);
+	load_config();
+}
+
 void sendStatus()
 {
 	std::string s;
@@ -1160,6 +1167,12 @@ void commandBye(Args& arg)
 	exit(0);
 }
 
+void commandHitBoxes(Args& arg)
+{
+	arg_check(arg, 0);
+	toggle(mode.show_hit_boxes);
+}
+
 
 bool SampleViewer::doCommand()
 {
@@ -1211,7 +1224,10 @@ bool SampleViewer::doCommand2(const std::string& line)
 
 	try
 	{
+		// @command
 #define COMMAND(CMD, PROC)    if (cmd.compare(CMD)==0) { PROC(arg); return true; }
+		COMMAND("HITBOXES", commandHitBoxes);
+		COMMAND("RELOADCONFIG", commandReloadConfig);
 
 		COMMAND("DISKINFO", commandDiskInfo);
 		COMMAND("MIRROR",   commandMirror);
@@ -1502,21 +1518,24 @@ void SampleViewer::display()
 	}
 
 	{
-		int index = 0;
-		for (int y=0; y<VODY_H; ++y)
+		if (mode.show_hit_boxes)
 		{
-			for (int x=0; x<VODY_W; ++x)
+			int index = 0;
+			for (int y=0; y<VODY_H; ++y)
 			{
-				int value = virtual_body[index++];
-				glRectangleFill(
-					(value==VODYCEL_NONE) ? glRGBA(0,0,0,0) :
-					(value==VODYCEL_NEAR) ? glRGBA(200,0,0,128) :
-					(value==VODYCEL_FAR) ? glRGBA(0,0,200,128) :
-					(value==VODYCEL_MEDIUM) ? glRGBA(0,200,0,128)
-							: glRGBA(255,0,0,255),
-					x*VODY_RESO, y*VODY_RESO,
-					VODY_RESO-1,
-					VODY_RESO-1);
+				for (int x=0; x<VODY_W; ++x)
+				{
+					int value = virtual_body[index++];
+					glRectangleFill(
+						(value==VODYCEL_NONE) ? glRGBA(0,0,0,0) :
+						(value==VODYCEL_NEAR) ? glRGBA(200,0,0,128) :
+						(value==VODYCEL_FAR) ? glRGBA(0,0,200,128) :
+						(value==VODYCEL_MEDIUM) ? glRGBA(0,200,0,128)
+								: glRGBA(255,0,0,255),
+						x*VODY_RESO, y*VODY_RESO,
+						VODY_RESO-1,
+						VODY_RESO-1);
+				}
 			}
 		}
 
