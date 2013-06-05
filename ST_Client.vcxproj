@@ -145,6 +145,10 @@
       <AdditionalDependencies>glut32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);$(OPENNI2_LIB);..\GL</AdditionalLibraryDirectories>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(TargetPath) C:\ST\Bin\ST_Client_x32_org.exe
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -173,7 +177,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\file_io.cpp" />
     <ClCompile Include="src\FreeType.cpp" />
+    <ClCompile Include="src\gl_funcs.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\miAudio.cpp" />
     <ClCompile Include="src\miCore.cpp" />
@@ -184,7 +190,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Config.h" />
+    <ClInclude Include="src\file_io.h" />
     <ClInclude Include="src\FreeType.h" />
+    <ClInclude Include="src\gl_funcs.h" />
     <ClInclude Include="src\miAudio.h" />
     <ClInclude Include="src\miCore.h" />
     <ClInclude Include="src\miImage.h" />

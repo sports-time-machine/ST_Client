@@ -1,4 +1,3 @@
-// Undeprecate CRT functions
 #ifndef _CRT_SECURE_NO_DEPRECATE 
 	#define _CRT_SECURE_NO_DEPRECATE 1
 #endif
@@ -8,6 +7,8 @@
 #include "miCore.h"
 #include "miImage.h"
 #include "FreeType.h"
+#include "gl_funcs.h"
+#include "file_io.h"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -21,6 +22,10 @@
 
 #include "miUdpReceiver.h"
 #include "Config.h"
+#include <map>
+#include <vector>
+
+
 
 extern void load_config();
 
@@ -33,37 +38,8 @@ inline int minmax(int x, int min, int max)
 
 
 
-struct glRGBA
-{
-	uint8 r,g,b,a;
 
-	glRGBA() : r(255),g(255),b(255),a(255) { }
 
-	glRGBA(int r, int g, int b)
-	{
-		set(r,g,b,255);
-	}
-
-	glRGBA(int r, int g, int b, int a)
-	{
-		set(r,g,b,a);
-	}
-
-	void set(int r, int g, int b, int a=255)
-	{
-		this->r = (uint8)r;
-		this->g = (uint8)g;
-		this->b = (uint8)b;
-		this->a = (uint8)a;
-	}
-
-	void glColorUpdate();
-};
-
-void glRGBA::glColorUpdate()
-{
-	glColor4ub(r,g,b,a);
-}
 
 struct Box
 {
@@ -144,40 +120,6 @@ ClientStatus client_status = STATUS_DEPTH;
 
 
 
-
-void glRectangle(glRGBA rgba, int x, int y, int w, int h)
-{
-	glDisable(GL_TEXTURE_2D);
-	rgba.glColorUpdate();
-
-	const int x1 = x;
-	const int y1 = y;
-	const int x2 = x+w;
-	const int y2 = y+h;
-	glBegin(GL_LINE_LOOP);
-	glVertex2i(x1, y1);
-	glVertex2i(x2, y1);
-	glVertex2i(x2, y2);
-	glVertex2i(x1, y2);
-	glEnd();
-}
-
-void glRectangleFill(glRGBA rgba, int x, int y, int w, int h)
-{
-	glDisable(GL_TEXTURE_2D);
-	rgba.glColorUpdate();
-
-	const int x1 = x;
-	const int y1 = y;
-	const int x2 = x+w;
-	const int y2 = y+h;
-	glBegin(GL_QUADS);
-	glVertex2i(x1, y1);
-	glVertex2i(x2, y1);
-	glVertex2i(x2, y2);
-	glVertex2i(x1, y2);
-	glEnd();
-}
 
 
 
@@ -263,14 +205,7 @@ MovieMode movie_mode = MOVIE_READY;
 #include "ST_Client.h"
 
 #include "XnCppWrapper.h"
-#include "zlibpp.h"
-
-#if (ONI_PLATFORM == ONI_PLATFORM_MACOSX)
-        #include <GLUT/glut.h>
-#else
-        #include <GL/glut.h>
-#endif
-
+#include <GL/glut.h>
 #include "OniSampleUtilities.h"
 
 const int GL_WIN_SIZE_X = 640;
@@ -342,15 +277,15 @@ void SampleViewer::glutKeyboardSpecial(int key, int x, int y)
 }
 
 
-#include <map>
-#include <vector>
 
 typedef std::vector<openni::RGB888Pixel> RgbScreen;
 typedef std::map<int,RgbScreen> RgbScreenMovie;
 
-std::vector<zlibpp::bytes> recorded_frames;
 
-size_t recorded_tail = 0;
+
+
+
+
 size_t movie_index = 0;
 
 openni::RGB888Pixel* moviex = nullptr;
@@ -511,128 +446,6 @@ openni::Status SampleViewer::run()	//Does not return
 
 	return openni::STATUS_OK;
 }
-
-
-#if 0
-void rounding(uint8* pixels)
-{
-	int rounded = 0;
-	for (int y=0; y<480; ++y)
-	{
-		for (int x=1; x<639; ++x)
-		{
-			if (abs(pixels[x]-pixels[x-1])>100 &&
-				abs(pixels[x]-pixels[x+1])>100)
-			{
-				pixels[x] = 0;
-				++rounded;
-			}
-		}
-	}
-	printf("%d rounded\n", rounded);
-}
-#endif
-
-
-#if 0
-//  src: 640x480 uint8 depth
-// dest: output byte stream
-void encoding(uint8* src, std::vector<uint8>& byte_stream)
-{
-#if 0
-	// TEST DATA
-	int i=0;
-	for (int y=0; y<480; ++y)
-	{
-		for (int x=0; x<640; ++x)
-		{
-			src[i++] = (x==30 && y>=50 && y<=100) ? 200 : 0;
-		}
-	}
-#endif
-
-	const int SIZE = 640*480;
-	for (int i=0; i<SIZE;)
-	{
-		if (src[i]==0)
-		{
-			// Zero run-length
-			int len = 1;
-			for (; len<127; ++len)
-			{
-				if (i+len >= SIZE)
-					break;
-				if (src[i+len]!=0)
-					break;
-			}
-			
-			// 01: zero x1
-			// 0F: zero x15
-			// 7F: zero x127
-			byte_stream.push_back(len);
-			i += len;
-		}
-		else
-		{
-			// Zero run-length
-			int len = 1;
-			for (; len<127; ++len)
-			{
-				if (i+len >= SIZE)
-					break;
-				if (src[i+len]==0)
-					break;
-			}
-			
-			// 80: Non Zero x1
-			// 8F: Non Zero x16
-			// FF: Non Zero x128
-			byte_stream.push_back((len-1) + 0x80);
-			for (int j=0; j<len; ++j)
-			{
-				byte_stream.push_back(src[i+j]);
-			}
-
-			i += len;
-		}
-	}
-}
-
-void decoding(const std::vector<uint8>& byte_stream, uint8* dest)
-{
-	int read_index = 0;
-	auto fetch = [&]()->int{
-		if (read_index >= byte_stream.size())
-			return 0;
-		int retval = byte_stream[read_index++];
-		return retval;
-	};
-
-	while (read_index < byte_stream.size())
-	{
-		int x = fetch();
-		if (x<=127)
-		{
-			// Zero
-			for (int i=1; i<=x; ++i)
-			{
-				*dest++ = 0;
-			}
-		}
-		else
-		{
-			// Non-Zero
-			x -= 0x80;
-			for (int i=0; i<=x; ++i)
-			{
-				*dest++ = fetch();
-			}
-		}
-	}
-}
-#endif
-
-
 
 void buildBitmap(
 		int tex,
@@ -809,6 +622,10 @@ void SampleViewer::BuildDepthImage(uint8* dest)
 }
 
 
+static MovieData curr_movie;
+
+
+
 void SampleViewer::drawDepthMode()
 {
 	using namespace openni;
@@ -881,14 +698,14 @@ void SampleViewer::drawDepthMode()
 	switch (movie_mode)
 	{
 	case MOVIE_RECORD:
-		if (recorded_tail >= recorded_frames.size())
+		if (curr_movie.recorded_tail >= curr_movie.frames.size())
 		{
 			puts("time over! record stop.");
 			movie_mode = MOVIE_READY;
 		}
 		else
 		{
-			zlibpp::bytes& byte_stream = recorded_frames[recorded_tail++];
+			zlibpp::bytes& byte_stream = curr_movie.frames[curr_movie.recorded_tail++];
 			zlibpp::compress(curr, 640*480, byte_stream, 2);
 			printf("%d bytes (%.1f%%)\n",
 				byte_stream.size(),
@@ -896,7 +713,7 @@ void SampleViewer::drawDepthMode()
 		}
 		break;
 	case MOVIE_PLAYBACK:
-		if (movie_index >= recorded_tail)
+		if (movie_index >= curr_movie.recorded_tail)
 		{
 			puts("movie is end. stop.");
 			movie_mode = MOVIE_READY;
@@ -911,7 +728,7 @@ void SampleViewer::drawDepthMode()
 				outdata.resize(640*480);
 				puts("resize outdata");
 			}
-			zlibpp::bytes& byte_stream = recorded_frames[movie_index++];
+			zlibpp::bytes& byte_stream = curr_movie.frames[movie_index++];
 			zlibpp::decompress(byte_stream, outdata);
 			decomp_time += timeGetTime()-xx;
 #endif
@@ -1021,14 +838,8 @@ void SampleViewer::drawDepthMode()
 	buildBitmap(vram_tex, video_ram, m_nTexMapX, m_nTexMapY);
 
 	// @draw
-#if 0//do it
-	const int draw_x = mode.mirroring ? GL_WIN_SIZE_X : 0;
-	const int draw_w = mode.mirroring ? -GL_WIN_SIZE_X : GL_WIN_SIZE_X;
-#else
 	const int draw_x = 0;
 	const int draw_w = GL_WIN_SIZE_X;
-#endif
-
 	drawBitmap(
 		draw_x, 0,
 		draw_w, GL_WIN_SIZE_Y,
@@ -1374,6 +1185,14 @@ bool SampleViewer::doCommand2(const std::string& line)
 	std::vector<VariantType> arg;
 	splitString(line, cmd, arg);
 
+	// Daemon command
+	if (cmd[0]=='#')
+	{
+		printf("[DAEMON COMMAND] '%s' -- ignore", cmd.c_str());
+		return true;
+	}
+
+
 	printf("[UDP COMMAND] '%s' ", cmd.c_str());
 	for (size_t i=0; i<arg.size(); ++i)
 	{
@@ -1405,10 +1224,11 @@ bool SampleViewer::doCommand2(const std::string& line)
 		COMMAND("IDENT",    commandIdent);
 		COMMAND("PING",     commandPing);
 		COMMAND("PICT",     commandPict);
-		COMMAND("BYE",   commandBye);
-		COMMAND("QUIT",  commandBye);
-		COMMAND("EXIT",  commandBye);
-		
+		COMMAND("BYE",      commandBye);
+		COMMAND("QUIT",     commandBye);
+		COMMAND("EXIT",     commandBye);
+#undef COMMAND
+
 		printf("Invalid udp-command '%s'\n", cmd.c_str());
 	}
 	catch (InvalidFormat)
@@ -1724,7 +1544,6 @@ void SampleViewer::display()
 #endif
 	}
 
-
 	if (hit_object_stage < hit_objects.size())
 	{
 		if (hit_objects[hit_object_stage].point.in(vody.near_box))
@@ -1739,98 +1558,7 @@ void SampleViewer::display()
 	glutSwapBuffers();
 }
 
-struct FileHeader
-{
-	unsigned __int8
-		signature[4],  // "stm "
-		compress[4],   // "zip "
-		graphic[4];    // "dpth"
-	int total_frames;
-};
 
-void saveToFile(FILE* fp, const std::vector<zlibpp::bytes>& recorded_frames)
-{
-	FileHeader header;
-
-	header.signature[0] = 's';
-	header.signature[1] = 't';
-	header.signature[2] = 'm';
-	header.signature[3] = ' ';
-	header.compress[0] = 'z';
-	header.compress[1] = 'i';
-	header.compress[2] = 'p';
-	header.compress[3] = ' ';
-	header.graphic[0] = 'd';
-	header.graphic[1] = 'p';
-	header.graphic[2] = 't';
-	header.graphic[3] = 'h';
-	header.total_frames = recorded_tail;
-
-	fwrite(&header, sizeof(header), 1, fp);
-	for (size_t i=0; i<recorded_tail; ++i)
-	{
-		const auto& frame = recorded_frames[i];
-		uint32 frame_size = (uint32)frame.size();
-		fwrite(&frame_size, sizeof(frame_size), 1, fp);
-		fwrite(frame.data(), frame_size, 1, fp);
-	}
-
-	// for human
-	fputs("//END", fp);
-}
-
-bool checkMagic(const unsigned __int8* data, const char* str)
-{
-	return
-		data[0]==str[0] &&
-		data[1]==str[1] &&
-		data[2]==str[2] &&
-		data[3]==str[3];
-}
-
-bool loadFromFile(FILE* fp, std::vector<zlibpp::bytes>& recorded_frames)
-{
-	FileHeader header;
-	fread(&header, sizeof(header), 1, fp);
-
-	if (!checkMagic(header.signature, "stm "))
-	{
-		fprintf(stderr, "File is not STM format.\n");
-		return false;
-	}
-	if (!checkMagic(header.compress, "zip "))
-	{
-		fprintf(stderr, "Unsupport compress format.\n");
-		return false;
-	}
-	if (!checkMagic(header.graphic, "dpth"))
-	{
-		fprintf(stderr, "Unsupport graphic format.\n");
-		return false;
-	}
-	if (header.total_frames<=0 || header.total_frames>=30*60*5)
-	{
-		fprintf(stderr, "Invalid total frames.\n");
-		return false;
-	}
-
-	recorded_tail = header.total_frames;
-	printf("Total %d frames\n", header.total_frames);
-	
-	recorded_frames.clear();
-	recorded_frames.resize(header.total_frames);
-	for (int i=0; i<header.total_frames; ++i)
-	{
-		auto& frame = recorded_frames[i];
-		unsigned __int32 frame_size;
-		fread(&frame_size, sizeof(frame_size), 1, fp);
-
-		frame.resize(frame_size);
-		fread(frame.data(), frame_size, 1, fp);
-	}
-
-	return true;
-}
 
 
 enum
@@ -1862,7 +1590,7 @@ void saveAgent(int slot)
 	}
 	else
 	{
-		saveToFile(fp, recorded_frames);
+		saveToFile(fp, curr_movie);
 		fclose(fp);
 		puts("done!");
 	}	
@@ -1880,7 +1608,7 @@ void loadAgent(int slot)
 	}
 	else
 	{
-		if (loadFromFile(fp, recorded_frames))
+		if (loadFromFile(fp, curr_movie))
 		{
 			fclose(fp);
 			puts("done!");
@@ -1930,19 +1658,19 @@ void SampleViewer::onKey(int key, int /*x*/, int /*y*/)
 		m_colorStream.setMirroringEnabled(!m_colorStream.getMirroringEnabled());
 		break;
 	case 'r':
-		recorded_frames.clear();
-		recorded_frames.resize(MOVIE_MAX_FRAMES);
-		recorded_tail = 0;
+		curr_movie.frames.clear();
+		curr_movie.frames.resize(MOVIE_MAX_FRAMES);
+		curr_movie.recorded_tail = 0;
 		movie_mode = MOVIE_RECORD;
 		movie_index = 0;
 		break;
 	case 's':
-		printf("recoding stop. %d frames recorded.\n", recorded_tail);
+		printf("recoding stop. %d frames recorded.\n", curr_movie.recorded_tail);
 		{
 			size_t total_bytes = 0;
-			for (size_t i=0; i<recorded_tail; ++i)
+			for (size_t i=0; i<curr_movie.recorded_tail; ++i)
 			{
-				total_bytes += recorded_frames[i].size();
+				total_bytes += curr_movie.frames[i].size();
 			}
 			printf("total %u Kbytes.\n", total_bytes/1000);
 		}
