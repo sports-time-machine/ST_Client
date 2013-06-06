@@ -6,6 +6,8 @@
 
 struct glRGBA
 {
+	static glRGBA white,black;
+	
 	uint8 r,g,b,a;
 
 	glRGBA() : r(255),g(255),b(255),a(255) { }
@@ -40,6 +42,23 @@ struct vec
 
 	void glVertexUpdate();
 };
+
+struct Point2i
+{
+	int x,y;
+	Point2i() : x(0),y(0) { }
+	Point2i(int x, int y) { this->x=x; this->y=y; }
+	void glVertex2() const;
+};
+
+struct Point2f
+{
+	float x,y;
+	Point2f() : x(0),y(0) { }
+	Point2f(float x, float y) { this->x=x; this->y=y; }
+	void glVertex2() const;
+};
+
 
 
 

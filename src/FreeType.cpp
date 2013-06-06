@@ -189,7 +189,7 @@ void font_data::clean() {
 /// A fairly straight forward function that pushes
 /// a projection matrix that will make object world 
 /// coordinates identical to window coordinates.
-inline void pushScreenCoordinateMatrix() {
+inline int pushScreenCoordinateMatrix() {
 	glPushAttrib(GL_TRANSFORM_BIT);
 	GLint	viewport[4];
 	glGetIntegerv(GL_VIEWPORT, viewport);
@@ -201,6 +201,7 @@ inline void pushScreenCoordinateMatrix() {
 	glOrtho(viewport[0],viewport[2],viewport[1],viewport[3],-1,1);
 	
 	glPopAttrib();
+	return viewport[3] - viewport[1];
 }
 
 /// Pops the projection matrix without changing the current
@@ -217,7 +218,7 @@ inline void pop_projection_matrix() {
 void print(const font_data &ft_font, float x, float y, const char *fmt, ...)  {
 	
 	// We want a coordinate system where things coresponding to window pixels.
-	pushScreenCoordinateMatrix();					
+	const int window_height = pushScreenCoordinateMatrix();					
 	
 	GLuint font=ft_font.list_base;
 	float h=ft_font.h/.63f;						//We make the height about 1.5* that of
@@ -280,7 +281,7 @@ void print(const font_data &ft_font, float x, float y, const char *fmt, ...)  {
 	{
 		glPushMatrix();
 		glLoadIdentity();
-		glTranslatef(x,y-h*i,0);
+		glTranslatef(x,window_height-1-y-h*i,0);
 		glMultMatrixf(modelview_matrix);
 
 	//  The commented out raster position stuff can be useful if you need to

@@ -13,6 +13,24 @@
 #pragma warning(pop)
 
 
+
+Config::Config()
+{
+	client_number = -1;
+	near_threshold = 500;
+	far_threshold = 5000;
+	initial_window_x = 50;
+	initial_window_y = 50;
+	initial_fullscreen = false;
+	
+	kinect_calibration.a = Point2i(0,0);
+	kinect_calibration.b = Point2i(640,0);
+	kinect_calibration.c = Point2i(0,480);
+	kinect_calibration.d = Point2i(640,480);
+}
+
+
+
 void ErrorDialog(const char* title)
 {
 	const char* text = openni::OpenNI::getExtendedError();
@@ -57,9 +75,22 @@ void load_config()
 	psl.run();
 
 #define CONFIG_INT(DEST,NAME) DEST.NAME = PSL::variable(psl.get(#NAME)).toInt()
+#define CONFIG_INT_A(DEST,NAME,I,J) DEST.NAME = PSL::variable(psl.get(#NAME))[I][J].toInt()
 	CONFIG_INT(config, far_threshold);
 	CONFIG_INT(config, near_threshold);
-	CONFIG_INT(client_config, client_number);
+	CONFIG_INT(config, client_number);
+	CONFIG_INT(config, initial_window_x);
+	CONFIG_INT(config, initial_window_y);
+	CONFIG_INT(config, initial_fullscreen);
+
+	{
+		PSL::variable src = psl.get("kinect_calibration");
+		auto& dest = config.kinect_calibration;
+		dest.a = Point2i(src[0][0], src[0][1]);
+		dest.b = Point2i(src[1][0], src[1][1]);
+		dest.c = Point2i(src[2][0], src[2][1]);
+		dest.d = Point2i(src[3][0], src[3][1]);
+	}
 #undef CONFIG_INT
 }
 
@@ -69,9 +100,10 @@ int main(int argc, char** argv)
 
 
 
+	openni::Status rc;
 
 #if !WITHOUT_KINECT
-	openni::Status rc = openni::STATUS_OK;
+	rc = openni::STATUS_OK;
 
 	openni::Device device;
 	openni::VideoStream depth, color;
@@ -170,14 +202,14 @@ int main(int argc, char** argv)
 #endif//WITHOUT_KINECT
 
 #if !WITHOUT_KINECT
-	SampleViewer sampleViewer("ST Client", device, depth, color);
+	SampleViewer sampleViewer(device, depth, color);
 #else
 	openni::Device device;
 	openni::VideoStream depth, color;
 	SampleViewer sampleViewer("ST Client (wok)", device, depth, color);
 #endif//WITHOUT_KINECT
 
-	int rc = sampleViewer.init(argc, argv);
+	rc = sampleViewer.init(argc, argv);
 	if (rc != openni::STATUS_OK)
 	{
 #if !WITHOUT_KINECT

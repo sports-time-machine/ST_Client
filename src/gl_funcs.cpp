@@ -1,5 +1,8 @@
 #include "gl_funcs.h"
 
+glRGBA
+	glRGBA::white(255,255,255),
+	glRGBA::black(0,0,0);
 
 void glRGBA::glColorUpdate()
 {
@@ -9,6 +12,17 @@ void glRGBA::glColorUpdate()
 void vec::glVertexUpdate()
 {
 	glVertex3f(x, y, z);
+}
+
+
+void Point2i::glVertex2() const
+{
+	::glVertex2i(x, y);
+}
+
+void Point2f::glVertex2() const
+{
+	::glVertex2f(x, y);
 }
 
 

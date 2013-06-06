@@ -1,14 +1,25 @@
 #pragma once
+#include "gl_funcs.h"
 
 
+struct GlobalConfig
+{
+};
 struct Config
 {
+	int client_number;
 	int near_threshold;
 	int far_threshold;
-};
-struct ClientConfig
-{
-	int client_number;
+	int initial_window_x;
+	int initial_window_y;
+	int initial_fullscreen;
+	
+	struct KinectCalibration
+	{
+		Point2i a,b,c,d;
+	} kinect_calibration;
+
+	Config();
 };
 
 #ifdef THIS_IS_MAIN
@@ -18,5 +29,5 @@ struct ClientConfig
 #endif
 
 
-EXTERN Config       config;
-EXTERN ClientConfig client_config;
+EXTERN GlobalConfig  global_config;
+EXTERN Config        config;

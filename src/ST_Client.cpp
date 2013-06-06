@@ -2,13 +2,12 @@
 	#define _CRT_SECURE_NO_DEPRECATE 1
 #endif
 
-#define SHOW_RAW_NEAR_AND_FAR   0
-
 #include "miCore.h"
 #include "miImage.h"
 #include "FreeType.h"
 #include "gl_funcs.h"
 #include "file_io.h"
+#include <gl/glut.h>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -25,9 +24,94 @@
 #include <map>
 #include <vector>
 
+struct Global
+{
+	int window_w;
+	int window_h;
+} global;
+
 
 
 extern void load_config();
+
+static bool is_fullscreen = false;
+
+void toggleFullscreen()
+{
+	if (is_fullscreen)
+	{
+		glutReshapeWindow(640,480);
+	}
+	else
+	{
+		glutFullScreen();
+	}
+	is_fullscreen = !is_fullscreen;
+}
+
+
+class gl
+{
+public:
+	static void ModelView();
+	static void Projection();
+	static void LoadIdentity();
+
+	static void DepthTest(bool state)        { glCapState(GL_DEPTH_TEST, state); }
+	static void Texture(bool state)          { glCapState(GL_TEXTURE_2D, state); }
+
+	static void AlphaBlending();
+	static void glCapState(int cap, bool state);
+};
+
+void gl::glCapState(int cap, bool state)
+{
+	(state ? glEnable : glDisable)(cap);
+}
+
+void gl::AlphaBlending()
+{
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
+void gl::Projection()
+{
+	glMatrixMode(GL_PROJECTION);
+}
+
+void gl::ModelView()
+{
+	glMatrixMode(GL_MODELVIEW);
+}
+
+void gl::LoadIdentity()
+{
+	glLoadIdentity();
+}
+
+class ModelViewObject
+{
+public:
+	ModelViewObject()
+	{
+		gl::ModelView();
+		glPushMatrix();
+		gl::LoadIdentity();
+	}
+	~ModelViewObject()
+	{
+		glPopMatrix();
+		gl::Projection();
+	}
+};
+
+
+
+
+
+
+
 
 
 inline int minmax(int x, int min, int max)
@@ -36,6 +120,8 @@ inline int minmax(int x, int min, int max)
 }
 
 
+
+Point2i* calibration_focus = nullptr;
 
 
 
@@ -59,7 +145,7 @@ struct Point
 	Point() : x(0),y(0) { }
 	Point(int a, int b) : x(a),y(b) { }
 
-	bool in(const Box& box)
+	bool in(const Box& box) const
 	{
 		return x>=box.left && y>=box.top && x<=box.right && y<=box.bottom;
 	}
@@ -119,7 +205,7 @@ enum ClientStatus
 	STATUS_GOAL,
 };
 
-ClientStatus client_status = STATUS_CALIBRATION;
+ClientStatus client_status = STATUS_DEPTH;
 
 
 
@@ -188,12 +274,6 @@ miFps fps_counter;
 
 
 
-#if SHOW_RAW_NEAR_AND_FAR
-int far_value = 0;
-int near_value = 0;
-#endif
-
-
 enum MovieMode
 {
 	MOVIE_READY,
@@ -230,6 +310,7 @@ struct Mode
 	bool pixel_completion;
 	bool mirroring;
 	bool borderline;
+	bool calibration;
 } mode;
 
 void toggle(bool& ref)
@@ -250,6 +331,7 @@ void toggle(bool& ref)
 	log(mode.pixel_completion, 'e', "pixel completion");
 	log(mode.mirroring,        '?', "mirroring");
 	log(mode.borderline,       'b', "borderline");
+	log(mode.calibration,      '_', "calibration");
 	puts("-----------------------------");
 }
 
@@ -263,22 +345,6 @@ void toggle(bool& ref)
 
 SampleViewer* SampleViewer::ms_self = NULL;
 
-void SampleViewer::glutIdle()
-{
-	glutPostRedisplay();
-}
-void SampleViewer::glutDisplay()
-{
-	SampleViewer::ms_self->display();
-}
-void SampleViewer::glutKeyboard(unsigned char key, int x, int y)
-{
-	SampleViewer::ms_self->onKey(key, x, y);
-}
-void SampleViewer::glutKeyboardSpecial(int key, int x, int y)
-{
-	SampleViewer::ms_self->onKey(key+1000, x, y);
-}
 
 
 
@@ -305,7 +371,7 @@ const int UDP_CLIENT_SEND = 38709;
 
 
 // @constructor, @init
-SampleViewer::SampleViewer(const char* strSampleName, openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color) :
+SampleViewer::SampleViewer(openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color) :
 	m_device(device), m_depthStream(depth), m_colorStream(color), m_streams(NULL),
 	m_eViewState(DEFAULT_DISPLAY_MODE),
 	video_ram(nullptr),
@@ -313,13 +379,12 @@ SampleViewer::SampleViewer(const char* strSampleName, openni::Device& device, op
 {
 	udp_recv.init(UDP_CLIENT_RECV);
 	ms_self = this;
-	strncpy(m_strSampleName, strSampleName, ONI_MAX_STR);
 	printf("host: %s\n", Core::getComputerName().c_str());
 	printf("ip: %s\n", miUdp::getIpAddress().c_str());
 
 
-
 	mode.mirroring = true;
+	mode.calibration = true;
 
 
 
@@ -477,7 +542,7 @@ void drawBitmap(
 	const int x2 = dx + dw;
 	const int y2 = dy + dh;
 
-	glEnable(GL_TEXTURE_2D);
+	gl::Texture(true);
 	glColor4f(1,1,1,1);
 	glBegin(GL_QUADS);
 	glTexCoord2f(u1, v1); glVertex2f(x1, y1);
@@ -494,6 +559,7 @@ void drawBitmapLuminance(
 		const uint8* bitmap,
 		float u1, float v1, float u2, float v2)
 {
+	gl::Texture(true);
 	glBindTexture(GL_TEXTURE_2D, tex);
 	glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -558,75 +624,97 @@ int decomp_time = 0;
 int draw_time = 0;
 const uint8* last_depth_image = nullptr;
 uint8 floor_depth[640*480];
+uint8 depth_cook[640*480];
 int floor_depth_count = 0;
 
-void SampleViewer::BuildDepthImage(uint8* dest)
+void SampleViewer::BuildDepthImage(uint8* const final_dest)
 {
 	using namespace openni;
 
-	const auto* depth_row = (const DepthPixel*)m_depthFrame.getData();
-	const int rowsize = m_depthFrame.getStrideInBytes() / sizeof(DepthPixel);
-	int index = 0;
-	for (int y=0; y<480; ++y)
+	// Create 'depth_raw' from Kinect
+	static uint8 depth_raw[640*480];
 	{
-		const auto* src = depth_row + (mode.mirroring ? 639 : 0);
-
-		for (int x=0; x<640; ++x, ++index)
+		const auto* depth_row = (const DepthPixel*)m_depthFrame.getData();
+		const int rowsize = m_depthFrame.getStrideInBytes() / sizeof(DepthPixel);
+		int index = 0;
+		uint8* dest = mode.calibration ? depth_raw : final_dest;
+		for (int y=0; y<480; ++y)
 		{
-			int depth = *src;
-			mode.mirroring ? --src : ++src;
+			const auto* src = depth_row + (mode.mirroring ? 639 : 0);
 
-#if SHOW_RAW_NEAR_AND_FAR
-			far_value  = max(far_value, depth);
-			near_value = (near_value > depth && depth!=0) ? depth : near_value;
-#endif
-
-			if (depth==0)
+			for (int x=0; x<640; ++x, ++index)
 			{
-				// invalid data (too near, too far)
-				dest[index] = 0;
-			}
-			else
-			{
-				int NEAR_DIST = minmax(config.near_threshold, 50, 10000);
-				int FAR_DIST  = minmax(config.far_threshold, 50, 10000);
-				if (NEAR_DIST==FAR_DIST)
-				{
-					++FAR_DIST;
-				}
+				int depth = *src;
+				mode.mirroring ? --src : ++src;
 
-				depth = (depth-NEAR_DIST)*255/(FAR_DIST-NEAR_DIST);
-
-#if 0
-				if (y>=50 && y<=80)
+				if (depth==0)
 				{
-					if (x>=20 && x<=20+600)
-					{
-						depth = (x-20)*250/600;
-					}
-				}
-#endif
-
-				if (depth>255)
-				{
-					// too far
+					// invalid data (too near, too far)
 					dest[index] = 0;
 				}
-				else if (depth <= floor_depth[index])
+				else
 				{
-					dest[index] = 1;
-				}
-				else 
-				{
-					//depth = depth - floor_depth[index];
-					if (depth>255) depth=255;
-					if (depth<2) depth=2;
-					dest[index] = 255-depth;
+					int NEAR_DIST = minmax(config.near_threshold, 50, 10000);
+					int FAR_DIST  = minmax(config.far_threshold, 50, 10000);
+					if (NEAR_DIST==FAR_DIST)
+					{
+						++FAR_DIST;
+					}
+
+					depth = (depth-NEAR_DIST)*255/(FAR_DIST-NEAR_DIST);
+					if (depth>255)
+					{
+						// too far
+						dest[index] = 0;
+					}
+					else if (depth <= floor_depth[index])
+					{
+						dest[index] = 1;
+					}
+					else 
+					{
+						//depth = depth - floor_depth[index];
+						if (depth>255) depth=255;
+						if (depth<2) depth=2;
+						dest[index] = 255-depth;
+					}
 				}
 			}
-		}
 
-		depth_row += rowsize;
+			depth_row += rowsize;
+		}
+	}
+
+
+	if (mode.calibration)
+	{
+		//     x
+		//  A-----B          A-_g
+		//  |     |         /   \_
+		// y|     |  -->  e/      B
+		//  |     |       /  h   /f
+		//  C-----D      C------D
+		const auto& kc = config.kinect_calibration;
+		Point2i a = kc.a;
+		Point2i b = kc.b;
+		Point2i c = kc.c;
+		Point2i d = kc.d;
+		for (int y=0; y<480; ++y)
+		{
+			Point2i e(
+				a.x*(480-y)/480 + c.x*(y+1)/480,
+				a.y*(480-y)/480 + c.y*(y+1)/480);
+			Point2i f(
+				b.x*(480-y)/480 + d.x*(y+1)/480,
+				b.y*(480-y)/480 + d.y*(y+1)/480);
+			for (int x=0; x<640; ++x)
+			{
+				Point2i k(
+					e.x*(640-x)/640 + f.x*(x+1)/640,
+					e.y*(640-x)/640 + f.y*(x+1)/640);
+				final_dest[y*640 + x] = depth_raw[k.y*640 + k.x];
+			}
+		}
 	}
 }
 
@@ -656,7 +744,6 @@ void SampleViewer::drawDepthMode()
 
 	BuildDepthImage(curr_pre);
 	last_depth_image = curr_pre;
-
 
 	{
 		const uint8* src = curr_pre;
@@ -1115,7 +1202,7 @@ void commandPing(Args& arg)
 	s += " ";
 	s += miUdp::getIpAddress();
 	s += " ";
-	s += to_s(client_config.client_number);
+	s += to_s(config.client_number);
 
 	udp_send.init(arg[0].to_s(), UDP_SERVER_RECV);
 	udp_send.send(s);
@@ -1275,8 +1362,9 @@ void SampleViewer::displayCalibration()
 	// @calibration @tool
 	//glOrtho(-3.0f, +3.0f, 0.0f, 3.0f, 0.0f, 5.0f);
 	glOrtho(-1.0f, +1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
+	gl::Projection();
+	gl::LoadIdentity();
+	gl::DepthTest(true);
 	gluPerspective(60.0, 4.0/3.0, 1.0, 200.0);
 	glTranslatef(0.0f,0.0f,-5.0f);
 	gluLookAt(
@@ -1286,10 +1374,9 @@ void SampleViewer::displayCalibration()
 		eye_z + sin(eye_rad)*10,
 		0.0, 1.0, 0.0);	//視点と視線の設定
 
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-
-	glDisable(GL_TEXTURE_2D);
+	gl::ModelView();
+	gl::LoadIdentity();
+	gl::Texture(false);
 
 	static GLUquadricObj* sphere = gluNewQuadric();
 	glRGBA(200,100,100,99).glColorUpdate();
@@ -1390,319 +1477,90 @@ void SampleViewer::display()
 	{
 	}
 
-	m_depthStream.readFrame(&m_depthFrame);
-
-	if (m_depthFrame.isValid())
-		drawDepthMode();
-
 	// @display
-
-
-#if 0
-	int changedIndex = 0;
-	//うごかない?
-	m_device.setDepthColorSyncEnabled(mode.sync_enabled);
-	//END
-
-	openni::Status rc = openni::OpenNI::waitForAnyStream(m_streams, 2, &changedIndex);
-	if (rc != openni::STATUS_OK)
-	{
-		printf("Wait failed\n");
-		return;
-	}
-#endif
-
+	glClearColor(0.5, 0.75, 0.25, 1.00);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
+	gl::Texture(false);
+	gl::DepthTest(false);
 
+	glOrtho(0, 640, 480, 0, -1.0, 1.0);
 
-
-#if SHOW_RAW_NEAR_AND_FAR
-	near_value = 10000;
-	far_value = 0;
-#endif
-
-	glOrtho(0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y, 0, -1.0, 1.0);
-
-
-	switch (client_status)
-	{
-	case STATUS_CALIBRATION:  displayCalibration();   break;
-	case STATUS_BLACK:        displayBlackScreen();   break;
-	case STATUS_PICTURE:      displayPictureScreen(); break;
-	case STATUS_DEPTH:        displayDepthScreen();   break;
-	
-	case STATUS_GAMEREADY:
-	case STATUS_GAME:
-		displayDepthScreen();
-		break;
-	}
-
-
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-
-	// RED TEXT
-	{
-		static uint time_begin;
-		if (time_begin==0)
-		{
-			time_begin = timeGetTime();
-		}
-
-		static float cnt = 0;
-		static int frames = 0;
-		++frames;
-		cnt += 0.01;
-		glColor3ub(255, 255, 255);
-		glPushMatrix();
-		glLoadIdentity();
-		glRotatef(12*cnt, 0, 0, 1);
-		glScalef(1.2f, 1.2f+0.3f*cosf(cnt/5), 1.f);
-		glTranslatef(-180.f, 0.f, 0.f);
-		int time_diff = (timeGetTime() - time_begin);
-
-		freetype::print(monospace, 20, 140, "(%+.2f, %+.2f, %+.2f)(%+.2f)",
-			eye_x,
-			eye_y,
-			eye_z,
-			eye_rad);
-		freetype::print(monospace, 20, 160, "#%d Near(%dcm) Far(%dcm)",
-				client_config.client_number,
-				config.near_threshold,
-				config.far_threshold);
-
-		// @fps
-		freetype::print(monospace, 20, 180, "%d, %d, %.1ffps, %.2ffps, %d, %d",
-				frames,
-				time_diff,
-				1000.0f * frames/time_diff,
-				fps_counter.getFps(),
-				decomp_time,
-				draw_time);
-
-#if !WITHOUT_KINECT
-		freetype::print(monospace, 20, 200, "(n=%d,f=%d) raw(n=%d,f=%d) (TP:%d)",
-				vody.near_d,
-				vody.far_d,
-				vody.raw_near_d,
-				vody.raw_far_d,
-				vody.total_pixels);
-
-		freetype::print(monospace, 20, 220, "(%d,%d,%d,%d)",
-				vody.body.top,
-				vody.body.bottom,
-				vody.body.left,
-				vody.body.right);
-
-		freetype::print(monospace, 20, 240, "far(%d,%d,%d,%d)",
-				vody.far_box.top,
-				vody.far_box.bottom,
-				vody.far_box.left,
-				vody.far_box.right);
-
-		freetype::print(monospace, 20, 260, "near(%d,%d,%d,%d)",
-				vody.near_box.top,
-				vody.near_box.bottom,
-				vody.near_box.left,
-				vody.near_box.right);
-#endif//!WITHOUT_KINECT
-
-		glPopMatrix();
-	}
-
-	fps_counter.update();
-
-#if SHOW_RAW_NEAR_AND_FAR
-	{
-		// @far
-		glColor3ub(255, 255, 255);
-		glPushMatrix();
-		glLoadIdentity();
-		freetype::print(monospace, 20, 280, "near-far : %5d-%5d",
-			near_value,	
-			far_value);
-		glPopMatrix();
-	}
-#endif
-
-
-	const int VODY_RESO = 20; //pixels per 1 body-cel
-
-	const int VODY_W = 640/VODY_RESO;
-	const int VODY_H = 480/VODY_RESO;
-	uint8 virtual_body[VODY_W * VODY_H];
-
-	enum VodyCel
-	{
-		VODYCEL_NONE,
-		VODYCEL_NEAR,
-		VODYCEL_FAR,
-		VODYCEL_MEDIUM,
-	};
-
-#if !WITHOUT_KINECT
-	const uint8* const src = last_depth_image;
-	const int step = 20;
+	gl::Projection();
+	gl::LoadIdentity();
 
 	{
-		vody.body.top    = 9999;
-		vody.body.bottom = 0;
-		vody.body.left   = 9999;
-		vody.body.right  = 0;
-
-		int index = 0;
-		for (int y=step/2; y<480; y+=step)
-		{
-			for (int x=step/2; x<640; x+=step)
-			{
-				int farvalue = src[x + y*640];
-				virtual_body[index++] = (farvalue>0 ? VODYCEL_MEDIUM : VODYCEL_NONE);
-				if (farvalue>10)
-				{
-					vody.body.top    = min(vody.body.top,    y-step/2);
-					vody.body.bottom = max(vody.body.bottom, y+step/2);
-					vody.body.left   = min(vody.body.left,   x-step/2);
-					vody.body.right  = max(vody.body.right,  x+step/2);
-				}
-			}
-		}
-	}
-
-	// VODYBOXのなかのヒストグラムをとる
-	{
-		const uint8* src = last_depth_image;
-		int histgram[256] = {};
-		for (int y=vody.body.top; y<=vody.body.bottom; ++y)
-		{
-			for (int x=vody.body.left; x<=vody.body.right; ++x)
-			{
-				++histgram[src[x + y*640]];
-			}
-		}
-
-		// デプスが存在しているピクセル数
-		vody.total_pixels = 0;
-		for (int i=1; i<256; ++i)
-		{
-			vody.total_pixels += histgram[i];
-		}
-
-		// 最近最遠の閾値 (5%)
-		const int LIMIT = vody.total_pixels*5/100;
-
-		// depth:0が近い方向、depth:255は遠い方向
-		vody.far_d = 0;
-		vody.near_d = 0;
-		vody.raw_far_d = 0;
-		vody.raw_near_d = 0;
-		{
-			int pixels = 0;
-			for (int i=1; i<256; ++i)
-			{
-				if (histgram[i]!=0 && vody.raw_far_d==0)
-				{
-					vody.raw_far_d = i;
-				}
-				pixels += histgram[i];
-				if (pixels >= LIMIT)
-				{
-					vody.far_d = i;
-					break;
-				}
-			}
-		}
-
-		{
-			int pixels = 0;
-			for (int i=1; i<256; ++i)
-			{
-				const int ii = 255-i;
-				if (histgram[ii]!=0 && vody.raw_near_d==0)
-				{
-					vody.raw_near_d = ii;
-				}
-				pixels += histgram[ii];
-				if (pixels >= LIMIT)
-				{
-					vody.near_d = ii;
-					break;
-				}
-			}
-		}
+		background_image.draw(0,0,640,480);
+		clam.draw(20,20,100,100);
+		m_depthStream.readFrame(&m_depthFrame);
+		drawDepthMode();
+		glRectangle(10,10,50,50);
 	}
 
 	{
-		// near box
-		vody.near_box.set(9999,9999,0,0);
-		for (int y=vody.body.top; y<=vody.body.bottom; ++y)
-		{
-			for (int x=vody.body.left; x<=vody.body.right; ++x)
-			{
-				if (src[x + y*640] >= vody.near_d)
-				{
-					vody.near_box.top    = min(vody.near_box.top,    y-step/2);
-					vody.near_box.bottom = max(vody.near_box.bottom, y+step/2);
-					vody.near_box.left   = min(vody.near_box.left,   x-step/2);
-					vody.near_box.right  = max(vody.near_box.right,  x+step/2);
-				}
-			}
-		}
+		ModelViewObject mo;
+		glRGBA::black.glColorUpdate();
+		freetype::print(monospace, 20, 30, "hello");
 	}
-#endif//!WITHOUT_KINECT
 
 
-	if (mode.show_hit_boxes)
+	// キャリブレーション情報が無効（設定中）のみ
+	if (!mode.calibration)
 	{
-		int index = 0;
-		for (int y=0; y<VODY_H; ++y)
-		{
-			for (int x=0; x<VODY_W; ++x)
-			{
-				int value = virtual_body[index++];
-				
-				((value==VODYCEL_NONE) ? glRGBA(0,0,0,0) :
-				(value==VODYCEL_NEAR) ? glRGBA(200,0,0,128) :
-				(value==VODYCEL_FAR) ? glRGBA(0,0,200,128) :
-				(value==VODYCEL_MEDIUM) ? glRGBA(0,200,0,128)
-					: glRGBA(255,0,0,255)).glColorUpdate();
-					
-				glRectangleFill(
-					x*VODY_RESO, y*VODY_RESO,
-					VODY_RESO-1,
-					VODY_RESO-1);
-			}
-		}
+		displayCalibrationInfo();
 	}
-
-#if 0
-	if (vody.body.left!=9999)
-	{
-		glRectangleFill(
-			glRGBA(20,240,100, 64),
-			vody.body.left,
-			vody.body.top,
-			vody.body.right  - vody.body.left,
-			vody.body.bottom - vody.body.top);
-	}
-#endif
-
-	if (hit_object_stage < hit_objects.size())
-	{
-		if (hit_objects[hit_object_stage].point.in(vody.near_box))
-		{
-			++hit_object_stage;
-			printf("hit %d of %d\n", hit_object_stage, hit_objects.size());
-		}
-	}
-
 
 	// Swap the OpenGL display buffers
 	glutSwapBuffers();
 }
+
+
+void SampleViewer::displayCalibrationInfo()
+{
+	gl::Texture(false);
+	gl::DepthTest(false);
+
+//	gl::Projection();
+//	gl::ModelView();
+
+	glRGBA(0,0,0,128).glColorUpdate();
+	glBegin(GL_QUADS);
+		Point2f(0,0).glVertex2();
+		Point2f(700,0).glVertex2();
+		Point2f(640,480).glVertex2();
+		Point2f(0,480).glVertex2();
+	glEnd();
+
+	const auto& kc = config.kinect_calibration;
+
+	glRGBA::white.glColorUpdate();
+	glBegin(GL_LINE_LOOP);
+		kc.a.glVertex2();
+		kc.b.glVertex2();
+		kc.d.glVertex2();
+		kc.c.glVertex2();
+	glEnd();
+
+	if (calibration_focus!=nullptr)
+	{
+		glRGBA::white.glColorUpdate();
+		glRectangleFill(
+			calibration_focus->x-5,
+			calibration_focus->y-5,
+			10,10);
+	}
+
+	{
+		ModelViewObject m;
+		glRGBA::white.glColorUpdate();
+		freetype::print(monospace, 20,  20, "[Calibration Mode]");
+		freetype::print(monospace, 20,  40, "A = (%d,%d)", kc.a.x, kc.a.y);
+		freetype::print(monospace, 20,  60, "B = (%d,%d)", kc.b.x, kc.b.y);
+		freetype::print(monospace, 20,  80, "C = (%d,%d)", kc.c.x, kc.c.y);
+		freetype::print(monospace, 20, 100, "D = (%d,%d)", kc.d.x, kc.d.y);
+	}
+}
+
 
 
 
@@ -1780,6 +1638,23 @@ void saveFloorDepth()
 }
 
 
+void SampleViewer::onMouse(int button, int state, int x, int y)
+{
+	if (button==GLUT_LEFT_BUTTON && state==GLUT_DOWN)
+	{
+		// Convert screen position to internal position
+		x = x * 640 / global.window_w;
+		y = y * 480 / global.window_h;
+
+		// 補正なし時のみ設定できる
+		if (calibration_focus!=nullptr && !mode.calibration)
+		{
+			calibration_focus->x = x;
+			calibration_focus->y = y;
+		}
+	}
+}
+
 
 void SampleViewer::onKey(int key, int /*x*/, int /*y*/)
 {
@@ -1818,7 +1693,7 @@ void SampleViewer::onKey(int key, int /*x*/, int /*y*/)
 		m_device.close();
 		openni::OpenNI::shutdown();
 		exit(1);
-	case '1':
+	case 'w':
 		client_status = STATUS_DEPTH;
 		break;
 	case 'M':
@@ -1862,8 +1737,30 @@ void SampleViewer::onKey(int key, int /*x*/, int /*y*/)
 	case 'e':  toggle(mode.pixel_completion);    break;
 	case 'b':  toggle(mode.borderline); break;
 
+	case '1':
+		calibration_focus = &config.kinect_calibration.a;
+		break;
+	case '2':
+		calibration_focus = &config.kinect_calibration.b;
+		break;
+	case '3':
+		calibration_focus = &config.kinect_calibration.c;
+		break;
+	case '4':
+		calibration_focus = &config.kinect_calibration.d;
+		break;
+	case '5':
+		calibration_focus = nullptr;
+		break;
 	case '\t':
+		toggle(mode.calibration);
+		break;
+
+	case 't':
 		saveFloorDepth();
+		break;
+	case 13:
+		toggleFullscreen();
 		break;
 	}
 }
@@ -1871,26 +1768,68 @@ void SampleViewer::onKey(int key, int /*x*/, int /*y*/)
 openni::Status SampleViewer::initOpenGL(int argc, char **argv)
 {
 	glutInit(&argc, argv);
+	glutInitWindowPosition(
+		config.initial_window_x,
+		config.initial_window_y);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
 	glutInitWindowSize(GL_WIN_SIZE_X, GL_WIN_SIZE_Y);
-	glutCreateWindow (m_strSampleName);
-	// glutFullScreen();
-	// glutSetCursor(GLUT_CURSOR_NONE);
+
+	{
+		std::string name;
+		name += "スポーツタイムマシン クライアント";
+		name += " (";
+		name += Core::getComputerName();
+		name += ")";
+		glutCreateWindow(name.c_str());
+	}
+
+	if (config.initial_fullscreen)
+	{
+		toggleFullscreen();
+	}
+
 
 	initOpenGLHooks();
+
+	gl::ModelView();
 
 	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
-	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_TEXTURE_2D);
 
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	gl::AlphaBlending();
 
-	clam.createFromImageA("C:/Users/STM/Desktop/clam.jpg");
+	clam.createFromImageA("C:/ST/Picture/03.jpg");
 
 	return openni::STATUS_OK;
+}
+
+void SampleViewer::glutIdle()
+{
+	glutPostRedisplay();
+}
+void SampleViewer::glutDisplay()
+{
+	SampleViewer::ms_self->display();
+}
+void SampleViewer::glutKeyboard(unsigned char key, int x, int y)
+{
+	SampleViewer::ms_self->onKey(key, x, y);
+}
+void SampleViewer::glutKeyboardSpecial(int key, int x, int y)
+{
+	SampleViewer::ms_self->onKey(key+1000, x, y);
+}
+void SampleViewer::glutMouse(int button, int state, int x, int y)
+{
+	SampleViewer::ms_self->onMouse(button, state, x, y);
+}
+void SampleViewer::glutReshape(int width, int height)
+{
+	global.window_w = width;
+	global.window_h = height;
+	glViewport(0, 0, width, height);
 }
 
 void SampleViewer::initOpenGLHooks()
@@ -1899,4 +1838,6 @@ void SampleViewer::initOpenGLHooks()
 	glutDisplayFunc(glutDisplay);
 	glutIdleFunc(glutIdle);
 	glutSpecialFunc(glutKeyboardSpecial);
+	glutMouseFunc(glutMouse);
+	glutReshapeFunc(glutReshape);
 }

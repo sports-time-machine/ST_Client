@@ -69,7 +69,7 @@
     <IntDir>$(ProjectDir)..\Bin\Intermediate\$(Platform)-$(Configuration)\$(ProjectName)\</IntDir>
     <IncludePath>$(WindowsSdkDir)\include;$(VCInstallDir)include;C:\Users\STM\Dev\Include</IncludePath>
     <LibraryPath>$(LibraryPath);$(VSInstallDir);$(VSInstallDir)lib;C:\Users\STM\Dev\Lib</LibraryPath>
-    <TargetName>$(ProjectName)_x32</TargetName>
+    <TargetName>$(ProjectName)_x32_d</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(ProjectDir)..\Bin\</OutDir>

@@ -2,7 +2,7 @@
 #include <OpenNI.h>
 #include "miCore.h"
 
-#define WITHOUT_KINECT 1
+#define WITHOUT_KINECT 0
 
 
 #define MAX_DEPTH 10000
@@ -17,7 +17,7 @@ enum DisplayModes
 class SampleViewer
 {
 public:
-	SampleViewer(const char* strSampleName, openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color);
+	SampleViewer(openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color);
 	virtual ~SampleViewer();
 
 	virtual openni::Status init(int argc, char **argv);
@@ -28,6 +28,7 @@ protected:
 	virtual void displayPostDraw(){};	// Overload to draw over the screen image
 
 	virtual void onKey(int key, int x, int y);
+	virtual void onMouse(int button, int state, int x, int y);
 
 	virtual openni::Status initOpenGL(int argc, char **argv);
 	void initOpenGLHooks();
@@ -62,9 +63,10 @@ private:
 	static void glutDisplay();
 	static void glutKeyboard(unsigned char key, int x, int y);
 	static void glutKeyboardSpecial(int key, int x, int y);
+	static void glutMouse(int button, int state, int x, int y);
+	static void glutReshape(int width, int height);
 
 	float			m_pDepthHist[MAX_DEPTH];
-	char			m_strSampleName[ONI_MAX_STR];
 	unsigned int		m_nTexMapX;
 	unsigned int		m_nTexMapY;
 	DisplayModes		m_eViewState;
@@ -77,4 +79,7 @@ private:
 
 	int			m_width;
 	int			m_height;
+
+
+	void displayCalibrationInfo();
 };
