@@ -12,6 +12,11 @@
 #include "PSL/PSL.h"
 #pragma warning(pop)
 
+#ifdef _M_X64
+#pragma comment(lib,"OpenNI2_x64.lib")
+#else
+#pragma comment(lib,"OpenNI2_x32.lib")
+#endif
 
 
 Config::Config()
@@ -202,20 +207,19 @@ int main(int argc, char** argv)
 #endif//WITHOUT_KINECT
 
 #if !WITHOUT_KINECT
-	SampleViewer sampleViewer(device, depth, color);
+	StClient st_client(device, depth, color);
 #else
 	openni::Device device;
 	openni::VideoStream depth, color;
 	SampleViewer sampleViewer("ST Client (wok)", device, depth, color);
 #endif//WITHOUT_KINECT
 
-	rc = sampleViewer.init(argc, argv);
-	if (rc != openni::STATUS_OK)
+	if (st_client.init(argc, argv)==false)
 	{
 #if !WITHOUT_KINECT
 		openni::OpenNI::shutdown();
 #endif//WITHOUT_KINECT
 		return 3;
 	}
-	sampleViewer.run();
+	st_client.run();
 }

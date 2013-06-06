@@ -2,23 +2,11 @@
 	#define _CRT_SECURE_NO_DEPRECATE 1
 #endif
 
-#include "miCore.h"
 #include "miImage.h"
 #include "FreeType.h"
 #include "gl_funcs.h"
 #include "file_io.h"
-#include <gl/glut.h>
-
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_GLYPH_H
-
-#ifdef _M_X64
-#pragma comment(lib,"OpenNI2_x64.lib")
-#else
-#pragma comment(lib,"OpenNI2_x32.lib")
-#endif
-
+#include <GL/glut.h>
 #include "miUdpReceiver.h"
 #include "Config.h"
 #include <map>
@@ -34,97 +22,13 @@ struct Global
 
 extern void load_config();
 
-static bool is_fullscreen = false;
-
-void toggleFullscreen()
-{
-	if (is_fullscreen)
-	{
-		glutReshapeWindow(640,480);
-	}
-	else
-	{
-		glutFullScreen();
-	}
-	is_fullscreen = !is_fullscreen;
-}
-
-
-class gl
-{
-public:
-	static void ModelView();
-	static void Projection();
-	static void LoadIdentity();
-
-	static void DepthTest(bool state)        { glCapState(GL_DEPTH_TEST, state); }
-	static void Texture(bool state)          { glCapState(GL_TEXTURE_2D, state); }
-
-	static void AlphaBlending();
-	static void glCapState(int cap, bool state);
-};
-
-void gl::glCapState(int cap, bool state)
-{
-	(state ? glEnable : glDisable)(cap);
-}
-
-void gl::AlphaBlending()
-{
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-}
-
-void gl::Projection()
-{
-	glMatrixMode(GL_PROJECTION);
-}
-
-void gl::ModelView()
-{
-	glMatrixMode(GL_MODELVIEW);
-}
-
-void gl::LoadIdentity()
-{
-	glLoadIdentity();
-}
-
-class ModelViewObject
-{
-public:
-	ModelViewObject()
-	{
-		gl::ModelView();
-		glPushMatrix();
-		gl::LoadIdentity();
-	}
-	~ModelViewObject()
-	{
-		glPopMatrix();
-		gl::Projection();
-	}
-};
-
-
-
-
-
-
-
-
 
 inline int minmax(int x, int min, int max)
 {
 	return (x<min) ? min : (x>max) ? max : x;
 }
 
-
-
 Point2i* calibration_focus = nullptr;
-
-
-
 
 
 struct Box
@@ -176,11 +80,8 @@ struct VodyInfo
 
 VodyInfo vody;
 
-
-
 // WINNT.H
 #undef STATUS_TIMEOUT
-
 
 enum ClientStatus
 {
@@ -207,18 +108,9 @@ enum ClientStatus
 
 ClientStatus client_status = STATUS_DEPTH;
 
-
-
-
-
-
-
-
-
 miImage pic;
 miImage clam;
 miImage background_image;
-
 
 
 static inline uint8 uint8crop(int x)
@@ -288,7 +180,6 @@ MovieMode movie_mode = MOVIE_READY;
 #include "ST_Client.h"
 
 #include "XnCppWrapper.h"
-#include <GL/glut.h>
 #include "OniSampleUtilities.h"
 
 const int GL_WIN_SIZE_X = 640;
@@ -335,58 +226,43 @@ void toggle(bool& ref)
 	puts("-----------------------------");
 }
 
-
-
 //#define DEFAULT_DISPLAY_MODE	DISPLAY_MODE_OVERLAY
 #define DEFAULT_DISPLAY_MODE	DISPLAY_MODE_DEPTH
 
 #define MIN_NUM_CHUNKS(data_size, chunk_size)	((((data_size)-1) / (chunk_size) + 1))
 #define MIN_CHUNKS_SIZE(data_size, chunk_size)	(MIN_NUM_CHUNKS(data_size, chunk_size) * (chunk_size))
 
-SampleViewer* SampleViewer::ms_self = NULL;
-
-
-
+StClient* StClient::ms_self = nullptr;
 
 typedef std::vector<openni::RGB888Pixel> RgbScreen;
 typedef std::map<int,RgbScreen> RgbScreenMovie;
 
-
-
-
-
-
 size_t movie_index = 0;
 
 openni::RGB888Pixel* moviex = nullptr;
-
 
 miUdpReceiver udp_recv;
 miUdpSender   udp_send;
 
 const int UDP_SERVER_RECV = 38702;
 const int UDP_CLIENT_RECV = 38708;
-const int UDP_CLIENT_SEND = 38709;
-
 
 
 // @constructor, @init
-SampleViewer::SampleViewer(openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color) :
+StClient::StClient(openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color) :
 	m_device(device), m_depthStream(depth), m_colorStream(color), m_streams(NULL),
 	m_eViewState(DEFAULT_DISPLAY_MODE),
 	video_ram(nullptr),
 	video_ram2(nullptr)
 {
-	udp_recv.init(UDP_CLIENT_RECV);
 	ms_self = this;
+
+	udp_recv.init(UDP_CLIENT_RECV);
 	printf("host: %s\n", Core::getComputerName().c_str());
 	printf("ip: %s\n", miUdp::getIpAddress().c_str());
 
-
 	mode.mirroring = true;
 	mode.calibration = true;
-
-
 
 	{
 		HitObject ho;
@@ -409,24 +285,23 @@ SampleViewer::SampleViewer(openni::Device& device, openni::VideoStream& depth, o
 		hit_objects.push_back(ho);
 	}
 }
-SampleViewer::~SampleViewer()
+
+StClient::~StClient()
 {
 	delete[] video_ram;
 	delete[] video_ram2;
 
-	ms_self = NULL;
+	ms_self = nullptr;
 
-	if (m_streams != NULL)
+	if (m_streams!=nullptr)
 	{
-		delete []m_streams;
+		delete[] m_streams;
 	}
 }
 
-freetype::font_data monospace, serif;
+freetype::font_data monospace;
 
-
-
-openni::Status SampleViewer::init(int argc, char **argv)
+bool StClient::init(int argc, char **argv)
 {
 #if !WITHOUT_KINECT
 	openni::VideoMode depthVideoMode;
@@ -437,13 +312,16 @@ openni::Status SampleViewer::init(int argc, char **argv)
 		depthVideoMode = m_depthStream.getVideoMode();
 		colorVideoMode = m_colorStream.getVideoMode();
 
-		int depthWidth = depthVideoMode.getResolutionX();
-		int depthHeight = depthVideoMode.getResolutionY();
-		int colorWidth = colorVideoMode.getResolutionX();
-		int colorHeight = colorVideoMode.getResolutionY();
+		const int depthWidth  = depthVideoMode.getResolutionX();
+		const int depthHeight = depthVideoMode.getResolutionY();
+		const int colorWidth  = colorVideoMode.getResolutionX();
+		const int colorHeight = colorVideoMode.getResolutionY();
+		fprintf(stderr,
+			"Kinect resolution: depth(%dx%d), color(%dx%d)\n",
+			depthWidth, depthHeight,
+			colorWidth, colorHeight);
 
-		if (depthWidth == colorWidth &&
-			depthHeight == colorHeight)
+		if (depthWidth==colorWidth && depthHeight==colorHeight)
 		{
 			m_width = depthWidth;
 			m_height = depthHeight;
@@ -453,19 +331,19 @@ openni::Status SampleViewer::init(int argc, char **argv)
 			printf("Error - expect color and depth to be in same resolution: D: %dx%d, C: %dx%d\n",
 				depthWidth, depthHeight,
 				colorWidth, colorHeight);
-			return openni::STATUS_ERROR;
+			return false;
 		}
 	}
 	else if (m_depthStream.isValid())
 	{
 		depthVideoMode = m_depthStream.getVideoMode();
-		m_width = depthVideoMode.getResolutionX();
+		m_width  = depthVideoMode.getResolutionX();
 		m_height = depthVideoMode.getResolutionY();
 	}
 	else if (m_colorStream.isValid())
 	{
 		colorVideoMode = m_colorStream.getVideoMode();
-		m_width = colorVideoMode.getResolutionX();
+		m_width  = colorVideoMode.getResolutionX();
 		m_height = colorVideoMode.getResolutionY();
 	}
 	else
@@ -511,14 +389,13 @@ openni::Status SampleViewer::init(int argc, char **argv)
 	// @init @image
 	background_image.createFromImageA("C:/ST/Picture/Pretty-Blue-Heart-Design.jpg");
 
-	return openni::STATUS_OK;
+	return true;
 }
 
-openni::Status SampleViewer::run()	//Does not return
+bool StClient::run()	//Does not return
 {
 	glutMainLoop();
-
-	return openni::STATUS_OK;
+	return true;
 }
 
 void buildBitmap(
@@ -582,7 +459,7 @@ void drawBitmapLuminance(
 
 
 
-void SampleViewer::drawImageMode()
+void StClient::drawImageMode()
 {
 	using namespace openni;
 
@@ -627,7 +504,7 @@ uint8 floor_depth[640*480];
 uint8 depth_cook[640*480];
 int floor_depth_count = 0;
 
-void SampleViewer::BuildDepthImage(uint8* const final_dest)
+void StClient::BuildDepthImage(uint8* const final_dest)
 {
 	using namespace openni;
 
@@ -723,7 +600,7 @@ static MovieData curr_movie;
 
 
 
-void SampleViewer::drawDepthMode()
+void StClient::drawDepthMode()
 {
 	using namespace openni;
 
@@ -945,18 +822,18 @@ void SampleViewer::drawDepthMode()
 		(float)m_height / m_nTexMapY);
 }
 
-void SampleViewer::displayDepthScreen()
+void StClient::displayDepthScreen()
 {
 	static float r;
 	r += 0.7;
 	clam.drawRotated(170,70, 80,150, r, 80);
 }
 
-void SampleViewer::displayBlackScreen()
+void StClient::displayBlackScreen()
 {
 }
 
-void SampleViewer::displayPictureScreen()
+void StClient::displayPictureScreen()
 {
 	if (pic.enabled())
 	{
@@ -1265,7 +1142,7 @@ void commandHitBoxes(Args& arg)
 }
 
 
-bool SampleViewer::doCommand()
+bool StClient::doCommand()
 {
 	std::string rawstring;
 	if (udp_recv.receive(rawstring)<=0)
@@ -1283,7 +1160,7 @@ bool SampleViewer::doCommand()
 	return true;
 }
 
-bool SampleViewer::doCommand2(const std::string& line)
+bool StClient::doCommand2(const std::string& line)
 {
 	std::string cmd;
 	std::vector<VariantType> arg;
@@ -1357,7 +1234,7 @@ float
 	eye_z=+3.68;
 
 
-void SampleViewer::displayCalibration()
+void StClient::displayCalibration()
 {
 	// @calibration @tool
 	//glOrtho(-3.0f, +3.0f, 0.0f, 3.0f, 0.0f, 5.0f);
@@ -1471,7 +1348,7 @@ void SampleViewer::displayCalibration()
 
 
 
-void SampleViewer::display()
+void StClient::display()
 {
 	while (doCommand())
 	{
@@ -1494,7 +1371,7 @@ void SampleViewer::display()
 		clam.draw(20,20,100,100);
 		m_depthStream.readFrame(&m_depthFrame);
 		drawDepthMode();
-		glRectangle(10,10,50,50);
+		gl::Rectangle(10,10,50,50);
 	}
 
 	{
@@ -1515,7 +1392,7 @@ void SampleViewer::display()
 }
 
 
-void SampleViewer::displayCalibrationInfo()
+void StClient::displayCalibrationInfo()
 {
 	gl::Texture(false);
 	gl::DepthTest(false);
@@ -1544,7 +1421,7 @@ void SampleViewer::displayCalibrationInfo()
 	if (calibration_focus!=nullptr)
 	{
 		glRGBA::white.glColorUpdate();
-		glRectangleFill(
+		gl::RectangleFill(
 			calibration_focus->x-5,
 			calibration_focus->y-5,
 			10,10);
@@ -1638,7 +1515,7 @@ void saveFloorDepth()
 }
 
 
-void SampleViewer::onMouse(int button, int state, int x, int y)
+void StClient::onMouse(int button, int state, int x, int y)
 {
 	if (button==GLUT_LEFT_BUTTON && state==GLUT_DOWN)
 	{
@@ -1656,7 +1533,7 @@ void SampleViewer::onMouse(int button, int state, int x, int y)
 }
 
 
-void SampleViewer::onKey(int key, int /*x*/, int /*y*/)
+void StClient::onKey(int key, int /*x*/, int /*y*/)
 {
 	switch (key)
 	{
@@ -1760,12 +1637,12 @@ void SampleViewer::onKey(int key, int /*x*/, int /*y*/)
 		saveFloorDepth();
 		break;
 	case 13:
-		toggleFullscreen();
+		gl::ToggleFullScreen();
 		break;
 	}
 }
 
-openni::Status SampleViewer::initOpenGL(int argc, char **argv)
+openni::Status StClient::initOpenGL(int argc, char **argv)
 {
 	glutInit(&argc, argv);
 	glutInitWindowPosition(
@@ -1785,7 +1662,7 @@ openni::Status SampleViewer::initOpenGL(int argc, char **argv)
 
 	if (config.initial_fullscreen)
 	{
-		toggleFullscreen();
+		gl::ToggleFullScreen();
 	}
 
 
@@ -1805,34 +1682,34 @@ openni::Status SampleViewer::initOpenGL(int argc, char **argv)
 	return openni::STATUS_OK;
 }
 
-void SampleViewer::glutIdle()
+void StClient::glutIdle()
 {
 	glutPostRedisplay();
 }
-void SampleViewer::glutDisplay()
+void StClient::glutDisplay()
 {
-	SampleViewer::ms_self->display();
+	StClient::ms_self->display();
 }
-void SampleViewer::glutKeyboard(unsigned char key, int x, int y)
+void StClient::glutKeyboard(unsigned char key, int x, int y)
 {
-	SampleViewer::ms_self->onKey(key, x, y);
+	StClient::ms_self->onKey(key, x, y);
 }
-void SampleViewer::glutKeyboardSpecial(int key, int x, int y)
+void StClient::glutKeyboardSpecial(int key, int x, int y)
 {
-	SampleViewer::ms_self->onKey(key+1000, x, y);
+	StClient::ms_self->onKey(key+1000, x, y);
 }
-void SampleViewer::glutMouse(int button, int state, int x, int y)
+void StClient::glutMouse(int button, int state, int x, int y)
 {
-	SampleViewer::ms_self->onMouse(button, state, x, y);
+	StClient::ms_self->onMouse(button, state, x, y);
 }
-void SampleViewer::glutReshape(int width, int height)
+void StClient::glutReshape(int width, int height)
 {
 	global.window_w = width;
 	global.window_h = height;
 	glViewport(0, 0, width, height);
 }
 
-void SampleViewer::initOpenGLHooks()
+void StClient::initOpenGLHooks()
 {
 	glutKeyboardFunc(glutKeyboard);
 	glutDisplayFunc(glutDisplay);

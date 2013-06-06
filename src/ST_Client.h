@@ -14,14 +14,14 @@ enum DisplayModes
 	DISPLAY_MODE_IMAGE
 };
 
-class SampleViewer
+class StClient
 {
 public:
-	SampleViewer(openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color);
-	virtual ~SampleViewer();
+	StClient(openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color);
+	virtual ~StClient();
 
-	virtual openni::Status init(int argc, char **argv);
-	virtual openni::Status run();	//Does not return
+	virtual bool init(int argc, char **argv);
+	virtual bool run();	//Does not return
 
 protected:
 	virtual void display();
@@ -51,14 +51,14 @@ private:
 	bool doCommand2(const std::string& line);
 
 private:
-	SampleViewer(const SampleViewer&);
-	SampleViewer& operator=(SampleViewer&);
+	StClient(const StClient&);
+	StClient& operator=(StClient&);
 
 	void drawImageMode();
 	void drawDepthMode();
 	void BuildDepthImage(uint8* dest);
 
-	static SampleViewer* ms_self;
+	static StClient* ms_self;
 	static void glutIdle();
 	static void glutDisplay();
 	static void glutKeyboard(unsigned char key, int x, int y);

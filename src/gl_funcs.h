@@ -61,8 +61,52 @@ struct Point2f
 
 
 
+class gl
+{
+public:
+	// glMatrixMode and Identity
+	static void ModelView();
+	static void Projection();
+	static void LoadIdentity();
 
+	// CapState
+	static void DepthTest(bool state)        { CapState(GL_DEPTH_TEST, state); }
+	static void Texture(bool state)          { CapState(GL_TEXTURE_2D, state); }
+	static void CapState(int cap, bool state);
 
-extern void glRectangle(int x, int y, int w, int h);
-extern void glRectangleFill(int x, int y, int w, int h);
-extern void glLine3D(vec p1, vec p2);
+	static void AlphaBlending();
+
+	// Full Screen
+	static void ToggleFullScreen();
+	static bool IsFullScreen();
+
+	// Drawing functions
+	static void Rectangle(int x, int y, int w, int h);
+	static void RectangleFill(int x, int y, int w, int h);
+	static void Line3D(vec p1, vec p2);
+
+private:
+	struct Data
+	{
+		bool fullscreen;
+	};
+
+private:
+	static Data& data() { static Data d; return d; }
+};
+
+class ModelViewObject
+{
+public:
+	ModelViewObject()
+	{
+		gl::ModelView();
+		glPushMatrix();
+		gl::LoadIdentity();
+	}
+	~ModelViewObject()
+	{
+		glPopMatrix();
+		gl::Projection();
+	}
+};

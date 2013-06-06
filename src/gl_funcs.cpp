@@ -1,4 +1,5 @@
 #include "gl_funcs.h"
+#include <gl/glut.h>
 
 glRGBA
 	glRGBA::white(255,255,255),
@@ -26,7 +27,7 @@ void Point2f::glVertex2() const
 }
 
 
-void glRectangle(int x, int y, int w, int h)
+void gl::Rectangle(int x, int y, int w, int h)
 {
 	glDisable(GL_TEXTURE_2D);
 
@@ -42,7 +43,7 @@ void glRectangle(int x, int y, int w, int h)
 	glEnd();
 }
 
-void glRectangleFill(int x, int y, int w, int h)
+void gl::RectangleFill(int x, int y, int w, int h)
 {
 	glDisable(GL_TEXTURE_2D);
 
@@ -58,7 +59,7 @@ void glRectangleFill(int x, int y, int w, int h)
 	glEnd();
 }
 
-void glLine3D(vec p1, vec p2)
+void gl::Line3D(vec p1, vec p2)
 {
 	glDisable(GL_TEXTURE_2D);
 
@@ -66,4 +67,44 @@ void glLine3D(vec p1, vec p2)
 	p1.glVertexUpdate();
 	p2.glVertexUpdate();
 	glEnd();
+}
+
+void gl::CapState(int cap, bool state)
+{
+	(state ? glEnable : glDisable)(cap);
+}
+
+void gl::AlphaBlending()
+{
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
+void gl::Projection()
+{
+	glMatrixMode(GL_PROJECTION);
+}
+
+void gl::ModelView()
+{
+	glMatrixMode(GL_MODELVIEW);
+}
+
+void gl::LoadIdentity()
+{
+	glLoadIdentity();
+}
+
+void gl::ToggleFullScreen()
+{
+	bool& is_fullscreen = data().fullscreen;
+	if (is_fullscreen)
+	{
+		glutReshapeWindow(640,480);
+	}
+	else
+	{
+		glutFullScreen();
+	}
+	is_fullscreen = !is_fullscreen;
 }
