@@ -173,6 +173,7 @@ void miImage::draw(int x, int y, int w, int h, int alpha)
 	glTexCoord2f(u, v); glVertex2f(x2, y2);
 	glTexCoord2f(0, v); glVertex2f(x1, y2);
 	glEnd();
+	glDisable(GL_TEXTURE_2D);
 }
 
 void miImage::drawRotated(int x, int y, int w, int h, float rot, int alpha)

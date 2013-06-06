@@ -30,8 +30,7 @@ protected:
 	virtual void onKey(int key, int x, int y);
 	virtual void onMouse(int button, int state, int x, int y);
 
-	virtual openni::Status initOpenGL(int argc, char **argv);
-	void initOpenGLHooks();
+	bool initOpenGL(int argc, char **argv);
 
 	openni::VideoFrameRef m_depthFrame;
 	openni::VideoFrameRef m_colorFrame;
@@ -45,7 +44,6 @@ private:
 	void displayDepthScreen();
 	void displayBlackScreen();
 	void displayPictureScreen();
-	void displayCalibration();
 
 	bool doCommand();
 	bool doCommand2(const std::string& line);

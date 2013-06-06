@@ -85,9 +85,6 @@ VodyInfo vody;
 
 enum ClientStatus
 {
-	// Kinect Calibration
-	STATUS_CALIBRATION,
-
 	// Idle
 	STATUS_IDLE,
 
@@ -109,7 +106,6 @@ enum ClientStatus
 ClientStatus client_status = STATUS_DEPTH;
 
 miImage pic;
-miImage clam;
 miImage background_image;
 
 
@@ -369,20 +365,19 @@ bool StClient::init(int argc, char **argv)
 	video_ram2 = new RGBA_raw[m_nTexMapX * m_nTexMapY];
 
 
-	if (initOpenGL(argc, argv) != openni::STATUS_OK)
+	if (!initOpenGL(argc, argv))
 	{
-		return openni::STATUS_ERROR;
+		return false;
 	}
 
 	glGenTextures(1, &vram_tex);
 	glGenTextures(1, &vram_tex2);
 
-	// Init routine @init@
+	// Init routine @init
 	{
 		puts("Init font...");
 		const std::string font_folder = "C:/Windows/Fonts/";
 		monospace.init(font_folder + "Courbd.ttf", 12);
-	//	serif    .init(font_folder + "verdana.ttf", 16);
 		puts("Init font...done!");
 	}
 
@@ -824,9 +819,6 @@ void StClient::drawDepthMode()
 
 void StClient::displayDepthScreen()
 {
-	static float r;
-	r += 0.7;
-	clam.drawRotated(170,70, 80,150, r, 80);
 }
 
 void StClient::displayBlackScreen()
@@ -1026,7 +1018,6 @@ void sendStatus()
 	s += Core::getComputerName();
 	s += " ";
 	s += (
-		(client_status==STATUS_CALIBRATION) ? "CALIBRATION" :
 		(client_status==STATUS_BLACK) ? "BLACK" :
 		(client_status==STATUS_PICTURE) ? "PICTURE" :
 		(client_status==STATUS_IDLE) ? "IDLE" :
@@ -1224,130 +1215,69 @@ bool StClient::doCommand2(const std::string& line)
 }
 
 
-size_t hit_object_stage = 0;
-
-float eye_rad = -0.43f;
-
-float
-	eye_x=-4.69,
-	eye_y=+1.65,
-	eye_z=+3.68;
-
-
-void StClient::displayCalibration()
+void display2()
 {
-	// @calibration @tool
-	//glOrtho(-3.0f, +3.0f, 0.0f, 3.0f, 0.0f, 5.0f);
-	glOrtho(-1.0f, +1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
-	gl::Projection();
-	gl::LoadIdentity();
-	gl::DepthTest(true);
-	gluPerspective(60.0, 4.0/3.0, 1.0, 200.0);
-	glTranslatef(0.0f,0.0f,-5.0f);
-	gluLookAt(
-		eye_x, eye_y, eye_z,
-		eye_x + cos(eye_rad)*10,
-		0.0,
-		eye_z + sin(eye_rad)*10,
-		0.0, 1.0, 0.0);	//視点と視線の設定
-
-	gl::ModelView();
-	gl::LoadIdentity();
-	gl::Texture(false);
-
-	static GLUquadricObj* sphere = gluNewQuadric();
-	glRGBA(200,100,100,99).glColorUpdate();
-	gluSphere(sphere, 1.0, 10, 10);
-
-	vec cube[]={
-		vec(-2,0,0),
-		vec( 2,0,0),
-		vec( 2,0,4),
-		vec(-2,0,4),
-		vec(-2,3,0),
-		vec( 2,3,0),
-		vec( 2,3,4),
-		vec(-2,3,4),
-	};
-
-	glRGBA(200,100,100).glColorUpdate();
-	glBegin(GL_QUADS);
-		cube[0].glVertexUpdate();
-		cube[1].glVertexUpdate();
-		cube[2].glVertexUpdate();
-		cube[3].glVertexUpdate();
-	glEnd();
-
-	for (int i=0; i<2; ++i)
+	static uint time_begin;
+	if (time_begin==0)
 	{
-		const int mod = (i==0) ? GL_QUADS : GL_LINE_LOOP;
-		((i==0)
-			? glRGBA(100,120,50,53)
-			: glRGBA(255,255,255)).glColorUpdate();
-		glBegin(mod);
-			cube[1].glVertexUpdate();
-			cube[2].glVertexUpdate();
-			cube[6].glVertexUpdate();
-			cube[5].glVertexUpdate();
-		glEnd();
-		glBegin(mod);
-			cube[0].glVertexUpdate();
-			cube[3].glVertexUpdate();
-			cube[7].glVertexUpdate();
-			cube[4].glVertexUpdate();
-		glEnd();
-		glBegin(mod);
-			cube[0].glVertexUpdate();
-			cube[1].glVertexUpdate();
-			cube[5].glVertexUpdate();
-			cube[4].glVertexUpdate();
-		glEnd();
-		glBegin(mod);
-			cube[2].glVertexUpdate();
-			cube[3].glVertexUpdate();
-			cube[7].glVertexUpdate();
-			cube[6].glVertexUpdate();
-		glEnd();
+		time_begin = timeGetTime();
 	}
 
-	glRGBA(255,255,255).glColorUpdate();
-	glBegin(GL_LINE_LOOP);
-		cube[4].glVertexUpdate();
-		cube[5].glVertexUpdate();
-		cube[6].glVertexUpdate();
-		cube[7].glVertexUpdate();
-	glEnd();
+	static float cnt = 0;
+	static int frames = 0;
+	++frames;
+	cnt += 0.01;
+	glRGBA(0,0,0).glColorUpdate();
+	glPushMatrix();
+	glLoadIdentity();
+	int time_diff = (timeGetTime() - time_begin);
 
-//	glRGBA(25,55,255).glColorUpdate();
-//	glRectangle(10, 0, 50, 50);
+	freetype::print(monospace, 20, 160, "#%d Near(%dcm) Far(%dcm)",
+			config.client_number,
+			config.near_threshold,
+			config.far_threshold);
 
-	glRGBA(64,64,80,128).glColorUpdate();
-	glBegin(GL_QUADS);
-		glVertex3f(-50, 0, -50);
-		glVertex3f( 50, 0, -50);
-		glVertex3f( 50, 0,  50);
-		glVertex3f(-50, 0,  50);
-	glEnd();
+	// @fps
+	freetype::print(monospace, 20, 180, "%d, %d, %.1ffps, %.2ffps, %d, %d",
+			frames,
+			time_diff,
+			1000.0f * frames/time_diff,
+			fps_counter.getFps(),
+			decomp_time,
+			draw_time);
 
-	glBegin(GL_LINES);
-	for (int i=-50; i<=50; i++)
-	{
-		((i==0)
-			? glRGBA(220,150,50)
-			: glRGBA(60,60,60)).glColorUpdate();
-		vec(-50.0f, 0, i).glVertexUpdate();
-		vec(+50.0f, 0, i).glVertexUpdate();
-		((i==0)
-			? glRGBA(220,150,50)
-			: glRGBA(60,60,60)).glColorUpdate();
-		vec(i, 0, -50.0f).glVertexUpdate();
-		vec(i, 0, +50.0f).glVertexUpdate();
-	}
-	glEnd();
+#if !WITHOUT_KINECT
+	freetype::print(monospace, 20, 200, "(n=%d,f=%d) raw(n=%d,f=%d) (TP:%d)",
+			vody.near_d,
+			vody.far_d,
+			vody.raw_near_d,
+			vody.raw_far_d,
+			vody.total_pixels);
+
+	freetype::print(monospace, 20, 220, "(%d,%d,%d,%d)",
+			vody.body.top,
+			vody.body.bottom,
+			vody.body.left,
+			vody.body.right);
+
+	freetype::print(monospace, 20, 240, "far(%d,%d,%d,%d)",
+			vody.far_box.top,
+			vody.far_box.bottom,
+			vody.far_box.left,
+			vody.far_box.right);
+
+	freetype::print(monospace, 20, 260, "near(%d,%d,%d,%d)",
+			vody.near_box.top,
+			vody.near_box.bottom,
+			vody.near_box.left,
+			vody.near_box.right);
+#endif//!WITHOUT_KINECT
+
+	glPopMatrix();
 }
 
 
-
+size_t hit_object_stage = 0;
 void StClient::display()
 {
 	while (doCommand())
@@ -1355,23 +1285,39 @@ void StClient::display()
 	}
 
 	// @display
-	glClearColor(0.5, 0.75, 0.25, 1.00);
+	glClearColor(0.25, 0.50, 0.15, 1.00);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 	gl::Texture(false);
 	gl::DepthTest(false);
-
 	glOrtho(0, 640, 480, 0, -1.0, 1.0);
 
 	gl::Projection();
 	gl::LoadIdentity();
 
+	switch (client_status)
 	{
-		background_image.draw(0,0,640,480);
-		clam.draw(20,20,100,100);
-		m_depthStream.readFrame(&m_depthFrame);
-		drawDepthMode();
-		gl::Rectangle(10,10,50,50);
+	case STATUS_BLACK:        displayBlackScreen();   break;
+	case STATUS_PICTURE:      displayPictureScreen(); break;
+	case STATUS_DEPTH:
+		displayDepthScreen();
+		break;
+	
+	case STATUS_GAMEREADY:
+	case STATUS_GAME:
+		displayDepthScreen();
+		break;
+	}
+
+	m_depthStream.readFrame(&m_depthFrame);
+	drawDepthMode();
+	background_image.draw(0,0,640,480, 64);
+
+	glRGBA::white.glColorUpdate();
+	gl::Rectangle(10,10,50,50);
+
+	{
+		ModelViewObject mo;
+		display2();
 	}
 
 	{
@@ -1380,14 +1326,11 @@ void StClient::display()
 		freetype::print(monospace, 20, 30, "hello");
 	}
 
-
-	// キャリブレーション情報が無効（設定中）のみ
 	if (!mode.calibration)
 	{
 		displayCalibrationInfo();
 	}
 
-	// Swap the OpenGL display buffers
 	glutSwapBuffers();
 }
 
@@ -1396,9 +1339,6 @@ void StClient::displayCalibrationInfo()
 {
 	gl::Texture(false);
 	gl::DepthTest(false);
-
-//	gl::Projection();
-//	gl::ModelView();
 
 	glRGBA(0,0,0,128).glColorUpdate();
 	glBegin(GL_QUADS);
@@ -1540,27 +1480,6 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	default:
 		printf("[key %d]\n", key);
 		break;
-	case 1100://left
-		eye_rad -= 0.01;
-		break;
-	case 1102://right
-		eye_rad += 0.01;
-		break;
-	case 1101://up
-		eye_x += cos(eye_rad)*0.2;
-		eye_z += sin(eye_rad)*0.2;
-		break;
-	case 1103://down
-		eye_x -= cos(eye_rad)*0.2;
-		eye_z -= sin(eye_rad)*0.2;
-		break;
-	case 1104://pageup
-		eye_y += 0.5;
-		break;
-	case 1105://pagedown
-		eye_y -= 0.5;
-		break;
-
 
 	case 27:
 		m_depthStream.stop();
@@ -1642,7 +1561,7 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	}
 }
 
-openni::Status StClient::initOpenGL(int argc, char **argv)
+bool StClient::initOpenGL(int argc, char **argv)
 {
 	glutInit(&argc, argv);
 	glutInitWindowPosition(
@@ -1666,20 +1585,21 @@ openni::Status StClient::initOpenGL(int argc, char **argv)
 	}
 
 
-	initOpenGLHooks();
+	glutKeyboardFunc(glutKeyboard);
+	glutDisplayFunc(glutDisplay);
+	glutIdleFunc(glutIdle);
+	glutSpecialFunc(glutKeyboardSpecial);
+	glutMouseFunc(glutMouse);
+	glutReshapeFunc(glutReshape);
+	glEnable(GL_TEXTURE_2D);
 
 	gl::ModelView();
 
 	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
-	glEnable(GL_TEXTURE_2D);
-
 	gl::AlphaBlending();
-
-	clam.createFromImageA("C:/ST/Picture/03.jpg");
-
-	return openni::STATUS_OK;
+	return true;
 }
 
 void StClient::glutIdle()
@@ -1707,14 +1627,4 @@ void StClient::glutReshape(int width, int height)
 	global.window_w = width;
 	global.window_h = height;
 	glViewport(0, 0, width, height);
-}
-
-void StClient::initOpenGLHooks()
-{
-	glutKeyboardFunc(glutKeyboard);
-	glutDisplayFunc(glutDisplay);
-	glutIdleFunc(glutIdle);
-	glutSpecialFunc(glutKeyboardSpecial);
-	glutMouseFunc(glutMouse);
-	glutReshapeFunc(glutReshape);
 }
