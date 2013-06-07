@@ -177,6 +177,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\depth.cpp" />
     <ClCompile Include="src\file_io.cpp" />
     <ClCompile Include="src\FreeType.cpp" />
     <ClCompile Include="src\gl_funcs.cpp" />
@@ -190,6 +191,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Config.h" />
+    <ClInclude Include="src\depth.h" />
     <ClInclude Include="src\file_io.h" />
     <ClInclude Include="src\FreeType.h" />
     <ClInclude Include="src\gl_funcs.h" />

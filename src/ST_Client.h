@@ -8,6 +8,22 @@
 #define MIN_NUM_CHUNKS(data_size, chunk_size)	((((data_size)-1) / (chunk_size) + 1))
 #define MIN_CHUNKS_SIZE(data_size, chunk_size)	(MIN_NUM_CHUNKS(data_size, chunk_size) * (chunk_size))
 
+
+struct Mode
+{
+	bool show_hit_boxes;
+	bool sync_enabled;
+	bool mixed_enabled;
+	bool zero255_show;
+	bool alpha_mode;
+	bool pixel_completion;
+	bool mirroring;
+	bool borderline;
+	bool calibration;
+	bool view4test;
+};
+
+
 struct RgbaTex
 {
 	RGBA_raw* vram;
@@ -127,10 +143,10 @@ private:
 	RgbaTex  img_transformed;
 
 
-	static void CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage& raw_depth, const RawDepthImage& raw_floor);
-	static void CalcDepthMinMax(RawDepthImage& raw);
-	static void RawDepthImageToRgbaTex(const RawDepthImage& raw, RgbaTex& dest);
-	static void CreateTransformed(RawDepthImage& raw_transformed, const RawDepthImage& raw_cooked);
+	void CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage& raw_depth, const RawDepthImage& raw_floor);
+	void CalcDepthMinMax(RawDepthImage& raw);
+	void RawDepthImageToRgbaTex(const RawDepthImage& raw, RgbaTex& dest);
+	void CreateTransformed(RawDepthImage& raw_transformed, const RawDepthImage& raw_cooked);
 
 
 	void CreateRawDepthImage(RawDepthImage& raw);
@@ -138,3 +154,6 @@ private:
 	void displayCalibrationInfo();
 	void saveFloorDepth();
 };
+
+
+extern Mode mode;
