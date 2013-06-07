@@ -59,6 +59,16 @@ void gl::RectangleFill(int x, int y, int w, int h)
 	glEnd();
 }
 
+void gl::Line2D(Point2i p1, Point2i p2)
+{
+	glDisable(GL_TEXTURE_2D);
+
+	glBegin(GL_LINE_STRIP);
+	p1.glVertex2();
+	p2.glVertex2();
+	glEnd();
+}
+
 void gl::Line3D(vec p1, vec p2)
 {
 	glDisable(GL_TEXTURE_2D);

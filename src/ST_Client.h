@@ -5,6 +5,26 @@
 #define WITHOUT_KINECT 0
 
 
+#define MIN_NUM_CHUNKS(data_size, chunk_size)	((((data_size)-1) / (chunk_size) + 1))
+#define MIN_CHUNKS_SIZE(data_size, chunk_size)	(MIN_NUM_CHUNKS(data_size, chunk_size) * (chunk_size))
+
+struct RgbaTex
+{
+	RGBA_raw* vram;
+	uint tex;
+	uint width;
+	uint height;
+	uint ram_width, ram_height;
+	uint pitch;     // f(2^X, width)
+
+	RgbaTex();
+	virtual ~RgbaTex();
+
+	void create(int w, int h);
+};
+
+
+
 #define MAX_DEPTH 10000
 
 enum DisplayModes
@@ -71,6 +91,7 @@ private:
 
 	RGBA_raw* video_ram;
 	uint vram_tex;
+	uint vram_floor;
 
 	RGBA_raw* video_ram2;
 	uint vram_tex2;
@@ -78,6 +99,42 @@ private:
 	int			m_width;
 	int			m_height;
 
+	struct RawDepthImage
+	{
+		std::vector<uint16> image;
+		uint16 min_value;
+		uint16 max_value;
+		uint16 range;        // max_value - min_value
 
+		RawDepthImage()
+		{
+			image.resize(640*480);
+			min_value = 0;
+			max_value = 0;
+			range = 0;
+		}
+	};
+
+
+	RawDepthImage raw_depth;
+	RawDepthImage raw_floor;
+	RawDepthImage raw_cooked;
+	RawDepthImage raw_transformed;
+
+	RgbaTex  img_rawdepth;
+	RgbaTex  img_floor;
+	RgbaTex  img_cooked;
+	RgbaTex  img_transformed;
+
+
+	static void CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage& raw_depth, const RawDepthImage& raw_floor);
+	static void CalcDepthMinMax(RawDepthImage& raw);
+	static void RawDepthImageToRgbaTex(const RawDepthImage& raw, RgbaTex& dest);
+	static void CreateTransformed(RawDepthImage& raw_transformed, const RawDepthImage& raw_cooked);
+
+
+	void CreateRawDepthImage(RawDepthImage& raw);
+	void drawPlaybackMovie();
 	void displayCalibrationInfo();
+	void saveFloorDepth();
 };

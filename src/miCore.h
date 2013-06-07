@@ -17,6 +17,14 @@ typedef unsigned int IdNumber;
 struct RGBA_raw
 {
 	uint8 r,g,b,a;
+
+	void set(int r, int g, int b, int a=255)
+	{
+		this->r = (uint8)r;
+		this->g = (uint8)g;
+		this->b = (uint8)b;
+		this->a = (uint8)a;
+	}
 };
 
 

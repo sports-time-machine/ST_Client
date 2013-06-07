@@ -19,6 +19,8 @@ struct Global
 } global;
 
 
+const int far_clipping = 5000;
+
 
 extern void load_config();
 
@@ -187,6 +189,43 @@ const int MOVIE_FPS = 30;
 const int MOVIE_MAX_FRAMES = MOVIE_MAX_SECS * MOVIE_FPS;
 const int PIXELS_PER_SCREEN = 640*480;
 
+
+RgbaTex::RgbaTex()
+{
+	vram = nullptr;
+	tex = 0;
+	width = 0;
+	height = 0;
+	ram_width = 0;
+	ram_height = 0;
+	pitch = 0;
+}
+
+RgbaTex::~RgbaTex()
+{
+	if (vram!=nullptr) delete[] vram;
+}
+
+void RgbaTex::create(int w, int h)
+{
+	const int TEXTURE_SIZE = 512;
+
+	glGenTextures(1, &tex);
+
+	width      = w;
+	height     = h;
+	ram_width  = MIN_CHUNKS_SIZE(w, TEXTURE_SIZE);
+	ram_height = MIN_CHUNKS_SIZE(h, TEXTURE_SIZE);
+	pitch      = ram_width;
+	vram = new RGBA_raw[ram_width * ram_height];
+
+	fprintf(stderr, "RgbaTex: texture %d, %dx%d creted.\n",
+		tex,
+		w, h);
+}
+
+
+
 struct Mode
 {
 	bool show_hit_boxes;
@@ -198,6 +237,7 @@ struct Mode
 	bool mirroring;
 	bool borderline;
 	bool calibration;
+	bool view4test;
 } mode;
 
 void toggle(bool& ref)
@@ -219,14 +259,13 @@ void toggle(bool& ref)
 	log(mode.mirroring,        '?', "mirroring");
 	log(mode.borderline,       'b', "borderline");
 	log(mode.calibration,      '_', "calibration");
+	log(mode.view4test,        '$', "view4test");
 	puts("-----------------------------");
 }
 
 //#define DEFAULT_DISPLAY_MODE	DISPLAY_MODE_OVERLAY
 #define DEFAULT_DISPLAY_MODE	DISPLAY_MODE_DEPTH
 
-#define MIN_NUM_CHUNKS(data_size, chunk_size)	((((data_size)-1) / (chunk_size) + 1))
-#define MIN_CHUNKS_SIZE(data_size, chunk_size)	(MIN_NUM_CHUNKS(data_size, chunk_size) * (chunk_size))
 
 StClient* StClient::ms_self = nullptr;
 
@@ -257,7 +296,7 @@ StClient::StClient(openni::Device& device, openni::VideoStream& depth, openni::V
 	printf("host: %s\n", Core::getComputerName().c_str());
 	printf("ip: %s\n", miUdp::getIpAddress().c_str());
 
-	mode.mirroring = true;
+	mode.mirroring   = config.mirroring;
 	mode.calibration = true;
 
 	{
@@ -295,7 +334,12 @@ StClient::~StClient()
 	}
 }
 
+
 freetype::font_data monospace;
+
+
+
+
 
 bool StClient::init(int argc, char **argv)
 {
@@ -361,10 +405,6 @@ bool StClient::init(int argc, char **argv)
 	m_nTexMapX = MIN_CHUNKS_SIZE(m_width, TEXTURE_SIZE);
 	m_nTexMapY = MIN_CHUNKS_SIZE(m_height, TEXTURE_SIZE);
 
-	video_ram  = new RGBA_raw[m_nTexMapX * m_nTexMapY];
-	video_ram2 = new RGBA_raw[m_nTexMapX * m_nTexMapY];
-
-
 	if (!initOpenGL(argc, argv))
 	{
 		return false;
@@ -372,6 +412,16 @@ bool StClient::init(int argc, char **argv)
 
 	glGenTextures(1, &vram_tex);
 	glGenTextures(1, &vram_tex2);
+	glGenTextures(1, &vram_floor);
+
+	img_rawdepth.create(640,480);
+	img_floor   .create(640,480);
+	img_cooked  .create(640,480);
+	img_transformed.create(640,480);
+
+	video_ram     = new RGBA_raw[m_nTexMapX * m_nTexMapY];
+	video_ram2    = new RGBA_raw[m_nTexMapX * m_nTexMapY];
+
 
 	// Init routine @init
 	{
@@ -425,35 +475,6 @@ void drawBitmap(
 }
 
 
-void drawBitmapLuminance(
-		int tex,
-		int dx, int dy, int dw, int dh,
-		const uint8* bitmap,
-		float u1, float v1, float u2, float v2)
-{
-	gl::Texture(true);
-	glBindTexture(GL_TEXTURE_2D, tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 640, 480, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, bitmap);
-
-	const int x1 = dx;
-	const int y1 = dy;
-	const int x2 = dx + dw;
-	const int y2 = dy + dh;
-
-	glColor4f(1,1,1,1);
-	glBegin(GL_QUADS);
-	glTexCoord2f(u1, v1); glVertex2f(x1, y1);
-	glTexCoord2f(u2, v1); glVertex2f(x2, y1);
-	glTexCoord2f(u2, v2); glVertex2f(x2, y2);
-	glTexCoord2f(u1, v2); glVertex2f(x1, y2);
-	glEnd();
-}
-
-
-
 void StClient::drawImageMode()
 {
 	using namespace openni;
@@ -498,10 +519,130 @@ const uint8* last_depth_image = nullptr;
 uint8 floor_depth[640*480];
 uint8 depth_cook[640*480];
 int floor_depth_count = 0;
+uint16 floor_depth2[640*480];
+
+
+
+
+
+void StClient::RawDepthImageToRgbaTex(const RawDepthImage& raw, RgbaTex& dimg)
+{
+	const uint16* src = raw.image.data();
+	const int range = max(1, raw.range);
+	for (int y=0; y<480; ++y)
+	{
+		RGBA_raw* dest = dimg.vram + y*dimg.pitch;
+		for (int x=0; x<640; ++x, ++dest, ++src)
+		{
+			const uint16 d = *src;
+			const uint v = 255 * (d - raw.min_value) / range;
+			if (v==0)
+			{
+				dest->set(80,50,0,100);
+			}
+			else if (v>255)
+			{
+				dest->set(255,50,0,100);
+			}
+			else
+			{
+				dest->set(
+					(255-v)*256>>8,
+					(255-v)*230>>8,
+					(255-v)*50>>8,
+					255);
+			}
+		}
+	}
+}
+
+void StClient::CreateRawDepthImage(RawDepthImage& raw)
+{
+	using namespace openni;
+
+	// Read depth image from Kinect
+	m_depthStream.readFrame(&m_depthFrame);
+
+	// Create raw depth image
+	const auto* depth_row = (const DepthPixel*)m_depthFrame.getData();
+	const int rowsize = m_depthFrame.getStrideInBytes() / sizeof(DepthPixel);
+	uint16* dest = raw.image.data();
+	const int src_inc = mode.mirroring ? -1 : +1;
+
+	raw.max_value = 0;
+	raw.min_value = 0;
+	raw.range     = 0;
+	for (int y=0; y<480; ++y)
+	{
+		const auto* src = depth_row + (mode.mirroring ? 639 : 0);
+		for (int x=0; x<640; ++x)
+		{
+			uint16 v = *src;
+			if (v > far_clipping)
+			{
+				// too far
+				v = 0;
+			}
+			*dest++ = v;
+			src += src_inc;
+		}
+		depth_row += rowsize;
+	}
+}
+
+void StClient::CalcDepthMinMax(RawDepthImage& raw)
+{
+	const uint16* src = raw.image.data();
+	raw.max_value = 0;
+	raw.min_value = 65535;
+	for (int i=0; i<640*480; ++i)
+	{
+		uint16 v = src[i];
+		if (v!=0)
+		{
+			raw.max_value = max(raw.max_value, v);
+			raw.min_value = min(raw.min_value, v);
+		}
+	}
+	raw.range = max(1, raw.max_value - raw.min_value);
+}
+
+void DrawRgbaTex(const RgbaTex& img, int dx, int dy, int dw, int dh)
+{
+	gl::Texture(true);
+	glBindTexture(GL_TEXTURE_2D, img.tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+		img.ram_width, img.ram_height,
+		0, GL_RGBA, GL_UNSIGNED_BYTE, img.vram);
+
+	const int x1 = dx;
+	const int y1 = dy;
+	const int x2 = dx + dw;
+	const int y2 = dy + dh;
+	const float u1 = 0.0f;
+	const float v1 = 0.0f;
+	const float u2 = 1.0f * img.width  / img.ram_width;
+	const float v2 = 1.0f * img.height / img.ram_height;
+
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, img.tex);
+	glColor4f(1,1,1,1);
+	glBegin(GL_QUADS);
+	glTexCoord2f(u1, v1); glVertex2f(x1, y1);
+	glTexCoord2f(u2, v1); glVertex2f(x2, y1);
+	glTexCoord2f(u2, v2); glVertex2f(x2, y2);
+	glTexCoord2f(u1, v2); glVertex2f(x1, y2);
+	glEnd();
+}
+
 
 void StClient::BuildDepthImage(uint8* const final_dest)
 {
 	using namespace openni;
+
 
 	// Create 'depth_raw' from Kinect
 	static uint8 depth_raw[640*480];
@@ -539,7 +680,9 @@ void StClient::BuildDepthImage(uint8* const final_dest)
 						// too far
 						dest[index] = 0;
 					}
-					else if (depth <= floor_depth[index])
+					else if (floor_depth[index] &&
+							depth >= floor_depth[index]-25 &&
+							depth <= floor_depth[index]+25)
 					{
 						dest[index] = 1;
 					}
@@ -594,6 +737,62 @@ void StClient::BuildDepthImage(uint8* const final_dest)
 static MovieData curr_movie;
 
 
+void StClient::drawPlaybackMovie()
+{
+	int xx = timeGetTime();
+	static zlibpp::bytes outdata;
+	if (outdata.size()==0)
+	{
+		outdata.resize(640*480);
+		puts("resize outdata");
+	}
+	zlibpp::bytes& byte_stream = curr_movie.frames[movie_index++];
+	zlibpp::decompress(byte_stream, outdata);
+	decomp_time += timeGetTime()-xx;
+
+	int yy = timeGetTime();
+	const auto* src = outdata.data();
+	for (int y=0; y<480; ++y)
+	{
+		RGBA_raw* dest = video_ram2 + y*m_nTexMapX;
+		for (int x=0; x<640; ++x, ++dest, ++src)
+		{
+			const int d = *src;
+			switch (d)
+			{
+			case 0:
+				dest->a = 0;
+				break;
+			case 255:
+				dest->r = 200;
+				dest->g = 140;
+				dest->b = 100;
+				dest->a = 199;
+				break;
+			default:
+				dest->r = d;
+				dest->g = d;
+				dest->b = 0;
+				dest->a = 199;
+				break;
+			}
+		}
+	}
+	draw_time += timeGetTime()-yy;
+
+	// @draw
+	buildBitmap(
+		vram_tex2,
+		video_ram2,
+		m_nTexMapX, m_nTexMapY);
+	drawBitmap(
+		0, 0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y,
+		0.0f,
+		0.0f,
+		(float)m_width  / m_nTexMapX,
+		(float)m_height / m_nTexMapY);
+}
+
 
 void StClient::drawDepthMode()
 {
@@ -626,16 +825,18 @@ void StClient::drawDepthMode()
 			{
 				uint8 depth = *src++;
 
-				if (mode.borderline && depth>=100 && depth<=240 && depth%2==0)
+				if (mode.borderline && depth>=10 && depth<=240)
 				{
-					depth = 20;
+					if (depth%2==0)
+						depth = 20;
+					else
+						depth = 240;
 				}
 
 				*dest++ = depth;
 			}
 		}
 	}
-
 
 
 	// Curr+Back => Mixed
@@ -675,7 +876,8 @@ void StClient::drawDepthMode()
 		{
 			zlibpp::bytes& byte_stream = curr_movie.frames[curr_movie.recorded_tail++];
 			zlibpp::compress(curr, 640*480, byte_stream, 2);
-			printf("%d bytes (%.1f%%)\n",
+			printf("frame %d, %d bytes (%.1f%%)\n",
+				curr_movie.recorded_tail,
 				byte_stream.size(),
 				byte_stream.size() * 100.0 / (640*480));
 		}
@@ -688,63 +890,7 @@ void StClient::drawDepthMode()
 		}
 		else
 		{
-#if 1
-			int xx = timeGetTime();
-			static zlibpp::bytes outdata;
-			if (outdata.size()==0)
-			{
-				outdata.resize(640*480);
-				puts("resize outdata");
-			}
-			zlibpp::bytes& byte_stream = curr_movie.frames[movie_index++];
-			zlibpp::decompress(byte_stream, outdata);
-			decomp_time += timeGetTime()-xx;
-#endif
-#if 1
-			int yy = timeGetTime();
-			const auto* src = outdata.data();
-			for (int y=0; y<480; ++y)
-			{
-				RGBA_raw* dest = video_ram2 + y*m_nTexMapX;
-				for (int x=0; x<640; ++x, ++dest, ++src)
-				{
-					const int d = *src;
-					switch (d)
-					{
-					case 0:
-						dest->a = 0;
-						break;
-					case 255:
-						dest->r = 200;
-						dest->g = 140;
-						dest->b = 100;
-						dest->a = 199;
-						break;
-					default:
-						dest->r = d;
-						dest->g = d;
-						dest->b = 0;
-						dest->a = 199;
-						break;
-					}
-				}
-			}
-			draw_time += timeGetTime()-yy;
-#endif
-
-#if 1
-			// @draw
-			buildBitmap(
-				vram_tex2,
-				video_ram2,
-				m_nTexMapX, m_nTexMapY);
-			drawBitmap(
-				0, 0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y,
-				0.0f,
-				0.0f,
-				(float)m_width  / m_nTexMapX,
-				(float)m_height / m_nTexMapY);
-#endif
+			drawPlaybackMovie();
 		}
 		break;
 	}
@@ -764,37 +910,22 @@ void StClient::drawDepthMode()
 				switch (value)
 				{
 				case 0:
-					dest->r = 30;
-					dest->g = 50;
-					dest->b = 70;
-					dest->a = 200;
+					dest->set(30,50,70,200);
 					break;
 				case 1:
-					dest->r = 220;
-					dest->g = 160;
-					dest->b = 100;
-					dest->a = 240;
+					dest->set(0, 40, 80, 100);
 					break;
 				case 255:
-					dest->r = 80;
-					dest->g = 50;
-					dest->b = 20;
-					dest->a = 200;
+					dest->set(80, 50, 20, 200);
 					break;
 				default:
 					if (mode.alpha_mode)
 					{
-						dest->r = 100;
-						dest->g = value;
-						dest->b = 255-value;
-						dest->a = 255;
+						dest->set(100, value, 255-value, 255);
 					}
 					else
 					{
-						dest->r = value;
-						dest->g = value;
-						dest->b = value;
-						dest->a = 220;
+						dest->set(240, 220, 140, (value));
 					}
 					break;
 				}
@@ -807,10 +938,12 @@ void StClient::drawDepthMode()
 
 	// @draw
 	const int draw_x = 0;
-	const int draw_w = GL_WIN_SIZE_X;
+	const int draw_y = 0;
+	const int draw_w = GL_WIN_SIZE_X/2;
+	const int draw_h = GL_WIN_SIZE_Y/2;
 	drawBitmap(
-		draw_x, 0,
-		draw_w, GL_WIN_SIZE_Y,
+		draw_x, draw_y,
+		draw_w, draw_h,
 		0.0f,
 		0.0f,
 		(float)m_width  / m_nTexMapX,
@@ -1232,7 +1365,7 @@ void display2()
 	glLoadIdentity();
 	int time_diff = (timeGetTime() - time_begin);
 
-	freetype::print(monospace, 20, 160, "#%d Near(%dcm) Far(%dcm)",
+	freetype::print(monospace, 20, 160, "#%d Near(%dmm) Far(%dmm)",
 			config.client_number,
 			config.near_threshold,
 			config.far_threshold);
@@ -1277,6 +1410,64 @@ void display2()
 }
 
 
+void StClient::CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage& raw_depth, const RawDepthImage& raw_floor)
+{
+	for (int i=0; i<640*480; ++i)
+	{
+		const int src   = raw_depth.image[i];
+		const int floor = raw_floor.image[i];
+
+		if (src < floor-20 || floor==0)
+		{
+			raw_cooked.image[i] = src;
+		}
+		else
+		{
+			raw_cooked.image[i] = 0;
+		}
+	}
+	CalcDepthMinMax(raw_cooked);
+}
+
+
+void StClient::CreateTransformed(
+	RawDepthImage& raw_transformed,
+	const RawDepthImage& raw_cooked)
+{
+	//     x
+	//  A-----B          A-_g
+	//  |     |         /   \_
+	// y|     |  -->  e/      B
+	//  |     |       /  h   /f
+	//  C-----D      C------D
+	const auto& kc = config.kinect_calibration;
+	Point2i a = kc.a;
+	Point2i b = kc.b;
+	Point2i c = kc.c;
+	Point2i d = kc.d;
+	int index = 0;
+	for (int y=0; y<480; ++y)
+	{
+		Point2i e(
+			a.x*(480-y)/480 + c.x*(y)/480,
+			a.y*(480-y)/480 + c.y*(y)/480);
+		Point2i f(
+			b.x*(480-y)/480 + d.x*(y)/480,
+			b.y*(480-y)/480 + d.y*(y)/480);
+		for (int x=0; x<640; ++x)
+		{
+			Point2i k(
+				e.x*(640-x)/640 + f.x*(x)/640,
+				e.y*(640-x)/640 + f.y*(x)/640);
+			raw_transformed.image[index] = raw_cooked.image[k.y*640 + k.x];
+			++index;
+		}
+	}
+	CalcDepthMinMax(raw_transformed);
+}
+
+
+
 size_t hit_object_stage = 0;
 void StClient::display()
 {
@@ -1308,12 +1499,56 @@ void StClient::display()
 		break;
 	}
 
-	m_depthStream.readFrame(&m_depthFrame);
-	drawDepthMode();
-	background_image.draw(0,0,640,480, 64);
+	// Mode 1: Raw depth
+	{
+ 		CreateRawDepthImage(raw_depth);
+		if (mode.view4test){
+			CalcDepthMinMax(raw_depth);
+			RawDepthImageToRgbaTex(raw_depth, img_rawdepth);
+			DrawRgbaTex(img_rawdepth, 0,0, 320,240);
+		}
+	}
+
+	// Mode 2: Floor
+	{
+		if (mode.view4test){
+			DrawRgbaTex(img_floor, 320,0, 320,240);
+		}
+	}
+
+	// Mode 3: Floor filtered depth (cooked depth)
+	{
+		CreateCoockedDepth(raw_cooked, raw_depth, raw_floor);
+		if (mode.view4test){
+			RawDepthImageToRgbaTex(raw_cooked, img_cooked);
+			DrawRgbaTex(img_cooked, 0,240, 320,240);
+		}
+	}
+
+	// Mode 4: Transformed depth
+	{
+		CreateTransformed(raw_transformed, raw_cooked);
+		RawDepthImageToRgbaTex(raw_transformed, img_transformed);
+		if (mode.view4test){
+			DrawRgbaTex(img_transformed, 320,240, 320,240);
+		}else{
+			DrawRgbaTex(img_transformed, 0,0,640,480);
+		}
+	}
+
+
+
+
+	{
+		ModelViewObject mo;
+		glRGBA::white.glColorUpdate();
+		freetype::print(monospace, 20,80, "RDI: %d,%d", raw_depth.min_value, raw_depth.max_value);
+	}
+
+
+//	drawDepthMode();
 
 	glRGBA::white.glColorUpdate();
-	gl::Rectangle(10,10,50,50);
 
 	{
 		ModelViewObject mo;
@@ -1322,8 +1557,26 @@ void StClient::display()
 
 	{
 		ModelViewObject mo;
-		glRGBA::black.glColorUpdate();
-		freetype::print(monospace, 20, 30, "hello");
+		glRGBA::white.glColorUpdate();
+		freetype::print(monospace,  20,  20, "1. Raw depth view");
+		freetype::print(monospace, 340,  20, "2. Flooer filtered view");
+		freetype::print(monospace,  20, 260, "3. Flooer view");
+		freetype::print(monospace, 340, 260, "4. Transformed view");
+	}
+
+	glRGBA(255,255,255,100).glColorUpdate();
+	gl::Line2D(Point2i(0, 40), Point2i(640, 40));
+	gl::Line2D(Point2i(0,240), Point2i(640,240));
+	gl::Line2D(Point2i(0,440), Point2i(640,440));
+	gl::Line2D(Point2i(320,0), Point2i(320,480));
+
+	{
+		ModelViewObject mo;
+		glRGBA(255,255,255).glColorUpdate();
+		freetype::print(monospace, 580,  40, "2400mm");
+		freetype::print(monospace, 580, 240, "1200mm");
+		freetype::print(monospace, 580, 440, "   0mm");
+		freetype::print(monospace, 320,  10, "2m");
 	}
 
 	if (!mode.calibration)
@@ -1396,6 +1649,14 @@ enum
 	KEY_F10 = 1010,
 	KEY_F11 = 1011,
 	KEY_F12 = 1012,
+	KEY_LEFT = 1100,
+	KEY_UP = 1101,
+	KEY_RIGHT = 1102,
+	KEY_DOWN = 1103,
+	KEY_PAGEUP = 1104,
+	KEY_PAGEDOWN = 1105,
+	KEY_HOME = 1106,
+	KEY_END = 1107,
 };
 
 void saveAgent(int slot)
@@ -1443,14 +1704,30 @@ void loadAgent(int slot)
 	}
 }
 
-void saveFloorDepth()
+void StClient::saveFloorDepth()
+{
+	// Copy depth to floor
+	memcpy(
+		raw_floor.image.data(),
+		raw_depth.image.data(),
+		640*480*sizeof(uint16));
+	
+	raw_floor.max_value = raw_depth.max_value;
+	raw_floor.min_value = raw_depth.min_value;
+	raw_floor.range     = raw_depth.range;
+
+	// Convert floor data: uint16[] to RGBA
+	RawDepthImageToRgbaTex(raw_floor, img_floor);
+}
+
+void clearFloorDepth()
 {
 	if (last_depth_image==nullptr)
 		return;
 
 	for (int i=0; i<640*480; ++i)
 	{
-		floor_depth[i] = last_depth_image[i];
+		floor_depth[i] = 0;
 	}
 }
 
@@ -1475,11 +1752,29 @@ void StClient::onMouse(int button, int state, int x, int y)
 
 void StClient::onKey(int key, int /*x*/, int /*y*/)
 {
+	BYTE kbd[256]={};
+	GetKeyboardState(kbd);
+
+	const bool shift = (kbd[VK_SHIFT] & 0x80)!=0;
 	switch (key)
 	{
 	default:
 		printf("[key %d]\n", key);
 		break;
+
+	case KEY_PAGEUP:
+		config.near_threshold -= shift ? 1 : 10;
+		break;
+	case KEY_PAGEDOWN:
+		config.near_threshold += shift ? 1 : 10;
+		break;
+	case KEY_HOME:
+		config.far_threshold -= shift ? 1 : 10;
+		break;
+	case KEY_END:
+		config.far_threshold += shift ? 1 : 10;
+		break;
+
 
 	case 27:
 		m_depthStream.stop();
@@ -1491,10 +1786,6 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		exit(1);
 	case 'w':
 		client_status = STATUS_DEPTH;
-		break;
-	case 'M':
-		m_depthStream.setMirroringEnabled(!m_depthStream.getMirroringEnabled());
-		m_colorStream.setMirroringEnabled(!m_colorStream.getMirroringEnabled());
 		break;
 	case 'r':
 		curr_movie.frames.clear();
@@ -1552,6 +1843,12 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		toggle(mode.calibration);
 		break;
 
+	case '$':
+		toggle(mode.view4test);
+		break;
+	case 'T':
+		clearFloorDepth();
+		break;
 	case 't':
 		saveFloorDepth();
 		break;

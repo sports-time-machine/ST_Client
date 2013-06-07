@@ -65,6 +65,10 @@ bool miImage::createFromImageA(const char* filename)
 
 	_DibToPicture(bitmap);
 	FreeImage_Unload(bitmap);
+	fprintf(stderr, "Image: texture %d, %dx%d created.\n",
+		this->_gl_tex,
+		this->_img_w,
+		this->_img_h);
 	return true;
 }
 

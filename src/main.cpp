@@ -27,6 +27,7 @@ Config::Config()
 	initial_window_x = 50;
 	initial_window_y = 50;
 	initial_fullscreen = false;
+	mirroring = false;
 	
 	kinect_calibration.a = Point2i(0,0);
 	kinect_calibration.b = Point2i(640,0);
@@ -79,14 +80,15 @@ void load_config()
 
 	psl.run();
 
-#define CONFIG_INT(DEST,NAME) DEST.NAME = PSL::variable(psl.get(#NAME)).toInt()
-#define CONFIG_INT_A(DEST,NAME,I,J) DEST.NAME = PSL::variable(psl.get(#NAME))[I][J].toInt()
+#define CONFIG_INT(DEST,NAME)   DEST.NAME = PSL::variable(psl.get(#NAME)).toInt()
+#define CONFIG_BOOL(DEST,NAME)  DEST.NAME = PSL::variable(psl.get(#NAME)).toBool()
 	CONFIG_INT(config, far_threshold);
 	CONFIG_INT(config, near_threshold);
 	CONFIG_INT(config, client_number);
 	CONFIG_INT(config, initial_window_x);
 	CONFIG_INT(config, initial_window_y);
-	CONFIG_INT(config, initial_fullscreen);
+	CONFIG_BOOL(config, initial_fullscreen);
+	CONFIG_BOOL(config, mirroring);
 
 	{
 		PSL::variable src = psl.get("kinect_calibration");

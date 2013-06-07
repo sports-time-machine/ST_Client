@@ -12,7 +12,8 @@ struct Config
 	int far_threshold;
 	int initial_window_x;
 	int initial_window_y;
-	int initial_fullscreen;
+	bool initial_fullscreen;
+	bool mirroring;
 	
 	struct KinectCalibration
 	{
