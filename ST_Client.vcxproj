@@ -185,6 +185,7 @@
     <ClCompile Include="src\miAudio.cpp" />
     <ClCompile Include="src\miCore.cpp" />
     <ClCompile Include="src\miImage.cpp" />
+    <ClCompile Include="src\miLibs.cpp" />
     <ClCompile Include="src\miUdpReceiver.cpp" />
     <ClCompile Include="src\ST_Client.cpp" />
     <ClCompile Include="src\zlibpp.cpp" />
@@ -198,6 +199,7 @@
     <ClInclude Include="src\miAudio.h" />
     <ClInclude Include="src\miCore.h" />
     <ClInclude Include="src\miImage.h" />
+    <ClInclude Include="src\miLibs.h" />
     <ClInclude Include="src\miUdpReceiver.h" />
     <ClInclude Include="src\ST_Client.h" />
     <ClInclude Include="src\zlibpp.h" />

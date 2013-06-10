@@ -13,6 +13,7 @@
 #pragma warning(disable:4366)
 #define GL_GENERATE_MIPMAP_SGIS 0x8191
 #include "ST_Client.h"
+#include "miLibs.h"
 
 
 /*extern*/ Mode mode;
@@ -906,97 +907,10 @@ void StClient::displayPictureScreen()
 }
 
 
-class VariantType
-{
-public:
-	VariantType(const std::string&);
-	int to_i() const  { return intvalue; }
-	const char* to_s() const { return strvalue.c_str(); }
-	bool is_int() const { return intvalue!=0 || (intvalue==0 && strvalue[0]=='0'); }
-	const std::string& string() const { return strvalue; }
-
-private:
-	std::string strvalue;
-	int intvalue;
-};
-
-VariantType::VariantType(const std::string& s)
-{
-	strvalue = s;
-	char* endptr = nullptr;
-	intvalue = (int)strtol(s.c_str(), &endptr, 0);
-}
 
 
 
 
-
-void splitStringToLines(const std::string& rawstring, std::vector<std::string>& lines)
-{
-	lines.clear();
-
-	const char* src = rawstring.c_str();
-
-	while (*src!='\0')
-	{
-		// blank
-		if (*src=='\n' || *src=='\r')
-		{
-			++src;
-			continue;
-		}
-
-		std::string line;
-		while (*src!='\0' && *src!='\n' && *src!='\r')
-		{
-			line += *src++;
-		}
-		lines.push_back(line);
-	}
-}
-
-bool splitString(const std::string& rawstring, std::string& cmd, std::vector<VariantType>& arg)
-{
-	cmd.clear();
-	arg.clear();
-
-	const char* src = rawstring.c_str();
-
-	auto skip_whitespaces = [&](){
-		while (*src!='\0' && isspace(*src))
-		{
-			++src;
-		}
-	};
-
-	auto word_copy_to_dest = [&](std::string& dest, bool upper)->bool{
-		dest.clear();
-		skip_whitespaces();
-		if (*src=='\0')
-			return false;
-
-		// Create 'cmd'
-		while (*src && !isspace(*src))
-		{
-			dest += upper ? toupper(*src) : *src;
-			++src;
-		}
-		return true;
-	};
-
-	if (!word_copy_to_dest(cmd, true))
-		return false;
-
-	// Create 'args'
-	for (;;)
-	{
-		std::string temp;
-		if (!word_copy_to_dest(temp, false))
-			break;
-		arg.push_back(temp);
-	}
-	return true;
-}
 
 bool commandIs(const std::string& cmd,
 		const char* cmd1,
@@ -1214,7 +1128,7 @@ bool StClient::doCommand()
 	}
 
 	std::vector<std::string> lines;
-	splitStringToLines(rawstring, lines);
+	Lib::splitStringToLines(rawstring, lines);
 
 	for (size_t i=0; i<lines.size(); ++i)
 	{
@@ -1227,7 +1141,7 @@ bool StClient::doCommand2(const std::string& line)
 {
 	std::string cmd;
 	std::vector<VariantType> arg;
-	splitString(line, cmd, arg);
+	Lib::splitString(line, cmd, arg);
 
 	// Daemon command
 	if (cmd[0]=='#')
