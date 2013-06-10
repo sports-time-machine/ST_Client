@@ -1,8 +1,8 @@
 #pragma once
-#include "miCore.h"
+#include "mi/Core.h"
 #include <windows.h>		//(the GL headers need it)
 #include <GL/gl.h>
-#include <GL/glu.h>
+#include <GL/glut.h>
 
 
 struct glRGBA

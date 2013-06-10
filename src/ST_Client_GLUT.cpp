@@ -1,6 +1,5 @@
 #include "ST_Client.h"
-#include <GL/gl.h>
-#include <GL/glut.h>
+#include "gl_funcs.h"
 
 
 void StClient::glutIdle()

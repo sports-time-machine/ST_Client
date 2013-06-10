@@ -1,4 +1,4 @@
-#include "miCore.h"
+#include "Core.h"
 #include <Windows.h>
 #pragma comment(lib, "User32.lib")
 

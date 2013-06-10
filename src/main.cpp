@@ -123,9 +123,16 @@ static void init_kinect(openni::Device& device, openni::VideoStream& depth, open
 {
 	const char* deviceURI = openni::ANY_DEVICE;
 
-	(void)openni::OpenNI::initialize();
-
-	printf("After initialization:\n%s\n", openni::OpenNI::getExtendedError());
+	printf("Initialize OpenNI...");
+	if (openni::STATUS_OK!=openni::OpenNI::initialize())
+	{
+		printf("%s\n", openni::OpenNI::getExtendedError());
+		exit(1);
+	}
+	else
+	{
+		puts("done.");
+	}
 
 	auto create_device = [&](){
 		if (openni::STATUS_OK!=device.open(deviceURI))

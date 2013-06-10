@@ -1,5 +1,5 @@
 #pragma once
-#include "miCore.h"
+#include "Core.h"
 
 
 class VariantType

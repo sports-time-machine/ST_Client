@@ -8,7 +8,7 @@ const int far_clipping = 5000;
 
 void StClient::CreateRawDepthImage(RawDepthImage& raw)
 {
-	if (!m_depthFrame.isValid())
+	if (!m_depthStream.isValid())
 	{
 		// Uninitialized (without kinect mode)
 		return;

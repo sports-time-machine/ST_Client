@@ -1,6 +1,6 @@
 #pragma once
 #include <OpenNI.h>
-#include "miCore.h"
+#include "mi/Core.h"
 
 #define WITHOUT_KINECT 1
 

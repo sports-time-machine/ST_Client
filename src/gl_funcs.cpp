@@ -1,5 +1,4 @@
 #include "gl_funcs.h"
-#include <gl/glut.h>
 
 
 glRGBA

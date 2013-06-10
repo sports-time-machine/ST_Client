@@ -18,6 +18,36 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\depth.cpp" />
+    <ClCompile Include="src\file_io.cpp" />
+    <ClCompile Include="src\FreeType.cpp" />
+    <ClCompile Include="src\gl_funcs.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\mi\Audio.cpp" />
+    <ClCompile Include="src\mi\Core.cpp" />
+    <ClCompile Include="src\mi\Image.cpp" />
+    <ClCompile Include="src\mi\Libs.cpp" />
+    <ClCompile Include="src\mi\Udp.cpp" />
+    <ClCompile Include="src\ST_Client.cpp" />
+    <ClCompile Include="src\ST_Client_GLUT.cpp" />
+    <ClCompile Include="src\zlibpp.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\Config.h" />
+    <ClInclude Include="src\depth.h" />
+    <ClInclude Include="src\file_io.h" />
+    <ClInclude Include="src\FreeType.h" />
+    <ClInclude Include="src\gl_funcs.h" />
+    <ClInclude Include="src\mi\Audio.h" />
+    <ClInclude Include="src\mi\Core.h" />
+    <ClInclude Include="src\mi\Image.h" />
+    <ClInclude Include="src\mi\Libs.h" />
+    <ClInclude Include="src\mi\Udp.h" />
+    <ClInclude Include="src\OniSampleUtilities.h" />
+    <ClInclude Include="src\ST_Client.h" />
+    <ClInclude Include="src\zlibpp.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{BDA3BF24-550A-4BF9-83E5-7B56134EED40}</ProjectGuid>
     <RootNamespace>SimpleViewer</RootNamespace>
@@ -176,35 +206,6 @@
       <AdditionalLibraryDirectories>$(OutDir);$(OPENNI2_LIB);..\GL</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="src\depth.cpp" />
-    <ClCompile Include="src\file_io.cpp" />
-    <ClCompile Include="src\FreeType.cpp" />
-    <ClCompile Include="src\gl_funcs.cpp" />
-    <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\miAudio.cpp" />
-    <ClCompile Include="src\miCore.cpp" />
-    <ClCompile Include="src\miImage.cpp" />
-    <ClCompile Include="src\miLibs.cpp" />
-    <ClCompile Include="src\miUdpReceiver.cpp" />
-    <ClCompile Include="src\ST_Client.cpp" />
-    <ClCompile Include="src\ST_Client_GLUT.cpp" />
-    <ClCompile Include="src\zlibpp.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="src\Config.h" />
-    <ClInclude Include="src\depth.h" />
-    <ClInclude Include="src\file_io.h" />
-    <ClInclude Include="src\FreeType.h" />
-    <ClInclude Include="src\gl_funcs.h" />
-    <ClInclude Include="src\miAudio.h" />
-    <ClInclude Include="src\miCore.h" />
-    <ClInclude Include="src\miImage.h" />
-    <ClInclude Include="src\miLibs.h" />
-    <ClInclude Include="src\miUdpReceiver.h" />
-    <ClInclude Include="src\ST_Client.h" />
-    <ClInclude Include="src\zlibpp.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

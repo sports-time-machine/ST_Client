@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "zlibpp.h"
 #pragma comment(lib,"winmm.lib")
 #include <Windows.h>

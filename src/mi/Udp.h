@@ -1,4 +1,4 @@
-#include "miCore.h"
+#include "Core.h"
 
 namespace mi{
 

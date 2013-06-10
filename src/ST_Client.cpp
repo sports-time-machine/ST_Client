@@ -2,18 +2,18 @@
 	#define _CRT_SECURE_NO_DEPRECATE 1
 #endif
 
-#include "miImage.h"
+#include "mi/Image.h"
+#include "mi/Udp.h"
+#include "mi/Libs.h"
 #include "FreeType.h"
 #include "gl_funcs.h"
 #include "file_io.h"
-#include <GL/glut.h>
-#include "miUdpReceiver.h"
+#include "gl_funcs.h"
 #include "Config.h"
 #include <map>
 #pragma warning(disable:4366)
 #define GL_GENERATE_MIPMAP_SGIS 0x8191
 #include "ST_Client.h"
-#include "miLibs.h"
 
 
 extern void load_config();

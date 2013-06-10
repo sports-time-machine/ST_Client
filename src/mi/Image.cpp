@@ -1,9 +1,11 @@
-#include "miImage.h"
+#include "Image.h"
 #include <Windows.h>
 #include "FreeImage.h"
 #pragma comment(lib, "FreeImage.lib")
 #include <vector>
-#include <GL/glut.h>
+#include <GL/gl.h>
+#pragma warning(disable:4244) //conversion
+
 
 using namespace mi;
 
