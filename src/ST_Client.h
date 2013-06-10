@@ -156,4 +156,14 @@ private:
 };
 
 
-extern Mode mode;
+struct Global
+{
+	int window_w;
+	int window_h;
+};
+
+#include "Config.h"  // EXTERN
+
+
+EXTERN Global global;
+EXTERN Mode mode;

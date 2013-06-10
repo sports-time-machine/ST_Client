@@ -188,6 +188,7 @@
     <ClCompile Include="src\miLibs.cpp" />
     <ClCompile Include="src\miUdpReceiver.cpp" />
     <ClCompile Include="src\ST_Client.cpp" />
+    <ClCompile Include="src\ST_Client_GLUT.cpp" />
     <ClCompile Include="src\zlibpp.cpp" />
   </ItemGroup>
   <ItemGroup>

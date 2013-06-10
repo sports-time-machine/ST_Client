@@ -16,52 +16,14 @@
 #include "miLibs.h"
 
 
-/*extern*/ Mode mode;
-
-
-
-struct Global
-{
-	int window_w;
-	int window_h;
-} global;
-
-
 extern void load_config();
 
 
-inline int minmax(int x, int min, int max)
-{
-	return (x<min) ? min : (x>max) ? max : x;
-}
+
+
+
 
 Point2i* calibration_focus = nullptr;
-
-
-struct Box
-{
-	int left,top,right,bottom;
-	void set(int a, int b, int c, int d)
-	{
-		left = a;
-		top = b;
-		right = c;
-		bottom = d;
-	}
-};
-
-struct Point
-{
-	int x,y;
-	Point() : x(0),y(0) { }
-	Point(int a, int b) : x(a),y(b) { }
-
-	bool in(const Box& box) const
-	{
-		return x>=box.left && y>=box.top && x<=box.right && y<=box.bottom;
-	}
-};
-
 
 struct HitObject
 {
@@ -115,11 +77,6 @@ ClientStatus client_status = STATUS_DEPTH;
 miImage pic;
 miImage background_image;
 
-
-static inline uint8 uint8crop(int x)
-{
-	return (x<0) ? 0 : (x>255) ? 255 : 0;
-}
 
 
 class miFps
@@ -1619,8 +1576,8 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	case 'm':  toggle(mode.mixed_enabled); break;
 	case 'z':  toggle(mode.zero255_show);  break;
 	case 'a':  toggle(mode.alpha_mode);    break;
-	case 'e':  toggle(mode.pixel_completion);    break;
-	case 'b':  toggle(mode.borderline); break;
+	case 'e':  toggle(mode.pixel_completion); break;
+	case 'b':  toggle(mode.borderline);    break;
 
 	case '1':
 		calibration_focus = &config.kinect_calibration.a;
@@ -1695,31 +1652,4 @@ bool StClient::initOpenGL(int argc, char **argv)
 	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
 	gl::AlphaBlending();
 	return true;
-}
-
-void StClient::glutIdle()
-{
-	glutPostRedisplay();
-}
-void StClient::glutDisplay()
-{
-	StClient::ms_self->display();
-}
-void StClient::glutKeyboard(unsigned char key, int x, int y)
-{
-	StClient::ms_self->onKey(key, x, y);
-}
-void StClient::glutKeyboardSpecial(int key, int x, int y)
-{
-	StClient::ms_self->onKey(key+1000, x, y);
-}
-void StClient::glutMouse(int button, int state, int x, int y)
-{
-	StClient::ms_self->onMouse(button, state, x, y);
-}
-void StClient::glutReshape(int width, int height)
-{
-	global.window_w = width;
-	global.window_h = height;
-	glViewport(0, 0, width, height);
 }
