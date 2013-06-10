@@ -2,8 +2,7 @@
 #include <OpenNI.h>
 #include "miCore.h"
 
-#define WITHOUT_KINECT 0
-
+#define WITHOUT_KINECT 1
 
 #define MIN_NUM_CHUNKS(data_size, chunk_size)	((((data_size)-1) / (chunk_size) + 1))
 #define MIN_CHUNKS_SIZE(data_size, chunk_size)	(MIN_NUM_CHUNKS(data_size, chunk_size) * (chunk_size))
@@ -23,7 +22,6 @@ struct Mode
 	bool view4test;
 };
 
-
 struct RgbaTex
 {
 	RGBA_raw* vram;
@@ -40,15 +38,6 @@ struct RgbaTex
 };
 
 
-
-#define MAX_DEPTH 10000
-
-enum DisplayModes
-{
-	DISPLAY_MODE_OVERLAY,
-	DISPLAY_MODE_DEPTH,
-	DISPLAY_MODE_IMAGE
-};
 
 class StClient
 {
@@ -70,7 +59,6 @@ protected:
 
 	openni::VideoFrameRef m_depthFrame;
 	openni::VideoFrameRef m_colorFrame;
-
 	openni::Device&       m_device;
 	openni::VideoStream&  m_depthStream;
 	openni::VideoStream&  m_colorStream;
@@ -85,8 +73,8 @@ private:
 	bool doCommand2(const std::string& line);
 
 private:
-	StClient(const StClient&);
-	StClient& operator=(StClient&);
+	StClient(const StClient&);           // disable
+	StClient& operator=(StClient&);      // disable
 
 	void drawImageMode();
 	void drawDepthMode();
@@ -100,10 +88,8 @@ private:
 	static void glutMouse(int button, int state, int x, int y);
 	static void glutReshape(int width, int height);
 
-	float			m_pDepthHist[MAX_DEPTH];
 	unsigned int		m_nTexMapX;
 	unsigned int		m_nTexMapY;
-	DisplayModes		m_eViewState;
 
 	RGBA_raw* video_ram;
 	uint vram_tex;
@@ -165,5 +151,5 @@ struct Global
 #include "Config.h"  // EXTERN
 
 
-EXTERN Global global;
-EXTERN Mode mode;
+SmartExtern Global global;
+SmartExtern Mode mode;

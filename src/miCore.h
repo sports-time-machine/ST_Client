@@ -1,5 +1,4 @@
 #pragma once
-
 #include <vector>
 #include <cstdio>
 
@@ -118,5 +117,4 @@ public:
 	static const std::string& getComputerName();
 };
 
-
-#endif
+#endif//__cplusplus

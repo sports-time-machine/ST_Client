@@ -8,6 +8,13 @@ const int far_clipping = 5000;
 
 void StClient::CreateRawDepthImage(RawDepthImage& raw)
 {
+	if (!m_depthFrame.isValid())
+	{
+		// Uninitialized (without kinect mode)
+		return;
+	}
+
+
 	using namespace openni;
 
 	// Read depth image from Kinect
@@ -49,7 +56,14 @@ void StClient::CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage
 
 		if (src < floor-20 || floor==0)
 		{
-			raw_cooked.image[i] = (uint16)src;
+			if (src>=config.far_cropping)
+			{
+				raw_cooked.image[i] = 0;
+			}
+			else
+			{
+				raw_cooked.image[i] = (uint16)src;
+			}
 		}
 		else
 		{

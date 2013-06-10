@@ -2,6 +2,8 @@
 #include <OpenAL/al.h>
 #include <OpenAL/alc.h>
 
+using namespace mi;
+
 #ifdef _M_X64
 #pragma comment(lib,"OpenAL32_x64.lib")
 #else
@@ -15,9 +17,6 @@
 #define DEBUG_PRINT(x) /*nop*/
 #endif
 
-
-
-namespace mi {
 
 
 static Audio& audio = Audio::self();
@@ -640,6 +639,3 @@ void AudioPlayer::mute()
 		ch->stop();
 	}
 }
-
-
-}//namespace mi

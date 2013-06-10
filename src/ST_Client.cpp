@@ -74,8 +74,8 @@ enum ClientStatus
 
 ClientStatus client_status = STATUS_DEPTH;
 
-miImage pic;
-miImage background_image;
+mi::Image pic;
+mi::Image background_image;
 
 
 
@@ -210,7 +210,6 @@ void toggle(bool& ref)
 	puts("-----------------------------");
 }
 
-//#define DEFAULT_DISPLAY_MODE	DISPLAY_MODE_OVERLAY
 #define DEFAULT_DISPLAY_MODE	DISPLAY_MODE_DEPTH
 
 
@@ -223,8 +222,8 @@ size_t movie_index = 0;
 
 openni::RGB888Pixel* moviex = nullptr;
 
-miUdpReceiver udp_recv;
-miUdpSender   udp_send;
+mi::UdpReceiver udp_recv;
+mi::UdpSender   udp_send;
 
 const int UDP_SERVER_RECV = 38702;
 const int UDP_CLIENT_RECV = 38708;
@@ -233,7 +232,6 @@ const int UDP_CLIENT_RECV = 38708;
 // @constructor, @init
 StClient::StClient(openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color) :
 	m_device(device), m_depthStream(depth), m_colorStream(color), m_streams(NULL),
-	m_eViewState(DEFAULT_DISPLAY_MODE),
 	video_ram(nullptr),
 	video_ram2(nullptr)
 {
@@ -241,7 +239,7 @@ StClient::StClient(openni::Device& device, openni::VideoStream& depth, openni::V
 
 	udp_recv.init(UDP_CLIENT_RECV);
 	printf("host: %s\n", Core::getComputerName().c_str());
-	printf("ip: %s\n", miUdp::getIpAddress().c_str());
+	printf("ip: %s\n", mi::Udp::getIpAddress().c_str());
 
 	mode.mirroring   = config.mirroring;
 	mode.calibration = true;
@@ -290,58 +288,61 @@ freetype::font_data monospace;
 
 bool StClient::init(int argc, char **argv)
 {
-#if !WITHOUT_KINECT
-	openni::VideoMode depthVideoMode;
-	openni::VideoMode colorVideoMode;
-
-	if (m_depthStream.isValid() && m_colorStream.isValid())
+	if (global_config.enable_kinect)
 	{
-		depthVideoMode = m_depthStream.getVideoMode();
-		colorVideoMode = m_colorStream.getVideoMode();
+		openni::VideoMode depthVideoMode;
+		openni::VideoMode colorVideoMode;
 
-		const int depthWidth  = depthVideoMode.getResolutionX();
-		const int depthHeight = depthVideoMode.getResolutionY();
-		const int colorWidth  = colorVideoMode.getResolutionX();
-		const int colorHeight = colorVideoMode.getResolutionY();
-		fprintf(stderr,
-			"Kinect resolution: depth(%dx%d), color(%dx%d)\n",
-			depthWidth, depthHeight,
-			colorWidth, colorHeight);
-
-		if (depthWidth==colorWidth && depthHeight==colorHeight)
+		if (m_depthStream.isValid() && m_colorStream.isValid())
 		{
-			m_width = depthWidth;
-			m_height = depthHeight;
+			depthVideoMode = m_depthStream.getVideoMode();
+			colorVideoMode = m_colorStream.getVideoMode();
+
+			const int depthWidth  = depthVideoMode.getResolutionX();
+			const int depthHeight = depthVideoMode.getResolutionY();
+			const int colorWidth  = colorVideoMode.getResolutionX();
+			const int colorHeight = colorVideoMode.getResolutionY();
+			fprintf(stderr,
+				"Kinect resolution: depth(%dx%d), color(%dx%d)\n",
+				depthWidth, depthHeight,
+				colorWidth, colorHeight);
+
+			if (depthWidth==colorWidth && depthHeight==colorHeight)
+			{
+				m_width = depthWidth;
+				m_height = depthHeight;
+			}
+			else
+			{
+				printf("Error - expect color and depth to be in same resolution: D: %dx%d, C: %dx%d\n",
+					depthWidth, depthHeight,
+					colorWidth, colorHeight);
+				return false;
+			}
+		}
+		else if (m_depthStream.isValid())
+		{
+			depthVideoMode = m_depthStream.getVideoMode();
+			m_width  = depthVideoMode.getResolutionX();
+			m_height = depthVideoMode.getResolutionY();
+		}
+		else if (m_colorStream.isValid())
+		{
+			colorVideoMode = m_colorStream.getVideoMode();
+			m_width  = colorVideoMode.getResolutionX();
+			m_height = colorVideoMode.getResolutionY();
 		}
 		else
 		{
-			printf("Error - expect color and depth to be in same resolution: D: %dx%d, C: %dx%d\n",
-				depthWidth, depthHeight,
-				colorWidth, colorHeight);
-			return false;
+			printf("Error - expects at least one of the streams to be valid...\n");
+			return openni::STATUS_ERROR;
 		}
-	}
-	else if (m_depthStream.isValid())
-	{
-		depthVideoMode = m_depthStream.getVideoMode();
-		m_width  = depthVideoMode.getResolutionX();
-		m_height = depthVideoMode.getResolutionY();
-	}
-	else if (m_colorStream.isValid())
-	{
-		colorVideoMode = m_colorStream.getVideoMode();
-		m_width  = colorVideoMode.getResolutionX();
-		m_height = colorVideoMode.getResolutionY();
 	}
 	else
 	{
-		printf("Error - expects at least one of the streams to be valid...\n");
-		return openni::STATUS_ERROR;
+		m_width = 0;
+		m_height = 0;
 	}
-#else
-	m_width = 0;
-	m_height = 0;
-#endif
 
 	m_streams = new openni::VideoStream*[2];
 	m_streams[0] = &m_depthStream;
@@ -948,7 +949,7 @@ void commandDiskInfo(Args& arg)
 			total);
 }
 
-void commandReloadConfig(Args& arg)
+static void commandReloadConfig(Args& arg)
 {
 	arg_check(arg, 0);
 	load_config();
@@ -974,13 +975,13 @@ void sendStatus()
 	udp_send.send(s);
 }
 
-void commandStatus(Args& arg)
+static void commandStatus(Args& arg)
 {
 	arg_check(arg, 0);
 	sendStatus();
 }
 
-void commandStart(Args& arg)
+static void commandStart(Args& arg)
 {
 	arg_check(arg, 0);
 
@@ -988,7 +989,7 @@ void commandStart(Args& arg)
 	sendStatus();
 }
 
-void commandBorderLine(Args& arg)
+static void commandBorderLine(Args& arg)
 {
 	arg_check(arg, 0);
 	toggle(mode.borderline);
@@ -1001,7 +1002,7 @@ const char* to_s(int x)
 	return to_s_buf;
 }
 
-void commandPing(Args& arg)
+static void commandPing(Args& arg)
 {
 	arg_check(arg, 1);
 
@@ -1011,7 +1012,7 @@ void commandPing(Args& arg)
 	s += "PONG ";
 	s += Core::getComputerName();
 	s += " ";
-	s += miUdp::getIpAddress();
+	s += mi::Udp::getIpAddress();
 	s += " ";
 	s += to_s(config.client_number);
 
@@ -1314,8 +1315,8 @@ void StClient::display()
 		ModelViewObject mo;
 		glRGBA::white.glColorUpdate();
 		freetype::print(monospace,  20,  20, "1. Raw depth view");
-		freetype::print(monospace, 340,  20, "2. Flooer filtered view");
-		freetype::print(monospace,  20, 260, "3. Flooer view");
+		freetype::print(monospace, 340,  20, "2. Floor filtered view");
+		freetype::print(monospace,  20, 260, "3. Floor view");
 		freetype::print(monospace, 340, 260, "4. Transformed view");
 	}
 

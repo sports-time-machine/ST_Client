@@ -1,8 +1,9 @@
 #pragma once
 #include "miCore.h"
 
+namespace mi{
 
-class miImage
+class Image
 {
 public:
 	bool createFromImageA(const char* filename);
@@ -17,7 +18,7 @@ public:
 	bool enabled()    const { return _gl_tex!=0u; }
 
 private:
-	void miImage::_DibToPicture(void* void_dib);
+	void _DibToPicture(void* void_dib);
 
 private:
 	uint _gl_tex;
@@ -26,3 +27,5 @@ private:
 	float _tex_x_ratio, _tex_y_ratio;
 	bool _has_alpha, _linear;
 };
+
+}//namespace mi

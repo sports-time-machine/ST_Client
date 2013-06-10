@@ -1,4 +1,6 @@
 #pragma once
+#include "zlib.h"
+#include <vector>
 
 #ifdef _M_X64
 #pragma comment(lib,"zlib_x64.lib")
@@ -6,8 +8,6 @@
 #pragma comment(lib,"zdll_x32.lib")
 #endif
 
-#include "zlib.h"
-#include <vector>
 
 class zlibpp
 {

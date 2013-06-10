@@ -1,28 +1,30 @@
 #include "miCore.h"
 
-class miUdp
+namespace mi{
+
+class Udp
 {
 public:
 	static const std::string& getIpAddress();
 
-	static miUdp& get() { static miUdp obj; return obj; }
+	static Udp& get() { static Udp obj; return obj; }
 
-	~miUdp();
+	virtual ~Udp();
 	void init();
 	void destroy();
 
 private:
-	miUdp();
+	Udp();
 
 	struct Impl;
 	Impl* self;
 };
 
-class miUdpReceiver
+class UdpReceiver
 {
 public:
-	miUdpReceiver();
-	~miUdpReceiver();
+	UdpReceiver();
+	virtual ~UdpReceiver();
 
 	void init(int port);
 	void destroy();
@@ -34,11 +36,11 @@ private:
 	Impl* self;
 };
 
-class miUdpSender
+class UdpSender
 {
 public:
-	miUdpSender();
-	~miUdpSender();
+	UdpSender();
+	virtual ~UdpSender();
 
 	void init(const char* addr, int port);
 	void destroy();
@@ -49,3 +51,5 @@ private:
 	struct Impl;
 	Impl* self;
 };
+
+}//namespace mi

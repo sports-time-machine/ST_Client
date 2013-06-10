@@ -1,6 +1,6 @@
 #include "zlibpp.h"
 
-void appendChunkToVector(zlibpp::bytes& dest, const zlibpp::byte* chunk, int chunksize)
+static void appendChunkToVector(zlibpp::bytes& dest, const zlibpp::byte* chunk, int chunksize)
 {
 	const size_t oldsize = dest.size();
 	dest.resize(oldsize + chunksize);
@@ -9,6 +9,7 @@ void appendChunkToVector(zlibpp::bytes& dest, const zlibpp::byte* chunk, int chu
 		dest[oldsize+i] = chunk[i];
 	}
 }
+
 
 bool zlibpp::compress(byte* src, int srcsize, bytes& dest, int compress_level)
 {

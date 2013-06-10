@@ -1,22 +1,29 @@
 #define THIS_IS_MAIN
 #include <OpenNI.h>
 #include "ST_Client.h"
-#define ENABLE_KINECT_COLOR 0
-
 #include "Config.h"
 
+//begin load psl
 #pragma warning(push)
 #pragma warning(disable: 4100) // unused variable
 #pragma warning(disable: 4201) // non-standard expanded function
 #pragma warning(disable: 4512) // 
 #include "PSL/PSL.h"
 #pragma warning(pop)
+//end of psl
 
 #ifdef _M_X64
 #pragma comment(lib,"OpenNI2_x64.lib")
 #else
 #pragma comment(lib,"OpenNI2_x32.lib")
 #endif
+
+
+GlobalConfig::GlobalConfig()
+{
+	enable_kinect = true;
+	enable_color  = false;
+}
 
 
 Config::Config()
@@ -80,15 +87,25 @@ void load_config()
 
 	psl.run();
 
-#define CONFIG_INT(DEST,NAME)   DEST.NAME = PSL::variable(psl.get(#NAME)).toInt()
-#define CONFIG_BOOL(DEST,NAME)  DEST.NAME = PSL::variable(psl.get(#NAME)).toBool()
+
+	auto int_exists = [&](const char* name)->bool{
+		return PSL::variable(psl.get(name)).type()==PSL::variable::INT;
+	};
+
+#define CONFIG_LET(DEST,NAME,FUNC)   if(int_exists(#NAME)){ DEST.NAME=PSL::variable(psl.get(#NAME)).FUNC(); }
+#define CONFIG_INT(DEST,NAME)        CONFIG_LET(DEST,NAME,toInt)
+#define CONFIG_BOOL(DEST,NAME)       CONFIG_LET(DEST,NAME,toBool)
 	CONFIG_INT(config, far_threshold);
 	CONFIG_INT(config, near_threshold);
+	CONFIG_INT(config, far_cropping);
 	CONFIG_INT(config, client_number);
 	CONFIG_INT(config, initial_window_x);
 	CONFIG_INT(config, initial_window_y);
 	CONFIG_BOOL(config, initial_fullscreen);
 	CONFIG_BOOL(config, mirroring);
+
+	CONFIG_BOOL(global_config, enable_kinect);
+	CONFIG_BOOL(global_config, enable_color);
 
 	{
 		PSL::variable src = psl.get("kinect_calibration");
@@ -99,34 +116,19 @@ void load_config()
 		dest.d = Point2i(src[3][0], src[3][1]);
 	}
 #undef CONFIG_INT
+#undef CONFIG_BOOL
 }
 
-int main(int argc, char** argv)
+static void init_kinect(openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color)
 {
-	load_config();
-
-
-
-	openni::Status rc;
-
-#if !WITHOUT_KINECT
-	rc = openni::STATUS_OK;
-
-	openni::Device device;
-	openni::VideoStream depth, color;
 	const char* deviceURI = openni::ANY_DEVICE;
-	if (argc > 1)
-	{
-		deviceURI = argv[1];
-	}
 
-	rc = openni::OpenNI::initialize();
+	(void)openni::OpenNI::initialize();
 
 	printf("After initialization:\n%s\n", openni::OpenNI::getExtendedError());
 
 	auto create_device = [&](){
-		rc = device.open(deviceURI);
-		if (rc != openni::STATUS_OK)
+		if (openni::STATUS_OK!=device.open(deviceURI))
 		{
 			ErrorDialog("Device open failed");
 			exit(1);
@@ -134,11 +136,9 @@ int main(int argc, char** argv)
 	};
 
 	auto create_depth = [&](){
-		rc = depth.create(device, openni::SENSOR_DEPTH);
-		if (rc == openni::STATUS_OK)
+		if (openni::STATUS_OK==depth.create(device, openni::SENSOR_DEPTH))
 		{
-			rc = depth.start();
-			if (rc != openni::STATUS_OK)
+			if (openni::STATUS_OK!=depth.start())
 			{
 				ErrorDialog("Couldn't start depth stream");
 				exit(1);
@@ -152,11 +152,9 @@ int main(int argc, char** argv)
 	};
 
 	auto create_color = [&](){
-		rc = color.create(device, openni::SENSOR_COLOR);
-		if (rc == openni::STATUS_OK)
+		if (openni::STATUS_OK==color.create(device, openni::SENSOR_COLOR))
 		{
-			rc = color.start();
-			if (rc != openni::STATUS_OK)
+			if (openni::STATUS_OK!=color.start())
 			{
 				ErrorDialog("Couldn't start color stream");
 				exit(1);
@@ -179,49 +177,51 @@ int main(int argc, char** argv)
 		create_depth();
 		puts("done.");
 
-#if ENABLE_KINECT_COLOR
-		printf("Create Color...");
-		create_color();
-		puts("done.");
-#endif
+		if (global_config.enable_color)
+		{
+			printf("Create Color...");
+			create_color();
+			puts("done.");
+		}
+		else
+		{
+			puts("Skip color.\n");
+		}
 	}
 	catch (...)
 	{
 		puts("Unknown fault.");
-		return -1;
+		exit(1);
 	}
 
-
-#if ENABLE_KINECT_COLOR
-	if (!depth.isValid() || !color.isValid())
-	{
-		printf("SimpleViewer: No valid streams. Exiting\n");
-		openni::OpenNI::shutdown();
-		return 2;
-	}
-#else
 	if (!depth.isValid())
 	{
 		ErrorDialog("No valid streams.");
 		exit(1);
 	}
-#endif
-#endif//WITHOUT_KINECT
+}
 
-#if !WITHOUT_KINECT
-	StClient st_client(device, depth, color);
-#else
+int main(int argc, char** argv)
+{
+	load_config();
+
 	openni::Device device;
-	openni::VideoStream depth, color;
-	SampleViewer sampleViewer("ST Client (wok)", device, depth, color);
-#endif//WITHOUT_KINECT
+	openni::VideoStream depth;
+	openni::VideoStream color;
 
+	if (global_config.enable_kinect)
+	{
+		init_kinect(device, depth, color);
+	}
+
+	StClient st_client(device, depth, color);
 	if (st_client.init(argc, argv)==false)
 	{
-#if !WITHOUT_KINECT
-		openni::OpenNI::shutdown();
-#endif//WITHOUT_KINECT
-		return 3;
+		if (global_config.enable_kinect)
+		{
+			openni::OpenNI::shutdown();
+		}
+		return 1;
 	}
 	st_client.run();
 }

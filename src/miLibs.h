@@ -58,6 +58,3 @@ public:
 	static void splitStringToLines(const std::string& rawstring, std::vector<std::string>& lines);
 	static bool splitString(const std::string& rawstring, std::string& cmd, std::vector<VariantType>& arg);
 };
-
-
-

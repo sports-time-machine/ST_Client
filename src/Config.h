@@ -4,12 +4,17 @@
 
 struct GlobalConfig
 {
+	bool enable_kinect;
+	bool enable_color;
+
+	GlobalConfig();
 };
 struct Config
 {
 	int client_number;
 	int near_threshold;
 	int far_threshold;
+	int far_cropping;
 	int initial_window_x;
 	int initial_window_y;
 	bool initial_fullscreen;
@@ -24,11 +29,10 @@ struct Config
 };
 
 #ifdef THIS_IS_MAIN
-#define EXTERN /*nop*/
+#define SmartExtern /*nop*/
 #else
-#define EXTERN extern
+#define SmartExtern extern
 #endif
 
-
-EXTERN GlobalConfig  global_config;
-EXTERN Config        config;
+SmartExtern GlobalConfig  global_config;
+SmartExtern Config        config;

@@ -5,6 +5,7 @@
 #include <vector>
 #include <GL/glut.h>
 
+using namespace mi;
 
 static inline int getBestTexSize(int value)
 {
@@ -19,7 +20,7 @@ static inline int getBestTexSize(int value)
 
 
 
-bool miImage::createFromImageA(const char* filename)
+bool Image::createFromImageA(const char* filename)
 {
 	this->_tex_h = 0;
 	this->_tex_w = 0;
@@ -72,7 +73,7 @@ bool miImage::createFromImageA(const char* filename)
 	return true;
 }
 
-void miImage::_DibToPicture(void* void_dib)
+void Image::_DibToPicture(void* void_dib)
 {
 	auto* dib = static_cast<FIBITMAP*>(void_dib);
 
@@ -158,7 +159,7 @@ void miImage::_DibToPicture(void* void_dib)
 	this->_tex_y_ratio = (float)_img_h / _tex_h;
 }
 
-void miImage::draw(int x, int y, int w, int h, int alpha)
+void Image::draw(int x, int y, int w, int h, int alpha)
 {
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, this->_gl_tex);
@@ -180,7 +181,7 @@ void miImage::draw(int x, int y, int w, int h, int alpha)
 	glDisable(GL_TEXTURE_2D);
 }
 
-void miImage::drawRotated(int x, int y, int w, int h, float rot, int alpha)
+void Image::drawRotated(int x, int y, int w, int h, float rot, int alpha)
 {
 	glBindTexture(GL_TEXTURE_2D, this->_gl_tex);
 	glColor4f(1, 1, 1, alpha/255.0f);

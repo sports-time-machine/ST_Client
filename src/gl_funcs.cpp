@@ -1,6 +1,7 @@
 #include "gl_funcs.h"
 #include <gl/glut.h>
 
+
 glRGBA
 	glRGBA::white(255,255,255),
 	glRGBA::black(0,0,0);

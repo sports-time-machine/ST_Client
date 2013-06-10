@@ -2,9 +2,9 @@
 #include <WinSock2.h>
 #pragma comment(lib, "ws2_32.lib")
 
+using namespace mi;
 
-
-const std::string& miUdp::getIpAddress()
+const std::string& Udp::getIpAddress()
 {
 	static std::string res;
 
@@ -43,24 +43,24 @@ const std::string& miUdp::getIpAddress()
 
 
 
-struct miUdp::Impl
+struct Udp::Impl
 {
 	bool enabled;
 	WSAData wsa;
 };
 
-miUdp::miUdp()
+Udp::Udp()
 {
 	self = new Impl;
 	self->enabled = false;
 }
 
-miUdp::~miUdp()
+Udp::~Udp()
 {
 	destroy();
 }
 
-void miUdp::init()
+void Udp::init()
 {
 	if (!self->enabled)
 	{
@@ -69,7 +69,7 @@ void miUdp::init()
 	}
 }
 
-void miUdp::destroy()
+void Udp::destroy()
 {
 	if (self->enabled)
 	{
@@ -82,24 +82,24 @@ void miUdp::destroy()
 
 
 
-struct miUdpReceiver::Impl
+struct UdpReceiver::Impl
 {
 	SOCKET sock;
 };
 
-miUdpReceiver::miUdpReceiver()
+UdpReceiver::UdpReceiver()
 {
 	self = new Impl;
 }
 
-miUdpReceiver::~miUdpReceiver()
+UdpReceiver::~UdpReceiver()
 {
 	delete self;
 }
 
-void miUdpReceiver::init(int port)
+void UdpReceiver::init(int port)
 {
-	miUdp::get().init();
+	Udp::get().init();
 
 	self->sock = ::socket(AF_INET, SOCK_DGRAM, 0);
 	sockaddr_in addr = {};
@@ -113,12 +113,12 @@ void miUdpReceiver::init(int port)
 	::ioctlsocket(self->sock, FIONBIO, &val);
 }
 
-void miUdpReceiver::destroy()
+void UdpReceiver::destroy()
 {
 	::closesocket(self->sock);
 }
 
-int miUdpReceiver::receive(std::string& dest)
+int UdpReceiver::receive(std::string& dest)
 {
 	const int NO_FLAGS = 0;
 	bool received = false;
@@ -145,25 +145,25 @@ int miUdpReceiver::receive(std::string& dest)
 
 
 
-struct miUdpSender::Impl
+struct UdpSender::Impl
 {
 	SOCKET sock;
 	sockaddr_in send_addr;
 };
 
-miUdpSender::miUdpSender()
+UdpSender::UdpSender()
 {
 	self = new Impl;
 }
 
-miUdpSender::~miUdpSender()
+UdpSender::~UdpSender()
 {
 	delete self;
 }
 
-void miUdpSender::init(const char* address, int port)
+void UdpSender::init(const char* address, int port)
 {
-	miUdp::get().init();
+	Udp::get().init();
 
 	destroy();
 
@@ -174,12 +174,12 @@ void miUdpSender::init(const char* address, int port)
 	self->send_addr.sin_addr.S_un.S_addr = ::inet_addr(address);
 }
 
-void miUdpSender::destroy()
+void UdpSender::destroy()
 {
 	::closesocket(self->sock);
 }
 
-bool miUdpSender::send(const std::string& src)
+bool UdpSender::send(const std::string& src)
 {
 	const int NO_FLAGS = 0;
 	int bytes = ::sendto(self->sock, src.c_str(), src.length(),
