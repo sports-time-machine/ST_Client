@@ -6,32 +6,33 @@
 const int far_clipping = 5000;
 
 
-void StClient::CreateRawDepthImage(RawDepthImage& raw)
+void Kdev::CreateRawDepthImage()
 {
-	if (!m_depthStream.isValid())
+	if (!depth.isValid())
 	{
 		// Uninitialized (without kinect mode)
 		return;
 	}
 
-
 	using namespace openni;
 
 	// Read depth image from Kinect
-	m_depthStream.readFrame(&m_depthFrame);
+	depth.readFrame(&depthFrame);
+
+	const bool mirroring = mode.mirroring ^ config.mirroring;
 
 	// Create raw depth image
-	const auto* depth_row = (const DepthPixel*)m_depthFrame.getData();
-	const int rowsize = m_depthFrame.getStrideInBytes() / sizeof(DepthPixel);
-	uint16* dest = raw.image.data();
-	const int src_inc = mode.mirroring ? -1 : +1;
+	const auto* depth_row = (const DepthPixel*)depthFrame.getData();
+	const int rowsize = depthFrame.getStrideInBytes() / sizeof(DepthPixel);
+	uint16* dest = raw_depth.image.data();
+	const int src_inc = mirroring ? -1 : +1;
 
-	raw.max_value = 0;
-	raw.min_value = 0;
-	raw.range     = 0;
+	raw_depth.max_value = 0;
+	raw_depth.min_value = 0;
+	raw_depth.range     = 0;
 	for (int y=0; y<480; ++y)
 	{
-		const auto* src = depth_row + (mode.mirroring ? 639 : 0);
+		const auto* src = depth_row + (mirroring ? 639 : 0);
 		for (int x=0; x<640; ++x)
 		{
 			uint16 v = *src;
@@ -49,6 +50,7 @@ void StClient::CreateRawDepthImage(RawDepthImage& raw)
 
 void StClient::CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage& raw_depth, const RawDepthImage& raw_floor)
 {
+	// Part 1: Mix depth and floor
 	for (int i=0; i<640*480; ++i)
 	{
 		const int src   = raw_depth.image[i];
@@ -70,41 +72,76 @@ void StClient::CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage
 			raw_cooked.image[i] = 0;
 		}
 	}
-	CalcDepthMinMax(raw_cooked);
+#if 0
+
+	// Part 2: 
+	// ......    ......    ......
+	// .IIIII    .12321    ..232.
+	// ...I.. -> ...2.. -> ...2..
+	// ..IIII    ..2321    ..232.
+	// ..I...    ..1...    ......
+	auto get = [&](int x, int y)->bool{
+		if ((uint)x>=640 || (uint)y>=480)
+		{
+			return false;
+		}
+		return raw_cooked[x + y*640]!=0;
+	};
+
+	for (int y=0; y<480; ++y)
+	{
+		for (int x=0; x<640; ++x)
+		{
+			int count =
+				(get(x-1,y)!=false)+
+				(get(x+1,y)!=false)+
+				(get(x,y-1)!=false)+
+				(get(x,y+1)!=false);
+			if (count
+//			raw_
+		}
+	}
+#endif
+
+	raw_cooked.CalcDepthMinMax();
 }
 
-void StClient::CalcDepthMinMax(RawDepthImage& raw)
+void RawDepthImage::CalcDepthMinMax()
 {
-	const uint16* src = raw.image.data();
-	raw.max_value = 0;
-	raw.min_value = 65535;
+	const uint16* src = this->image.data();
+	this->max_value = 0;
+	this->min_value = 65535;
 	for (int i=0; i<640*480; ++i)
 	{
 		uint16 v = src[i];
 		if (v!=0)
 		{
-			raw.max_value = max(raw.max_value, v);
-			raw.min_value = min(raw.min_value, v);
+			this->max_value = max(this->max_value, v);
+			this->min_value = min(this->min_value, v);
 		}
 	}
-	raw.range = max(1, raw.max_value - raw.min_value);
+	this->range = max(1, this->max_value - this->min_value);
+
+	if (!mode.auto_clipping)
+	{
+		this->max_value = 3000;
+		this->min_value = 500;
+		this->range = this->max_value - this->min_value;
+	}
 }
 
-void StClient::CreateTransformed(
-	RawDepthImage& raw_transformed,
-	const RawDepthImage& raw_cooked)
+void Kdev::CreateTransformed()
 {
 	//     x
-	//  A-----B          A-_g
+	//  A-----B          A-_
 	//  |     |         /   \_
-	// y|     |  -->  e/      B
-	//  |     |       /  h   /f
+	// e|-----|f -->  e/-__   B
+	//  |     |       /    --/f
 	//  C-----D      C------D
-	const auto& kc = config.kinect_calibration;
-	Point2i a = kc.a;
-	Point2i b = kc.b;
-	Point2i c = kc.c;
-	Point2i d = kc.d;
+	const Point2i a = calibration.a;
+	const Point2i b = calibration.b;
+	const Point2i c = calibration.c;
+	const Point2i d = calibration.d;
 	int index = 0;
 	for (int y=0; y<480; ++y)
 	{
@@ -123,5 +160,5 @@ void StClient::CreateTransformed(
 			++index;
 		}
 	}
-	CalcDepthMinMax(raw_transformed);
+	raw_transformed.CalcDepthMinMax();
 }

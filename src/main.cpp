@@ -36,10 +36,19 @@ Config::Config()
 	initial_fullscreen = false;
 	mirroring = false;
 	
-	kinect_calibration.a = Point2i(0,0);
-	kinect_calibration.b = Point2i(640,0);
-	kinect_calibration.c = Point2i(0,480);
-	kinect_calibration.d = Point2i(640,480);
+	metrics.ground_px = 480;
+	metrics.left_mm   = 0;
+	metrics.right_mm  = 4000;
+	metrics.top_mm    = 2500;
+
+	kinect1_calibration.a = Point2i(0,0);
+	kinect1_calibration.b = Point2i(640,0);
+	kinect1_calibration.c = Point2i(0,480);
+	kinect1_calibration.d = Point2i(640,480);
+	kinect2_calibration.a = Point2i(0,0);
+	kinect2_calibration.b = Point2i(640,0);
+	kinect2_calibration.c = Point2i(0,480);
+	kinect2_calibration.d = Point2i(640,480);
 }
 
 
@@ -78,21 +87,21 @@ void load_config()
 
 	if (!load_psl("//STMx64/ST/Config.psl"))
 	{
-		return;
+		puts("Config.psl load error.");
 	}
 	if (!load_psl(PSL::string("C:/ST/")+Core::getComputerName().c_str()+".psl"))
 	{
-		return;
+		puts("(client-name).psl load error.");
 	}
 
 	psl.run();
-
 
 	auto int_exists = [&](const char* name)->bool{
 		return PSL::variable(psl.get(name)).type()==PSL::variable::INT;
 	};
 
-#define CONFIG_LET(DEST,NAME,FUNC)   if(int_exists(#NAME)){ DEST.NAME=PSL::variable(psl.get(#NAME)).FUNC(); }
+#define CONFIG_LET2(DEST,NAME,FUNC)   if(int_exists(#NAME)){ DEST=PSL::variable(psl.get(#NAME)).FUNC(); }
+#define CONFIG_LET(DEST,NAME,FUNC)   CONFIG_LET2(DEST.NAME, NAME, FUNC)
 #define CONFIG_INT(DEST,NAME)        CONFIG_LET(DEST,NAME,toInt)
 #define CONFIG_BOOL(DEST,NAME)       CONFIG_LET(DEST,NAME,toBool)
 	CONFIG_INT(config, far_threshold);
@@ -103,26 +112,51 @@ void load_config()
 	CONFIG_INT(config, initial_window_y);
 	CONFIG_BOOL(config, initial_fullscreen);
 	CONFIG_BOOL(config, mirroring);
+	printf("mirroring: %d\n", config.mirroring);
 
+	// Metrics
+	double left_meter  = 0.0f;
+	double right_meter = 0.0f;
+	double top_meter   = 0.0f;
+	int    ground_px   = 0;
+	CONFIG_LET2(left_meter,  metrics_left_meter,  toDouble);
+	CONFIG_LET2(right_meter, metrics_right_meter, toDouble);
+	CONFIG_LET2(top_meter,   metrics_topt_meter,  toDouble);
+	CONFIG_LET2(ground_px,   metrics_ground_px,   toInt);
+	config.metrics.left_mm   = (int)(1000 * left_meter);
+	config.metrics.right_mm  = (int)(1000 * right_meter);
+	config.metrics.top_mm    = (int)(1000 * top_meter);
+	config.metrics.ground_px = ground_px;
+
+
+	// Init flags
 	CONFIG_BOOL(global_config, enable_kinect);
 	CONFIG_BOOL(global_config, enable_color);
 
 	{
-		PSL::variable src = psl.get("kinect_calibration");
-		auto& dest = config.kinect_calibration;
+		PSL::variable src = psl.get("kinect1_calibration");
+		auto& dest = config.kinect1_calibration;
 		dest.a = Point2i(src[0][0], src[0][1]);
 		dest.b = Point2i(src[1][0], src[1][1]);
 		dest.c = Point2i(src[2][0], src[2][1]);
 		dest.d = Point2i(src[3][0], src[3][1]);
 	}
+
+	{
+		PSL::variable src = psl.get("kinect2_calibration");
+		auto& dest = config.kinect2_calibration;
+		dest.a = Point2i(src[0][0], src[0][1]);
+		dest.b = Point2i(src[1][0], src[1][1]);
+		dest.c = Point2i(src[2][0], src[2][1]);
+		dest.d = Point2i(src[3][0], src[3][1]);
+	}
+
 #undef CONFIG_INT
 #undef CONFIG_BOOL
 }
 
-static void init_kinect(openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color)
+static void init_kinect()
 {
-	const char* deviceURI = openni::ANY_DEVICE;
-
 	printf("Initialize OpenNI...");
 	if (openni::STATUS_OK!=openni::OpenNI::initialize())
 	{
@@ -133,9 +167,34 @@ static void init_kinect(openni::Device& device, openni::VideoStream& depth, open
 	{
 		puts("done.");
 	}
+}
 
+static void get_kinect_devices(std::string& first, std::string& second)
+{
+	openni::Array<openni::DeviceInfo> devices;
+	openni::OpenNI::enumerateDevices(&devices);
+
+	printf("%d kinect(s) found.\n", devices.getSize());
+	first  = "";
+	second = "";
+	for (int i=0; i<devices.getSize(); ++i)
+	{
+		const auto& dev = devices[i];
+		printf("  [%d] %s %s %s\n",
+			i,
+			dev.getVendor(),
+			dev.getName(),
+			dev.getUri());
+		if (i==0) first  = dev.getUri();
+		if (i==1) second = dev.getUri();
+	}
+}
+
+
+static void init_kinect(const char* uri, Kdev& k)
+{
 	auto create_device = [&](){
-		if (openni::STATUS_OK!=device.open(deviceURI))
+		if (openni::STATUS_OK!=k.device.open(uri))
 		{
 			ErrorDialog("Device open failed");
 			exit(1);
@@ -143,9 +202,10 @@ static void init_kinect(openni::Device& device, openni::VideoStream& depth, open
 	};
 
 	auto create_depth = [&](){
-		if (openni::STATUS_OK==depth.create(device, openni::SENSOR_DEPTH))
+		if (openni::STATUS_OK==k.depth.create(k.device, openni::SENSOR_DEPTH))
 		{
-			if (openni::STATUS_OK!=depth.start())
+			auto status = k.depth.start();
+			if (status!=openni::STATUS_OK)
 			{
 				ErrorDialog("Couldn't start depth stream");
 				exit(1);
@@ -159,9 +219,9 @@ static void init_kinect(openni::Device& device, openni::VideoStream& depth, open
 	};
 
 	auto create_color = [&](){
-		if (openni::STATUS_OK==color.create(device, openni::SENSOR_COLOR))
+		if (openni::STATUS_OK==k.color.create(k.device, openni::SENSOR_COLOR))
 		{
-			if (openni::STATUS_OK!=color.start())
+			if (openni::STATUS_OK!=k.color.start())
 			{
 				ErrorDialog("Couldn't start color stream");
 				exit(1);
@@ -201,27 +261,39 @@ static void init_kinect(openni::Device& device, openni::VideoStream& depth, open
 		exit(1);
 	}
 
-	if (!depth.isValid())
+	if (!k.depth.isValid())
 	{
 		ErrorDialog("No valid streams.");
 		exit(1);
 	}
 }
 
+
+
 int main(int argc, char** argv)
 {
 	load_config();
 
-	openni::Device device;
-	openni::VideoStream depth;
-	openni::VideoStream color;
+
+	Kdev dev1, dev2;
 
 	if (global_config.enable_kinect)
 	{
-		init_kinect(device, depth, color);
+		init_kinect();
+
+		std::string first, second;
+		get_kinect_devices(first, second);
+		init_kinect(
+			first.c_str(),
+			//openni::ANY_DEVICE,
+			dev1);
+		init_kinect(
+			second.c_str(),
+			//openni::ANY_DEVICE,
+			dev2);
 	}
 
-	StClient st_client(device, depth, color);
+	StClient st_client(dev2, dev1);
 	if (st_client.init(argc, argv)==false)
 	{
 		if (global_config.enable_kinect)

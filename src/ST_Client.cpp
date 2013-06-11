@@ -19,6 +19,30 @@
 extern void load_config();
 
 
+float eye_r = -0.35f;
+float eye_d = 4.00f;
+float ex,ey,ez;
+
+
+
+
+void Kdev::initRam()
+{
+	glGenTextures(1, &this->vram_tex);
+	glGenTextures(1, &this->vram_floor);
+	this->img_rawdepth   .create(640,480);
+	this->img_floor      .create(640,480);
+	this->img_cooked     .create(640,480);
+	this->img_transformed.create(640,480);
+	
+	calibration.a = Point2i(0,0);
+	calibration.b = Point2i(640,0);
+	calibration.c = Point2i(0,480);
+	calibration.d = Point2i(640,480);
+}
+
+
+
 
 
 
@@ -170,6 +194,9 @@ void RgbaTex::create(int w, int h)
 	const int TEXTURE_SIZE = 512;
 
 	glGenTextures(1, &tex);
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
 	width      = w;
 	height     = h;
@@ -205,7 +232,6 @@ void toggle(bool& ref)
 	log(mode.pixel_completion, 'e', "pixel completion");
 	log(mode.mirroring,        '?', "mirroring");
 	log(mode.borderline,       'b', "borderline");
-	log(mode.calibration,      '_', "calibration");
 	log(mode.view4test,        '$', "view4test");
 	puts("-----------------------------");
 }
@@ -229,20 +255,27 @@ const int UDP_SERVER_RECV = 38702;
 const int UDP_CLIENT_RECV = 38708;
 
 
+GLuint depth_tex;
+
+
+
 // @constructor, @init
-StClient::StClient(openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color) :
-	m_device(device), m_depthStream(depth), m_colorStream(color), m_streams(NULL),
+StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
+	dev1(dev1_),
+	dev2(dev2_),
 	video_ram(nullptr),
 	video_ram2(nullptr)
 {
 	ms_self = this;
+
+	glGenTextures(1, &depth_tex);
 
 	udp_recv.init(UDP_CLIENT_RECV);
 	printf("host: %s\n", Core::getComputerName().c_str());
 	printf("ip: %s\n", mi::Udp::getIpAddress().c_str());
 
 	mode.mirroring   = config.mirroring;
-	mode.calibration = true;
+	mode.calibration = false;
 
 	{
 		HitObject ho;
@@ -272,11 +305,6 @@ StClient::~StClient()
 	delete[] video_ram2;
 
 	ms_self = nullptr;
-
-	if (m_streams!=nullptr)
-	{
-		delete[] m_streams;
-	}
 }
 
 
@@ -293,10 +321,10 @@ bool StClient::init(int argc, char **argv)
 		openni::VideoMode depthVideoMode;
 		openni::VideoMode colorVideoMode;
 
-		if (m_depthStream.isValid() && m_colorStream.isValid())
+		if (dev1.depth.isValid() && dev1.color.isValid())
 		{
-			depthVideoMode = m_depthStream.getVideoMode();
-			colorVideoMode = m_colorStream.getVideoMode();
+			depthVideoMode = dev1.depth.getVideoMode();
+			colorVideoMode = dev1.color.getVideoMode();
 
 			const int depthWidth  = depthVideoMode.getResolutionX();
 			const int depthHeight = depthVideoMode.getResolutionY();
@@ -320,15 +348,15 @@ bool StClient::init(int argc, char **argv)
 				return false;
 			}
 		}
-		else if (m_depthStream.isValid())
+		else if (dev1.depth.isValid())
 		{
-			depthVideoMode = m_depthStream.getVideoMode();
+			depthVideoMode = dev1.depth.getVideoMode();
 			m_width  = depthVideoMode.getResolutionX();
 			m_height = depthVideoMode.getResolutionY();
 		}
-		else if (m_colorStream.isValid())
+		else if (dev1.color.isValid())
 		{
-			colorVideoMode = m_colorStream.getVideoMode();
+			colorVideoMode = dev1.color.getVideoMode();
 			m_width  = colorVideoMode.getResolutionX();
 			m_height = colorVideoMode.getResolutionY();
 		}
@@ -344,10 +372,6 @@ bool StClient::init(int argc, char **argv)
 		m_height = 0;
 	}
 
-	m_streams = new openni::VideoStream*[2];
-	m_streams[0] = &m_depthStream;
-	m_streams[1] = &m_colorStream;
-
 	// Texture map init
 	printf("%d x %d\n", m_width, m_height);
 	m_nTexMapX = MIN_CHUNKS_SIZE(m_width, TEXTURE_SIZE);
@@ -358,14 +382,12 @@ bool StClient::init(int argc, char **argv)
 		return false;
 	}
 
-	glGenTextures(1, &vram_tex);
-	glGenTextures(1, &vram_tex2);
-	glGenTextures(1, &vram_floor);
+	dev1.initRam();
+	dev2.initRam();
 
-	img_rawdepth.create(640,480);
-	img_floor   .create(640,480);
-	img_cooked  .create(640,480);
-	img_transformed.create(640,480);
+
+	glGenTextures(1, &vram_tex2);
+
 
 	video_ram     = new RGBA_raw[m_nTexMapX * m_nTexMapY];
 	video_ram2    = new RGBA_raw[m_nTexMapX * m_nTexMapY];
@@ -427,16 +449,16 @@ void StClient::drawImageMode()
 {
 	using namespace openni;
 
-	const RGB888Pixel* source_row = (const RGB888Pixel*)m_colorFrame.getData();
-	RGBA_raw* dest_row = video_ram + m_colorFrame.getCropOriginY() * m_nTexMapX;
-	const int source_rows = m_colorFrame.getStrideInBytes() / sizeof(RGB888Pixel);
+	const RGB888Pixel* source_row = (const RGB888Pixel*)dev1.colorFrame.getData();
+	RGBA_raw* dest_row = video_ram + dev1.colorFrame.getCropOriginY() * m_nTexMapX;
+	const int source_rows = dev1.colorFrame.getStrideInBytes() / sizeof(RGB888Pixel);
 
-	for (int y=0; y<m_colorFrame.getHeight(); ++y)
+	for (int y=0; y<dev1.colorFrame.getHeight(); ++y)
 	{
 		const RGB888Pixel* src = source_row;
-		RGBA_raw* dest = dest_row + m_colorFrame.getCropOriginX();
+		RGBA_raw* dest = dest_row + dev1.colorFrame.getCropOriginX();
 
-		for (int x=0; x<m_colorFrame.getWidth(); ++x)
+		for (int x=0; x<dev1.colorFrame.getWidth(); ++x)
 		{
 			dest->r = src->r;
 			dest->g = src->g;
@@ -463,7 +485,7 @@ void StClient::drawImageMode()
 
 int decomp_time = 0;
 int draw_time = 0;
-const uint8* last_depth_image = nullptr;
+//#const uint8* last_depth_image = nullptr;
 uint8 floor_depth[640*480];
 uint8 depth_cook[640*480];
 int floor_depth_count = 0;
@@ -472,8 +494,7 @@ uint16 floor_depth2[640*480];
 
 
 
-
-void StClient::RawDepthImageToRgbaTex(const RawDepthImage& raw, RgbaTex& dimg)
+void Kdev::RawDepthImageToRgbaTex(const RawDepthImage& raw, RgbaTex& dimg)
 {
 	const uint16* src = raw.image.data();
 	const int range = max(1, raw.range);
@@ -483,17 +504,27 @@ void StClient::RawDepthImageToRgbaTex(const RawDepthImage& raw, RgbaTex& dimg)
 		for (int x=0; x<640; ++x, ++dest, ++src)
 		{
 			const uint16 d = *src;
-			const uint v = 255 * (d - raw.min_value) / range;
+			uint v = 255 * (d - raw.min_value) / range;
 			if (v==0)
 			{
-				dest->set(80,50,0,100);
+				// n/a
+				dest->set(80,50,0);
 			}
 			else if (v>255)
 			{
-				dest->set(255,50,0,100);
+				// too far!
+				dest->set(0,30,70);
 			}
 			else
 			{
+				if (mode.borderline && v>=20 && v<=240)
+				{
+					if (v%2==0)
+						v = 20;
+					else
+						v = 240;
+				}
+
 				dest->set(
 					(255-v)*256>>8,
 					(255-v)*230>>8,
@@ -505,7 +536,7 @@ void StClient::RawDepthImageToRgbaTex(const RawDepthImage& raw, RgbaTex& dimg)
 }
 
 
-void DrawRgbaTex(const RgbaTex& img, int dx, int dy, int dw, int dh)
+void DrawRgbaTex_Build(const RgbaTex& img)
 {
 	gl::Texture(true);
 	glBindTexture(GL_TEXTURE_2D, img.tex);
@@ -515,7 +546,10 @@ void DrawRgbaTex(const RgbaTex& img, int dx, int dy, int dw, int dh)
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
 		img.ram_width, img.ram_height,
 		0, GL_RGBA, GL_UNSIGNED_BYTE, img.vram);
+}
 
+void DrawRgbaTex_Draw(const RgbaTex& img, int dx, int dy, int dw, int dh)
+{
 	const int x1 = dx;
 	const int y1 = dy;
 	const int x2 = dx + dw;
@@ -536,7 +570,15 @@ void DrawRgbaTex(const RgbaTex& img, int dx, int dy, int dw, int dh)
 	glEnd();
 }
 
+void DrawRgbaTex(const RgbaTex& img, int dx, int dy, int dw, int dh)
+{
+	DrawRgbaTex_Build(img);
+	DrawRgbaTex_Draw(img, dx,dy,dw,dh);
+}
 
+
+//#
+/*
 void StClient::BuildDepthImage(uint8* const final_dest)
 {
 	using namespace openni;
@@ -545,10 +587,10 @@ void StClient::BuildDepthImage(uint8* const final_dest)
 	// Create 'depth_raw' from Kinect
 	static uint8 depth_raw[640*480];
 	{
-		const auto* depth_row = (const DepthPixel*)m_depthFrame.getData();
-		const int rowsize = m_depthFrame.getStrideInBytes() / sizeof(DepthPixel);
+		const auto* depth_row = (const DepthPixel*)dev1.depthFrame.getData();
+		const int rowsize = dev1.depthFrame.getStrideInBytes() / sizeof(DepthPixel);
 		int index = 0;
-		uint8* dest = mode.calibration ? depth_raw : final_dest;
+		uint8* dest = (mode.calibration_index==0) ? depth_raw : final_dest;
 		for (int y=0; y<480; ++y)
 		{
 			const auto* src = depth_row + (mode.mirroring ? 639 : 0);
@@ -599,7 +641,7 @@ void StClient::BuildDepthImage(uint8* const final_dest)
 	}
 
 
-	if (mode.calibration)
+	if (mode.calibration_index!=0)
 	{
 		//     x
 		//  A-----B          A-_g
@@ -607,7 +649,10 @@ void StClient::BuildDepthImage(uint8* const final_dest)
 		// y|     |  -->  e/      B
 		//  |     |       /  h   /f
 		//  C-----D      C------D
-		const auto& kc = config.kinect_calibration;
+		const auto& kc = this->
+			(mode.calibration_index==1)
+				? config.kinect1_calibration
+				: config.kinect2_calibration; 
 		Point2i a = kc.a;
 		Point2i b = kc.b;
 		Point2i c = kc.c;
@@ -630,6 +675,7 @@ void StClient::BuildDepthImage(uint8* const final_dest)
 		}
 	}
 }
+*/
 
 
 static MovieData curr_movie;
@@ -711,8 +757,8 @@ void StClient::drawDepthMode()
 
 	// Depth raw => Current pre buffer
 
-	BuildDepthImage(curr_pre);
-	last_depth_image = curr_pre;
+//#	BuildDepthImage(curr_pre);
+//#	last_depth_image = curr_pre;
 
 	{
 		const uint8* src = curr_pre;
@@ -832,7 +878,7 @@ void StClient::drawDepthMode()
 	}
 
 	// @build
-	buildBitmap(vram_tex, video_ram, m_nTexMapX, m_nTexMapY);
+	buildBitmap(dev1.vram_tex, video_ram, m_nTexMapX, m_nTexMapY);
 
 	// @draw
 	const int draw_x = 0;
@@ -1171,15 +1217,22 @@ void display2()
 	static int frames = 0;
 	++frames;
 	cnt += 0.01;
-	glRGBA(0,0,0).glColorUpdate();
 	glPushMatrix();
 	glLoadIdentity();
 	int time_diff = (timeGetTime() - time_begin);
 
-	freetype::print(monospace, 20, 160, "#%d Near(%dmm) Far(%dmm)",
+	glRGBA::white.glColorUpdate();
+	freetype::print(monospace, 0, 476, "%dmm",
+		config.metrics.left_mm);
+	freetype::print(monospace, 570, 476, "%5dmm",
+		config.metrics.right_mm);
+
+	freetype::print(monospace, 20, 160, "#%d Near(%dmm) Far(%dmm) [%s][%s]",
 			config.client_number,
 			config.near_threshold,
-			config.far_threshold);
+			config.far_threshold,
+			mode.borderline ? "border" : "no border",
+			mode.auto_clipping ? "auto clipping" : "no auto clip");
 
 	// @fps
 	freetype::print(monospace, 20, 180, "%d, %d, %.1ffps, %.2ffps, %d, %d",
@@ -1222,6 +1275,50 @@ void display2()
 
 
 
+void StClient::drawKdev(Kdev& kdev, int x, int y, int w, int h)
+{
+	w /= 2;
+	h /= 2;
+	const int x1 = x;
+	const int y1 = y;
+	const int x2 = x+w;
+	const int y2 = y+h;
+
+	if (mode.view4test)
+	{
+		kdev.raw_depth.CalcDepthMinMax();
+		kdev.RawDepthImageToRgbaTex(dev1.raw_depth, dev1.img_rawdepth);
+		DrawRgbaTex(dev1.img_rawdepth, x1,y1, w,h);
+	}
+
+	// Mode 2: Floor
+	{
+		if (mode.view4test){
+			DrawRgbaTex(kdev.img_floor, x2,y1, w,h);
+		}
+	}
+
+	// Mode 3: Floor filtered depth (cooked depth)
+	{
+		CreateCoockedDepth(kdev.raw_cooked, kdev.raw_depth, kdev.raw_floor);
+		if (mode.view4test){
+			kdev.RawDepthImageToRgbaTex(kdev.raw_cooked, kdev.img_cooked);
+			DrawRgbaTex(kdev.img_cooked, x1,y2, w,h);
+		}
+	}
+
+	// Mode 4: Transformed depth
+	{
+		kdev.CreateTransformed();
+		kdev.RawDepthImageToRgbaTex(kdev.raw_transformed, kdev.img_transformed);
+		if (mode.view4test){
+			DrawRgbaTex(kdev.img_transformed, x2,y2, w,h);
+		}else{
+			DrawRgbaTex(kdev.img_transformed, x1,y1,2*w,2*h);
+		}
+	}
+}
+
 
 
 size_t hit_object_stage = 0;
@@ -1234,6 +1331,106 @@ void StClient::display()
 	// @display
 	glClearColor(0.25, 0.50, 0.15, 1.00);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+	gl::Texture(false);
+	gl::DepthTest(true);
+	{
+		glOrtho(0, 1, 0, 1, -1.0, 1.0);
+
+		ex = cos(eye_r)*eye_d;
+		ez = sin(eye_r)*eye_d;
+
+		::glMatrixMode(GL_PROJECTION);
+		::glLoadIdentity();
+		::gluPerspective(60.0f, 4.0/3.0, 1.0f, 100.0f);
+		::gluLookAt(
+			ex,
+			0.25,
+			ez,
+			
+			0,
+			0.25,
+			0,
+			0.0, 1.0, 0.0);
+
+		const float u1 = 0.0f;
+		const float v1 = 0.0f;
+		const float u2 = 1.0f;
+		const float v2 = 1.0f;
+		const int x1 = 0;
+		const int y1 = 0;
+		const int x2 = 640;
+		const int y2 = 480;
+
+		glBegin(GL_LINES);
+			for (float i=-3.0f; i<=3.0f; i+=0.1f)
+			{
+				if (i>=-0.01 && i<=0.01)
+				{
+					glRGBA(255,0,0).glColorUpdate();
+				}
+				else
+				{
+					glRGBA(100,100,100).glColorUpdate();
+				}
+
+				glVertex3f(-3.0f, 0, i);
+				glVertex3f(+3.0f, 0, i);
+				glVertex3f(i, 0, -3.0f);
+				glVertex3f(i, 0, +3.0f);
+			}
+		glEnd();
+
+		dev1.CreateRawDepthImage();
+
+#define USE_LINE 0
+
+#if USE_LINE
+		glBegin(GL_LINES);
+#else
+		glBegin(GL_POINTS);
+#endif
+			const uint16* data = dev1.raw_depth.image.data();
+			dev1.raw_depth.CalcDepthMinMax();
+			for (int y=0; y<480; ++y)
+			{
+				for (int x=0; x<640; ++x)
+				{
+					volatile int val = *data++;
+
+					volatile int alpha = (val-dev1.raw_depth.min_value)*255/dev1.raw_depth.range;
+					if (alpha<0) continue;
+					if (alpha>255) alpha=255;
+
+					int c = alpha;
+					glRGBA(
+						c,
+						c,
+						c,
+						255-alpha).glColorUpdate();
+#if USE_LINE
+					glVertex3f(
+						x/640.0f-0.5,
+						-y/480.0f + 1.0,
+						val/2000.0f-0.02);
+					glVertex3f(
+						x/640.0f-0.5,
+						-y/480.0f + 1.0,
+						val/2000.0f+0.02);
+#else
+					float z = val/2000.0f;
+					glVertex3f(
+						x/640.0f-0.5,
+						-y/480.0f + 1.0,
+						z - 0.5);
+#endif
+				}
+			}
+		glEnd();
+	}
+
+
 	gl::Texture(false);
 	gl::DepthTest(false);
 	glOrtho(0, 640, 480, 0, -1.0, 1.0);
@@ -1255,42 +1452,18 @@ void StClient::display()
 		break;
 	}
 
+
 	// Mode 1: Raw depth
 	{
- 		CreateRawDepthImage(raw_depth);
-		if (mode.view4test){
-			CalcDepthMinMax(raw_depth);
-			RawDepthImageToRgbaTex(raw_depth, img_rawdepth);
-			DrawRgbaTex(img_rawdepth, 0,0, 320,240);
-		}
+// 		dev1.CreateRawDepthImage();
+//		dev2.CreateRawDepthImage();
 	}
 
-	// Mode 2: Floor
-	{
-		if (mode.view4test){
-			DrawRgbaTex(img_floor, 320,0, 320,240);
-		}
-	}
+//	drawKdev(dev1,   0,0, 320,240);
+//	drawKdev(dev2, 320,0, 320,240);
 
-	// Mode 3: Floor filtered depth (cooked depth)
-	{
-		CreateCoockedDepth(raw_cooked, raw_depth, raw_floor);
-		if (mode.view4test){
-			RawDepthImageToRgbaTex(raw_cooked, img_cooked);
-			DrawRgbaTex(img_cooked, 0,240, 320,240);
-		}
-	}
+	//dev1.RawDepthImageToRgbaTex3D(dev1.raw_depth);
 
-	// Mode 4: Transformed depth
-	{
-		CreateTransformed(raw_transformed, raw_cooked);
-		RawDepthImageToRgbaTex(raw_transformed, img_transformed);
-		if (mode.view4test){
-			DrawRgbaTex(img_transformed, 320,240, 320,240);
-		}else{
-			DrawRgbaTex(img_transformed, 0,0,640,480);
-		}
-	}
 
 
 
@@ -1298,11 +1471,16 @@ void StClient::display()
 	{
 		ModelViewObject mo;
 		glRGBA::white.glColorUpdate();
-		freetype::print(monospace, 20,80, "RDI: %d,%d", raw_depth.min_value, raw_depth.max_value);
+		freetype::print(monospace, 20,440, "RDI: %d,%d  (%.2f,%.2f,%.2f)",
+				dev1.raw_depth.min_value,
+				dev1.raw_depth.max_value,
+				ex,
+				ey,
+				ez);
 	}
 
 
-//	drawDepthMode();
+//#	drawDepthMode();
 
 	glRGBA::white.glColorUpdate();
 
@@ -1311,6 +1489,7 @@ void StClient::display()
 		display2();
 	}
 
+	if (mode.view4test)
 	{
 		ModelViewObject mo;
 		glRGBA::white.glColorUpdate();
@@ -1321,11 +1500,16 @@ void StClient::display()
 	}
 
 	glRGBA(255,255,255,100).glColorUpdate();
-	gl::Line2D(Point2i(0, 40), Point2i(640, 40));
 	gl::Line2D(Point2i(0,240), Point2i(640,240));
-	gl::Line2D(Point2i(0,440), Point2i(640,440));
 	gl::Line2D(Point2i(320,0), Point2i(320,480));
 
+	if (!mode.view4test)
+	{
+		gl::Line2D(Point2i(0, 40), Point2i(640, 40));
+		gl::Line2D(Point2i(0,440), Point2i(640,440));
+	}
+
+	if (!mode.view4test)
 	{
 		ModelViewObject mo;
 		glRGBA(255,255,255).glColorUpdate();
@@ -1335,7 +1519,7 @@ void StClient::display()
 		freetype::print(monospace, 320,  10, "2m");
 	}
 
-	if (!mode.calibration)
+	if (mode.calibration==0)
 	{
 		displayCalibrationInfo();
 	}
@@ -1357,15 +1541,19 @@ void StClient::displayCalibrationInfo()
 		Point2f(0,480).glVertex2();
 	glEnd();
 
-	const auto& kc = config.kinect_calibration;
 
-	glRGBA::white.glColorUpdate();
-	glBegin(GL_LINE_LOOP);
-		kc.a.glVertex2();
-		kc.b.glVertex2();
-		kc.d.glVertex2();
-		kc.c.glVertex2();
-	glEnd();
+	auto draw_calib = [&](const KinectCalibration& kc, glRGBA rgba){
+		rgba.glColorUpdate();
+		glBegin(GL_LINE_LOOP);
+			kc.a.glVertex2();
+			kc.b.glVertex2();
+			kc.d.glVertex2();
+			kc.c.glVertex2();
+		glEnd();
+	};
+
+	draw_calib(dev1.calibration, glRGBA(250,220,220));
+	draw_calib(dev2.calibration, glRGBA(220,220,250));
 
 	if (calibration_focus!=nullptr)
 	{
@@ -1379,11 +1567,22 @@ void StClient::displayCalibrationInfo()
 	{
 		ModelViewObject m;
 		glRGBA::white.glColorUpdate();
-		freetype::print(monospace, 20,  20, "[Calibration Mode]");
-		freetype::print(monospace, 20,  40, "A = (%d,%d)", kc.a.x, kc.a.y);
-		freetype::print(monospace, 20,  60, "B = (%d,%d)", kc.b.x, kc.b.y);
-		freetype::print(monospace, 20,  80, "C = (%d,%d)", kc.c.x, kc.c.y);
-		freetype::print(monospace, 20, 100, "D = (%d,%d)", kc.d.x, kc.d.y);
+		{
+			const auto& kc = dev1.calibration;
+			freetype::print(monospace, 20,  20, "[Kinect-1 Calibration Mode]");
+			freetype::print(monospace, 20,  40, "A = (%d,%d)", kc.a.x, kc.a.y);
+			freetype::print(monospace, 20,  60, "B = (%d,%d)", kc.b.x, kc.b.y);
+			freetype::print(monospace, 20,  80, "C = (%d,%d)", kc.c.x, kc.c.y);
+			freetype::print(monospace, 20, 100, "D = (%d,%d)", kc.d.x, kc.d.y);
+		}
+		{
+			const auto& kc = dev2.calibration;
+			freetype::print(monospace, 20, 120, "[Kinect-2 Calibration Mode]");
+			freetype::print(monospace, 20, 140, "A = (%d,%d)", kc.a.x, kc.a.y);
+			freetype::print(monospace, 20, 160, "B = (%d,%d)", kc.b.x, kc.b.y);
+			freetype::print(monospace, 20, 180, "C = (%d,%d)", kc.c.x, kc.c.y);
+			freetype::print(monospace, 20, 200, "D = (%d,%d)", kc.d.x, kc.d.y);
+		}
 	}
 }
 
@@ -1460,7 +1659,7 @@ void loadAgent(int slot)
 	}
 }
 
-void StClient::saveFloorDepth()
+void Kdev::saveFloorDepth()
 {
 	// Copy depth to floor
 	memcpy(
@@ -1478,8 +1677,8 @@ void StClient::saveFloorDepth()
 
 void clearFloorDepth()
 {
-	if (last_depth_image==nullptr)
-		return;
+//#	if (last_depth_image==nullptr)
+		//#return;
 
 	for (int i=0; i<640*480; ++i)
 	{
@@ -1531,13 +1730,25 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		config.far_threshold += shift ? 1 : 10;
 		break;
 
+	case KEY_LEFT:
+		eye_r -= 0.15;
+		break;
+	case KEY_RIGHT:
+		eye_r += 0.15;
+		break;
+	case KEY_UP:
+		eye_d -= 0.33;
+		break;
+	case KEY_DOWN:
+		eye_d += 0.33;
+		break;
 
 	case 27:
-		m_depthStream.stop();
-		m_colorStream.stop();
-		m_depthStream.destroy();
-		m_colorStream.destroy();
-		m_device.close();
+		dev1.depth.stop();
+		dev1.color.stop();
+		dev1.depth.destroy();
+		dev1.color.destroy();
+		dev1.device.close();
 		openni::OpenNI::shutdown();
 		exit(1);
 	case 'w':
@@ -1573,26 +1784,25 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		movie_mode = MOVIE_PLAYBACK;
 		movie_index = 0;
 		break;
+	case 'C':  toggle(mode.auto_clipping); break;
 	case 'k':  toggle(mode.sync_enabled);  break;
 	case 'm':  toggle(mode.mixed_enabled); break;
+	case 'M':  toggle(mode.mirroring); break;
 	case 'z':  toggle(mode.zero255_show);  break;
 	case 'a':  toggle(mode.alpha_mode);    break;
 	case 'e':  toggle(mode.pixel_completion); break;
 	case 'b':  toggle(mode.borderline);    break;
 
-	case '1':
-		calibration_focus = &config.kinect_calibration.a;
-		break;
-	case '2':
-		calibration_focus = &config.kinect_calibration.b;
-		break;
-	case '3':
-		calibration_focus = &config.kinect_calibration.c;
-		break;
-	case '4':
-		calibration_focus = &config.kinect_calibration.d;
-		break;
-	case '5':
+	case '1':  calibration_focus = &dev1.calibration.a;  break;
+	case '2':  calibration_focus = &dev1.calibration.b;  break;
+	case '3':  calibration_focus = &dev1.calibration.c;  break;
+	case '4':  calibration_focus = &dev1.calibration.d;  break;
+	case '5':  calibration_focus = &dev2.calibration.a;  break;
+	case '6':  calibration_focus = &dev2.calibration.b;  break;
+	case '7':  calibration_focus = &dev2.calibration.c;  break;
+	case '8':  calibration_focus = &dev2.calibration.d;  break;
+
+	case '9':
 		calibration_focus = nullptr;
 		break;
 	case '\t':
@@ -1606,7 +1816,7 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		clearFloorDepth();
 		break;
 	case 't':
-		saveFloorDepth();
+		dev1.saveFloorDepth();
 		break;
 	case 13:
 		gl::ToggleFullScreen();

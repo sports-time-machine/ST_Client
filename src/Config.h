@@ -9,6 +9,12 @@ struct GlobalConfig
 
 	GlobalConfig();
 };
+
+struct KinectCalibration
+{
+	Point2i a,b,c,d;
+};
+
 struct Config
 {
 	int client_number;
@@ -19,11 +25,17 @@ struct Config
 	int initial_window_y;
 	bool initial_fullscreen;
 	bool mirroring;
-	
-	struct KinectCalibration
+
+	struct Metrics
 	{
-		Point2i a,b,c,d;
-	} kinect_calibration;
+		int left_mm;
+		int right_mm;
+		int top_mm;
+		int ground_px;
+	} metrics;
+
+	KinectCalibration kinect1_calibration;
+	KinectCalibration kinect2_calibration;
 
 	Config();
 };
