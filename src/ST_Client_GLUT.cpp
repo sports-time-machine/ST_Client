@@ -22,6 +22,10 @@ void StClient::glutMouse(int button, int state, int x, int y)
 {
 	StClient::ms_self->onMouse(button, state, x, y);
 }
+void StClient::glutMouseMove(int x, int y)
+{
+	StClient::ms_self->onMouseMove(x, y);
+}
 void StClient::glutReshape(int width, int height)
 {
 	global.window_w = width;

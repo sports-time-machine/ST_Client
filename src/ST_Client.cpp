@@ -19,7 +19,8 @@
 extern void load_config();
 
 
-float eye_r = -0.35f;
+float eye_rh = -0.35f;
+float eye_rv = 0;
 float eye_d = 4.00f;
 float ex,ey,ez;
 
@@ -253,6 +254,9 @@ mi::UdpSender   udp_send;
 
 const int UDP_SERVER_RECV = 38702;
 const int UDP_CLIENT_RECV = 38708;
+
+
+
 
 
 GLuint depth_tex;
@@ -1214,10 +1218,10 @@ void StClient::drawKdev(Kdev& kdev, int x, int y, int w, int h)
 }
 
 
-void drawFieldGrid()
+void drawFieldGrid(float size)
 {
 	glBegin(GL_LINES);
-	const float F = 1.2;
+	const float F = size;
 
 	glLineWidth(1.0f);
 	glRGBA(200,200,200, 150).glColorUpdate();
@@ -1267,15 +1271,16 @@ void StClient::display()
 	{
 		glOrtho(0, 1, 0, 1, -1.0, 1.0);
 
-		ex = cos(eye_r)*eye_d;
-		ez = sin(eye_r)*eye_d;
+		ex = cos(eye_rh)*eye_d;
+		ey =                   + eye_rv + 0.35;
+		ez = sin(eye_rh)*eye_d;
 
 		::glMatrixMode(GL_PROJECTION);
 		::glLoadIdentity();
 		::gluPerspective(40.0f, 4.0/3.0, 1.0f, 100.0f);
 		::gluLookAt(
 			ex,
-			0.35,
+			ey,
 			ez,
 			
 			0,
@@ -1288,7 +1293,8 @@ void StClient::display()
 
 
 	{
-		const float Z = 1.0f;
+		// @wall
+		const float Z = global_config.wall_depth;
 		gl::Texture(true);
 		glPushMatrix();
 		gl::LoadIdentity();
@@ -1296,21 +1302,23 @@ void StClient::display()
 		const float u = background_image.getTextureWidth();
 		const float v = background_image.getTextureHeight();
 		glBegin(GL_QUADS);
-			for (int i=-5; i<=5; ++i)
-			{
-				glTexCoord2f(0,0); glVertex3f(-1.5f+3*i, 2.6f, Z);
-				glTexCoord2f(u,0); glVertex3f( 1.5f+3*i, 2.6f, Z); //¶ã
-				glTexCoord2f(u,v); glVertex3f( 1.5f+3*i, 0.0f, Z); //¶‰º
-				glTexCoord2f(0,v); glVertex3f(-1.5f+3*i, 0.0f, Z);
-			}
+		const float SZ = Z/2;
+		for (int i=-5; i<=5; ++i)
+		{
+			glTexCoord2f(0,0); glVertex3f(-SZ+Z*i, Z*1.5, Z);
+			glTexCoord2f(u,0); glVertex3f( SZ+Z*i, Z*1.5, Z); //¶ã
+			glTexCoord2f(u,v); glVertex3f( SZ+Z*i,  0.0f, Z); //¶‰º
+			glTexCoord2f(0,v); glVertex3f(-SZ+Z*i,  0.0f, Z);
+		}
 		glEnd();
 		glPopMatrix();
 		gl::Texture(false);
 	}
 
 
-	drawFieldGrid();
-		dev1.CreateRawDepthImage();
+	drawFieldGrid(5.0f);
+
+	dev1.CreateRawDepthImage();
 
 #define USE_TRI 0
 
@@ -1656,10 +1664,33 @@ void clearFloorDepth()
 }
 
 
+static int old_x, old_y;
+
+void StClient::onMouseMove(int x, int y)
+{
+	bool left_first  = (GetAsyncKeyState(VK_LBUTTON) & 1)!=0;
+	bool right_first = (GetAsyncKeyState(VK_RBUTTON) & 1)!=0;
+
+	bool left  = (GetAsyncKeyState(VK_LBUTTON) & 0x8000)!=0;
+	bool right = (GetAsyncKeyState(VK_RBUTTON) & 0x8000)!=0;
+
+	if (left)
+	{
+		x = x * 640 / global.window_w;
+		y = y * 480 / global.window_h;
+
+		eye_rh = (x - old_x)*0.01;
+		eye_rv = (y - old_y)*0.01;
+	}
+}
+
 void StClient::onMouse(int button, int state, int x, int y)
 {
 	if (button==GLUT_LEFT_BUTTON && state==GLUT_DOWN)
 	{
+		old_x = x;
+		old_y = y;
+
 		// Convert screen position to internal position
 		x = x * 640 / global.window_w;
 		y = y * 480 / global.window_h;
@@ -1700,16 +1731,16 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		break;
 
 	case KEY_LEFT:
-		eye_r -= shift ? 0.02 : 0.15;
+		eye_rh -= shift ? 0.02 : 0.15;
 		break;
 	case KEY_RIGHT:
-		eye_r += shift ? 0.02 : 0.15;
+		eye_rh += shift ? 0.02 : 0.15;
 		break;
 	case KEY_UP:
-		eye_d -= shift ? 0.02 : 0.33;
+		eye_rv -= shift ? 0.02 : 0.33;
 		break;
 	case KEY_DOWN:
-		eye_d += shift ? 0.02 : 0.33;
+		eye_rv += shift ? 0.02 : 0.33;
 		break;
 
 	case 27:
@@ -1823,6 +1854,7 @@ bool StClient::initOpenGL(int argc, char **argv)
 	glutSpecialFunc(glutKeyboardSpecial);
 	glutMouseFunc(glutMouse);
 	glutReshapeFunc(glutReshape);
+	glutMotionFunc(glutMouseMove);
 	glEnable(GL_TEXTURE_2D);
 
 	gl::ModelView();

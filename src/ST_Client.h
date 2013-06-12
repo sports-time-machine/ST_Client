@@ -114,6 +114,7 @@ protected:
 
 	virtual void onKey(int key, int x, int y);
 	virtual void onMouse(int button, int state, int x, int y);
+	virtual void onMouseMove(int x, int y);
 
 	bool initOpenGL(int argc, char **argv);
 
@@ -142,6 +143,7 @@ private:
 	static void glutKeyboard(unsigned char key, int x, int y);
 	static void glutKeyboardSpecial(int key, int x, int y);
 	static void glutMouse(int button, int state, int x, int y);
+	static void glutMouseMove(int x, int y);
 	static void glutReshape(int width, int height);
 
 	unsigned int		m_nTexMapX;

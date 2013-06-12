@@ -6,6 +6,7 @@ struct GlobalConfig
 {
 	bool enable_kinect;
 	bool enable_color;
+	float wall_depth;
 
 	GlobalConfig();
 };

@@ -23,6 +23,7 @@ GlobalConfig::GlobalConfig()
 {
 	enable_kinect = true;
 	enable_color  = false;
+	wall_depth = 3.0f;
 }
 
 
@@ -104,6 +105,7 @@ void load_config()
 #define CONFIG_LET(DEST,NAME,FUNC)   CONFIG_LET2(DEST.NAME, NAME, FUNC)
 #define CONFIG_INT(DEST,NAME)        CONFIG_LET(DEST,NAME,toInt)
 #define CONFIG_BOOL(DEST,NAME)       CONFIG_LET(DEST,NAME,toBool)
+#define CONFIG_FLOAT(DEST,NAME)      CONFIG_LET(DEST,NAME,toDouble)
 	CONFIG_INT(config, far_threshold);
 	CONFIG_INT(config, near_threshold);
 	CONFIG_INT(config, far_cropping);
@@ -132,6 +134,7 @@ void load_config()
 	// Init flags
 	CONFIG_BOOL(global_config, enable_kinect);
 	CONFIG_BOOL(global_config, enable_color);
+	CONFIG_FLOAT(global_config, wall_depth);
 
 	{
 		PSL::variable src = psl.get("kinect1_calibration");
