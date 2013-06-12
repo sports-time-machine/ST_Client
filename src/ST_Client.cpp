@@ -486,7 +486,6 @@ void StClient::drawImageMode()
 
 int decomp_time = 0;
 int draw_time = 0;
-//#const uint8* last_depth_image = nullptr;
 uint8 floor_depth[640*480];
 uint8 depth_cook[640*480];
 int floor_depth_count = 0;
@@ -578,107 +577,6 @@ void DrawRgbaTex(const RgbaTex& img, int dx, int dy, int dw, int dh)
 }
 
 
-//#
-/*
-void StClient::BuildDepthImage(uint8* const final_dest)
-{
-	using namespace openni;
-
-
-	// Create 'depth_raw' from Kinect
-	static uint8 depth_raw[640*480];
-	{
-		const auto* depth_row = (const DepthPixel*)dev1.depthFrame.getData();
-		const int rowsize = dev1.depthFrame.getStrideInBytes() / sizeof(DepthPixel);
-		int index = 0;
-		uint8* dest = (mode.calibration_index==0) ? depth_raw : final_dest;
-		for (int y=0; y<480; ++y)
-		{
-			const auto* src = depth_row + (mode.mirroring ? 639 : 0);
-
-			for (int x=0; x<640; ++x, ++index)
-			{
-				int depth = *src;
-				mode.mirroring ? --src : ++src;
-
-				if (depth==0)
-				{
-					// invalid data (too near, too far)
-					dest[index] = 0;
-				}
-				else
-				{
-					int NEAR_DIST = minmax(config.near_threshold, 50, 10000);
-					int FAR_DIST  = minmax(config.far_threshold, 50, 10000);
-					if (NEAR_DIST==FAR_DIST)
-					{
-						++FAR_DIST;
-					}
-
-					depth = (depth-NEAR_DIST)*255/(FAR_DIST-NEAR_DIST);
-					if (depth>255)
-					{
-						// too far
-						dest[index] = 0;
-					}
-					else if (floor_depth[index] &&
-							depth >= floor_depth[index]-25 &&
-							depth <= floor_depth[index]+25)
-					{
-						dest[index] = 1;
-					}
-					else 
-					{
-						//depth = depth - floor_depth[index];
-						if (depth>255) depth=255;
-						if (depth<2) depth=2;
-						dest[index] = 255-depth;
-					}
-				}
-			}
-
-			depth_row += rowsize;
-		}
-	}
-
-
-	if (mode.calibration_index!=0)
-	{
-		//     x
-		//  A-----B          A-_g
-		//  |     |         /   \_
-		// y|     |  -->  e/      B
-		//  |     |       /  h   /f
-		//  C-----D      C------D
-		const auto& kc = this->
-			(mode.calibration_index==1)
-				? config.kinect1_calibration
-				: config.kinect2_calibration; 
-		Point2i a = kc.a;
-		Point2i b = kc.b;
-		Point2i c = kc.c;
-		Point2i d = kc.d;
-		for (int y=0; y<480; ++y)
-		{
-			Point2i e(
-				a.x*(480-y)/480 + c.x*(y+1)/480,
-				a.y*(480-y)/480 + c.y*(y+1)/480);
-			Point2i f(
-				b.x*(480-y)/480 + d.x*(y+1)/480,
-				b.y*(480-y)/480 + d.y*(y+1)/480);
-			for (int x=0; x<640; ++x)
-			{
-				Point2i k(
-					e.x*(640-x)/640 + f.x*(x+1)/640,
-					e.y*(640-x)/640 + f.y*(x+1)/640);
-				final_dest[y*640 + x] = depth_raw[k.y*640 + k.x];
-			}
-		}
-	}
-}
-*/
-
-
 static MovieData curr_movie;
 
 
@@ -755,11 +653,6 @@ void StClient::drawDepthMode()
 
 	uint8* const curr = work[work_index];
 	work_index = (work_index+1) % WORK;
-
-	// Depth raw => Current pre buffer
-
-//#	BuildDepthImage(curr_pre);
-//#	last_depth_image = curr_pre;
 
 	{
 		const uint8* src = curr_pre;
@@ -1561,9 +1454,6 @@ void StClient::display()
 				ez);
 	}
 
-
-//#	drawDepthMode();
-
 	glRGBA::white.glColorUpdate();
 
 	{
@@ -1759,9 +1649,6 @@ void Kdev::saveFloorDepth()
 
 void clearFloorDepth()
 {
-//#	if (last_depth_image==nullptr)
-		//#return;
-
 	for (int i=0; i<640*480; ++i)
 	{
 		floor_depth[i] = 0;
