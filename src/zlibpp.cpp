@@ -11,7 +11,7 @@ static void appendChunkToVector(zlibpp::bytes& dest, const zlibpp::byte* chunk, 
 }
 
 
-bool zlibpp::compress(byte* src, int srcsize, bytes& dest, int compress_level)
+bool zlibpp::compress(const byte* src, int srcsize, bytes& dest, int compress_level)
 {
 	dest.clear();
 
@@ -25,7 +25,7 @@ bool zlibpp::compress(byte* src, int srcsize, bytes& dest, int compress_level)
 
 	// Input data
 	strm.avail_in = srcsize;
-	strm.next_in  = src;
+	strm.next_in  = (Bytef*)src;
 	
 	for (;;)
 	{
@@ -53,7 +53,7 @@ bool zlibpp::compress(byte* src, int srcsize, bytes& dest, int compress_level)
 }
 
 
-bool zlibpp::decompress(byte* src, int srcsize, bytes& dest)
+bool zlibpp::decompress(const byte* src, int srcsize, bytes& dest)
 {
 	dest.clear();
 
@@ -68,7 +68,7 @@ bool zlibpp::decompress(byte* src, int srcsize, bytes& dest)
 		return false;
 
 	strm.avail_in = srcsize;
-	strm.next_in  = src;
+	strm.next_in  = (Bytef*)src;
 
 	for (;;)
 	{
@@ -132,12 +132,12 @@ bool zlibpp::equalBytes(const bytes& data1, const bytes& data2)
 	return true;
 }
 
-bool zlibpp::compress(bytes& src, bytes& dest, int compress_level)
+bool zlibpp::compress(const bytes& src, bytes& dest, int compress_level)
 {
 	return compress(src.data(), (int)src.size(), dest, compress_level);
 }
 
-bool zlibpp::decompress(bytes& src, bytes& dest)
+bool zlibpp::decompress(const bytes& src, bytes& dest)
 {
 	return decompress(src.data(), (int)src.size(), dest);
 }

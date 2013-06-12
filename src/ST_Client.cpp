@@ -19,11 +19,18 @@
 extern void load_config();
 
 
-float eye_rh = -0.35f;
-float eye_rv = 0;
-float eye_d = 4.00f;
-float ex,ey,ez;
+static int old_x, old_y;
 
+float ex,ey,ez;
+float eye_d  = 4.00f;
+float eye_rh =  1.56;
+float eye_rv =  0.42;
+float eye_x  =  -0.24f;
+float eye_z  =  -4.01f;
+
+float eye_y  =  0.33f;
+float fovy = 40.0f;
+float fov_ratio = 1.0;
 
 
 
@@ -101,6 +108,7 @@ ClientStatus client_status = STATUS_DEPTH;
 
 mi::Image pic;
 mi::Image background_image;
+mi::Image dot_image;
 
 
 
@@ -408,6 +416,7 @@ bool StClient::init(int argc, char **argv)
 	// @init @image
 //	background_image.createFromImageA("C:/ST/Picture/Pretty-Blue-Heart-Design.jpg");
 	background_image.createFromImageA("C:/ST/Picture/mountain-04.jpg");
+	dot_image.createFromImageA("C:/ST/Picture/dot.png");
 
 	return true;
 }
@@ -732,7 +741,8 @@ void StClient::drawDepthMode()
 		}
 		else
 		{
-			drawPlaybackMovie();
+			movie_mode = MOVIE_PLAYBACK;
+			movie_index = 0;
 		}
 		break;
 	}
@@ -1224,7 +1234,11 @@ void drawFieldGrid(float size)
 	const float F = size;
 
 	glLineWidth(1.0f);
-	glRGBA(200,200,200, 150).glColorUpdate();
+	glRGBA(
+		global_config.grid_r,
+		global_config.grid_g,
+		global_config.grid_b,
+		0.40).glColorUpdate();
 	for (float i=0.0f; i<=F; i+=0.1f)
 	{
 		glVertex3f(-F, 0,  i);
@@ -1239,7 +1253,11 @@ void drawFieldGrid(float size)
 	}
 
 	// Centre line
-	glRGBA(255,255,0).glColorUpdate();
+	glRGBA(
+		global_config.grid_r,
+		global_config.grid_g,
+		global_config.grid_b,
+		1.00).glColorUpdate();
 	glLineWidth(5.0f);
 	glEnable(GL_LINE_SMOOTH);
 	glVertex3f(-5.0f, 0, 0);
@@ -1253,6 +1271,121 @@ void drawFieldGrid(float size)
 }
 
 
+void drawWall()
+{
+	// @wall
+	const float Z = global_config.wall_depth;
+	gl::Texture(true);
+	glPushMatrix();
+	gl::LoadIdentity();
+	glBindTexture(GL_TEXTURE_2D, background_image.getTexture());
+	const float u = background_image.getTextureWidth();
+	const float v = background_image.getTextureHeight();
+	glBegin(GL_QUADS);
+	const float SZ = Z/2;
+	for (int i=-5; i<=5; ++i)
+	{
+		glTexCoord2f(0,0); glVertex3f(-SZ+Z*i, Z*1.5, Z);
+		glTexCoord2f(u,0); glVertex3f( SZ+Z*i, Z*1.5, Z); //¶ã
+		glTexCoord2f(u,v); glVertex3f( SZ+Z*i,  0.0f, Z); //¶‰º
+		glTexCoord2f(0,v); glVertex3f(-SZ+Z*i,  0.0f, Z);
+	}
+	glEnd();
+	glPopMatrix();
+	gl::Texture(false);
+}
+
+
+void drawBody(RawDepthImage& raw, int red, int green, int blue)
+{
+#define USE_DOT_TEX 1
+
+	// @body @dot
+	const uint16* data = raw.image.data();
+	raw.CalcDepthMinMax();
+	if (!mode.simple_dot_body)
+	{
+		glBegin(GL_QUADS);
+		gl::Texture(true);
+		glBindTexture(GL_TEXTURE_2D, dot_image);
+	}
+	else
+	{
+		glBegin(GL_POINTS);
+	}
+
+	const float ax = 0.01;
+	const float az = 0.01;
+
+//	const int RANGE = min(dev1.raw_depth.range;
+	//
+	const int RANGE = config.far_threshold - config.near_threshold;
+	for (int y=0; y<480; ++y)
+	{
+		for (int x=0; x<640; ++x)
+		{
+			int val = *data++;
+
+			if (val < config.near_threshold)
+			{
+				continue;
+			}
+			
+			if (val > config.far_threshold)
+			{
+				continue;
+			}
+			
+			// - dev1.raw_depth.min_value
+			int alpha = (val)*255 / RANGE;
+			if (alpha<0) continue;
+			if (alpha>255) alpha=255;
+
+#if 0
+			if ((y + alpha/10)%20<=10)
+			{
+				glRGBA(
+					250 * alpha >> 8,
+					220 * alpha >> 8,
+					 50 * alpha >> 8,
+					255-alpha/2).glColorUpdate();
+			}
+			else
+#endif
+			{
+				glRGBA(
+					red   * alpha >> 8,
+					green * alpha >> 8,
+					blue  * alpha >> 8,
+					255-alpha/2).glColorUpdate();
+			}
+
+			float z = val/2000.0f;
+			if (!mode.simple_dot_body)
+			{
+				float dx =  x/640.0f - 0.5;
+				float dy = -y/480.0f + 1.0;
+				float dz =  z        - 0.5;
+				const float F = 0.0025;
+
+				glVertex3f(dx-ax, dy  , dz-az);
+				glVertex3f(dx+ax, dy-F, dz-az);
+				glVertex3f(dx+ax, dy,   dz+az);
+				glVertex3f(dx-ax, dy-F, dz+az);
+			}
+			else
+			{
+				glVertex3f(
+					 x/640.0f - 0.5,
+					-y/480.0f + 1.0,
+					 z        - 0.5);
+			}
+		}
+	}
+
+	glEnd();
+}
+
 
 size_t hit_object_stage = 0;
 void StClient::display()
@@ -1261,156 +1394,108 @@ void StClient::display()
 	{
 	}
 
+	// @fps
+	fps_counter.update();
+
 	// @display
-	glClearColor(0.25, 0.50, 0.15, 1.00);
+	glClearColor(
+		global_config.ground_r,
+		global_config.ground_g,
+		global_config.ground_b,
+		1.00);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
 	gl::Texture(false);
 	gl::DepthTest(true);
-	{
-		glOrtho(0, 1, 0, 1, -1.0, 1.0);
 
-		ex = cos(eye_rh)*eye_d;
-		ey =                   + eye_rv + 0.35;
-		ez = sin(eye_rh)*eye_d;
+	glOrtho(0, 1, 0, 1, -1.0, 1.0);
 
-		::glMatrixMode(GL_PROJECTION);
-		::glLoadIdentity();
-		::gluPerspective(40.0f, 4.0/3.0, 1.0f, 100.0f);
-		::gluLookAt(
-			ex,
-			ey,
-			ez,
-			
-			0,
-			0.65,
-			0,
-			0.0, 1.0, 0.0);
+	ex = eye_x + cos(eye_rh)*eye_d;
+	ez = eye_z + sin(eye_rh)*eye_d;
+	ey = eye_rv;
 
-		::glMatrixMode(GL_MODELVIEW);
-		::glLoadIdentity();
+	// @fov
+	::glMatrixMode(GL_PROJECTION);
+	::glLoadIdentity();
+	::gluPerspective(fovy, 4.0/3.0, 0.1f, 600.0f);
+	::gluLookAt(
+		eye_x,
+		eye_y,
+		eye_z,
+		
+		ex,
+		ey,
+		ez,
+		0.0, 1.0, 0.0);
 
 
-	{
-		// @wall
-		const float Z = global_config.wall_depth;
-		gl::Texture(true);
-		glPushMatrix();
-		gl::LoadIdentity();
-		glBindTexture(GL_TEXTURE_2D, background_image.getTexture());
-		const float u = background_image.getTextureWidth();
-		const float v = background_image.getTextureHeight();
-		glBegin(GL_QUADS);
-		const float SZ = Z/2;
-		for (int i=-5; i<=5; ++i)
-		{
-			glTexCoord2f(0,0); glVertex3f(-SZ+Z*i, Z*1.5, Z);
-			glTexCoord2f(u,0); glVertex3f( SZ+Z*i, Z*1.5, Z); //¶ã
-			glTexCoord2f(u,v); glVertex3f( SZ+Z*i,  0.0f, Z); //¶‰º
-			glTexCoord2f(0,v); glVertex3f(-SZ+Z*i,  0.0f, Z);
-		}
-		glEnd();
-		glPopMatrix();
-		gl::Texture(false);
-	}
+	const float diff_x = eye_x - ex;
+	const float diff_y = eye_y - ey;
+	const float diff_z = eye_z - ez;
 
 
+
+
+	::glMatrixMode(GL_MODELVIEW);
+	::glLoadIdentity();
+
+	drawWall();
 	drawFieldGrid(5.0f);
 
 	dev1.CreateRawDepthImage();
 
-#define USE_TRI 0
+	drawBody(dev1.raw_depth, 50,150,240);
 
-#if USE_TRI
-		glBegin(GL_TRIANGLES);
-#else
-		glBegin(GL_POINTS);
-#endif
-			const uint16* data = dev1.raw_depth.image.data();
-			dev1.raw_depth.CalcDepthMinMax();
-#if USE_TRI
-			for (int y=0; y<480-1; ++y)
+	switch (movie_mode)
+	{
+	case MOVIE_READY:
+		break;
+	case MOVIE_RECORD:
+		if (curr_movie.recorded_tail >= curr_movie.frames.size())
+		{
+			puts("time over! record stop.");
+			movie_mode = MOVIE_READY;
+		}
+		else
+		{
+			zlibpp::bytes& byte_stream = curr_movie.frames[curr_movie.recorded_tail++];
+			zlibpp::compress(
+				(byte*)dev1.raw_depth.image.data(),
+				640*480*sizeof(uint16),
+				byte_stream, 2);
+			printf("frame %d, %d bytes (%.1f%%)\n",
+				curr_movie.recorded_tail,
+				byte_stream.size(),
+				byte_stream.size() * 100.0 / (640*480));
+		}
+		break;
+	case MOVIE_PLAYBACK:
+		{
+			zlibpp::bytes& byte_stream = curr_movie.frames[movie_index];
+			if (++movie_index >= curr_movie.recorded_tail)
 			{
-				for (int x=0; x<640-1; ++x)
-				{
-					const int base = x + y*640;
-					int val1 = data[base];
-					int val2 = data[base+1];
-					int val3 = data[base+1+640];
-					int val4 = data[base+640];
-
-					float z1 = (float)(val1-dev1.raw_depth.min_value)/dev1.raw_depth.range;
-					float z2 = (float)(val2-dev1.raw_depth.min_value)/dev1.raw_depth.range;
-					float z3 = (float)(val3-dev1.raw_depth.min_value)/dev1.raw_depth.range;
-					float z4 = (float)(val4-dev1.raw_depth.min_value)/dev1.raw_depth.range;
-					
-					if (val1!=0 && val2!=0 && val3!=0)
-					{
-						// 1-2-3
-						glColor4f(z1,z1,z1, z1+0.4);
-						glVertex3f(
-							 (x)/640.0f - 0.5,
-							-(y)/480.0f + 1.0,
-							z1 - 0.5);
-						glColor4f(z2,z2,z2, z2+0.4);
-						glVertex3f(
-							 (x+1)/640.0f - 0.5,
-							-(y  )/480.0f + 1.0,
-							z2 - 0.5);
-						glColor4f(z3,z3,z3, z3+0.4);
-						glVertex3f(
-							 (x+1)/640.0f - 0.5,
-							-(y+1)/480.0f + 1.0,
-							z3 - 0.5);
-					}
-
-					if (val1!=0 && val3!=0 && val4!=0)
-					{
-						// 1-3-4
-						glColor4f(z1,z1,z1, z1+0.4);
-						glVertex3f(
-							 (x)/640.0f - 0.5,
-							-(y)/480.0f + 1.0,
-							z1 - 0.5);
-						glColor4f(z3,z3,z3, z3+0.4);
-						glVertex3f(
-							 (x+1)/640.0f - 0.5,
-							-(y+1)/480.0f + 1.0,
-							z3 - 0.5);
-						glColor4f(z4,z4,z4, z4+0.4);
-						glVertex3f(
-							 (x  )/640.0f - 0.5,
-							-(y+1)/480.0f + 1.0,
-							z4 - 0.5);
-					}
-#else
-			for (int y=0; y<480; ++y)
-			{
-				for (int x=0; x<640; ++x)
-				{
-					int val = *data++;
-
-					int alpha = (val-dev1.raw_depth.min_value)*255/dev1.raw_depth.range;
-					if (alpha<0) continue;
-					if (alpha>255) alpha=255;
-
-					int c = alpha;
-					glRGBA(
-						c,
-						c,
-						c,
-						255-alpha).glColorUpdate();
-					float z = val/2000.0f;
-					glVertex3f(
-						x/640.0f-0.5,
-						-y/480.0f + 1.0,
-						z - 0.5);
-#endif
-				}
+				movie_mode = MOVIE_READY;
+				puts("movie end.");
 			}
-		glEnd();
+
+			zlibpp::bytes outdata;
+			zlibpp::decompress(
+				byte_stream,
+				outdata);
+			RawDepthImage raw;
+			const uint16* raw_depth = (const uint16*)outdata.data();
+			raw.image.resize(640*480);
+			for (int i=0; i<640*480; ++i)
+			{
+				raw.image[i] = raw_depth[i];
+			}
+			raw.CalcDepthMinMax();
+			drawBody(raw, 1.0, 0.5, 0.0);
+		}
+		break;
 	}
+
 
 
 
@@ -1454,12 +1539,20 @@ void StClient::display()
 	{
 		ModelViewObject mo;
 		glRGBA::white.glColorUpdate();
-		freetype::print(monospace, 20,440, "RDI: %d,%d  (%.2f,%.2f,%.2f)",
+		freetype::print(monospace, 20,420, "min:%dmm max:%dmm",
 				dev1.raw_depth.min_value,
-				dev1.raw_depth.max_value,
-				ex,
-				ey,
-				ez);
+				dev1.raw_depth.max_value);
+		freetype::print(monospace, 20,440, "EYE-HV(%.4f,%.4f) EYE-XZ(%.3f,%.3f,%.3f)",
+				eye_rh,
+				eye_rv,
+				eye_x,
+				eye_y,
+				eye_z);
+		freetype::print(monospace, 20,460, "DIFF(%.2f,%.2f,%.2f) FOVY(%.2f)",
+			diff_x,
+			diff_y,
+			diff_z,
+			fovy);
 	}
 
 	glRGBA::white.glColorUpdate();
@@ -1499,10 +1592,15 @@ void StClient::display()
 		freetype::print(monospace, 320,  10, "2m");
 	}
 
-	if (mode.calibration==0)
+	if (mode.calibration)
 	{
 		displayCalibrationInfo();
 	}
+
+	glBegin(GL_POINTS);
+	glRGBA(255,255,255).glColorUpdate();
+		glVertex2d(old_x, old_y);
+	glEnd();
 
 	glutSwapBuffers();
 }
@@ -1663,8 +1761,7 @@ void clearFloorDepth()
 	}
 }
 
-
-static int old_x, old_y;
+float eye_rh_base, eye_rv_base;
 
 void StClient::onMouseMove(int x, int y)
 {
@@ -1679,8 +1776,8 @@ void StClient::onMouseMove(int x, int y)
 		x = x * 640 / global.window_w;
 		y = y * 480 / global.window_h;
 
-		eye_rh = (x - old_x)*0.01;
-		eye_rv = (y - old_y)*0.01;
+		eye_rh = eye_rh_base - (x - old_x)*0.0025 * fov_ratio;
+		eye_rv = eye_rv_base + (y - old_y)*0.0100 * fov_ratio;
 	}
 }
 
@@ -1688,12 +1785,14 @@ void StClient::onMouse(int button, int state, int x, int y)
 {
 	if (button==GLUT_LEFT_BUTTON && state==GLUT_DOWN)
 	{
-		old_x = x;
-		old_y = y;
-
 		// Convert screen position to internal position
 		x = x * 640 / global.window_w;
 		y = y * 480 / global.window_h;
+
+		old_x = x;
+		old_y = y;
+		eye_rh_base = eye_rh;
+		eye_rv_base = eye_rv;
 
 		// •â³‚È‚µŽž‚Ì‚ÝÝ’è‚Å‚«‚é
 		if (calibration_focus!=nullptr && !mode.calibration)
@@ -1711,6 +1810,8 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	GetKeyboardState(kbd);
 
 	const bool shift = (kbd[VK_SHIFT] & 0x80)!=0;
+	const float movespeed = shift ? 0.01 : 0.1;
+
 	switch (key)
 	{
 	default:
@@ -1728,6 +1829,35 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		break;
 	case KEY_END:
 		config.far_threshold += shift ? 1 : 10;
+		break;
+
+	case 'a':
+	case 'A':
+		eye_x += movespeed * cos(eye_rh - 90*3.1415/180);
+		eye_z += movespeed * sin(eye_rh - 90*3.1415/180);
+		break;
+	case 'd':
+	case 'D':
+		eye_x += movespeed * cos(eye_rh + 90*3.1415/180);
+		eye_z += movespeed * sin(eye_rh + 90*3.1415/180);
+		break;
+	case 's':
+	case 'S':
+		eye_x += movespeed * cos(eye_rh + 180*3.1415/180);
+		eye_z += movespeed * sin(eye_rh + 180*3.1415/180);
+		break;
+	case 'w':
+	case 'W':
+		eye_x += movespeed * cos(eye_rh + 0*3.1415/180);
+		eye_z += movespeed * sin(eye_rh + 0*3.1415/180);
+		break;
+	case 'q':
+	case 'Q':
+		eye_y += movespeed;
+		break;
+	case 'e':
+	case 'E':
+		eye_y += -movespeed;
 		break;
 
 	case KEY_LEFT:
@@ -1751,27 +1881,35 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		dev1.device.close();
 		openni::OpenNI::shutdown();
 		exit(1);
-	case 'w':
+	case 'z':
 		client_status = STATUS_DEPTH;
 		break;
-	case 'r':
-		curr_movie.frames.clear();
-		curr_movie.frames.resize(MOVIE_MAX_FRAMES);
-		curr_movie.recorded_tail = 0;
-		movie_mode = MOVIE_RECORD;
-		movie_index = 0;
-		break;
-	case 's':
-		printf("recoding stop. %d frames recorded.\n", curr_movie.recorded_tail);
+	case KEY_F1:
+		if (movie_mode!=MOVIE_RECORD)
 		{
+			curr_movie.frames.clear();
+			curr_movie.frames.resize(MOVIE_MAX_FRAMES);
+			curr_movie.recorded_tail = 0;
+			movie_mode = MOVIE_RECORD;
+			movie_index = 0;
+		}
+		else
+		{
+			printf("recoding stop. %d frames recorded.\n", curr_movie.recorded_tail);
+
 			size_t total_bytes = 0;
 			for (size_t i=0; i<curr_movie.recorded_tail; ++i)
 			{
 				total_bytes += curr_movie.frames[i].size();
 			}
 			printf("total %u Kbytes.\n", total_bytes/1000);
+			movie_mode = MOVIE_READY;
+			movie_index = 0;
 		}
-		movie_mode = MOVIE_READY;
+		break;
+	case KEY_F2:
+		printf("playback movie.\n");
+		movie_mode = MOVIE_PLAYBACK;
 		movie_index = 0;
 		break;
 	
@@ -1779,19 +1917,15 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		load_config();
 		break;
 
-	case 'p':
-		printf("playback movie.\n");
-		movie_mode = MOVIE_PLAYBACK;
-		movie_index = 0;
-		break;
 	case 'C':  toggle(mode.auto_clipping); break;
 	case 'k':  toggle(mode.sync_enabled);  break;
 	case 'm':  toggle(mode.mixed_enabled); break;
 	case 'M':  toggle(mode.mirroring); break;
-	case 'z':  toggle(mode.zero255_show);  break;
-	case 'a':  toggle(mode.alpha_mode);    break;
-	case 'e':  toggle(mode.pixel_completion); break;
+	case 'Z':  toggle(mode.zero255_show);  break;
+	case 'O':  toggle(mode.alpha_mode);    break;
+ 	case 'P':  toggle(mode.pixel_completion); break;
 	case 'b':  toggle(mode.borderline);    break;
+	case 'B':  toggle(mode.simple_dot_body);  break;
 
 	case '1':  calibration_focus = &dev1.calibration.a;  break;
 	case '2':  calibration_focus = &dev1.calibration.b;  break;
@@ -1801,6 +1935,50 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	case '6':  calibration_focus = &dev2.calibration.b;  break;
 	case '7':  calibration_focus = &dev2.calibration.c;  break;
 	case '8':  calibration_focus = &dev2.calibration.d;  break;
+
+	case 'g':
+		fovy -= 0.05;
+		break;
+	case 'h':
+		fovy += 0.05;
+		break;
+
+	case 'G':
+		fov_ratio = 1;
+		fovy   = 40.0f;
+		eye_x  =  0;
+		eye_y  =  0.33f;
+		eye_z  =  -1.20;
+		eye_rh =  1.56;
+		eye_rv =  0.42;
+		break;
+	case 'H':
+		fov_ratio = 0.2;
+		fovy = 10;
+		eye_x = 0.0;
+		eye_y = 0.93;
+		eye_z = -12.4;
+		eye_rh = 1.56;
+		eye_rv = 0.90;
+		break;
+	case 'I':
+		fov_ratio = 0.02;
+		fovy   =   0.400f;
+		eye_x  =  -1.050f;
+		eye_y  =   0.930f;
+		eye_z  = -90.100f;
+		eye_rh =   1.5600f;
+		eye_rv =   0.9050f;
+		break;
+	case 'J':
+		fov_ratio = 0.002;
+		fovy   =    0.100f;
+		eye_x  =   -2.165f;
+		eye_y  =    0.930f;
+		eye_z  = -427.595f;
+		eye_rh =    1.5657f;
+		eye_rv =    0.9248f;
+		break;
 
 	case '9':
 		calibration_focus = nullptr;

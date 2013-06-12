@@ -24,6 +24,12 @@ GlobalConfig::GlobalConfig()
 	enable_kinect = true;
 	enable_color  = false;
 	wall_depth = 3.0f;
+	ground_r = 0.33f;
+	ground_g = 0.15f;
+	ground_b = 0.08f;
+	grid_r = 0.80f;
+	grid_g = 0.60f;
+	grid_b = 0.50f;
 }
 
 
@@ -135,6 +141,13 @@ void load_config()
 	CONFIG_BOOL(global_config, enable_kinect);
 	CONFIG_BOOL(global_config, enable_color);
 	CONFIG_FLOAT(global_config, wall_depth);
+	CONFIG_FLOAT(global_config, ground_r);
+	CONFIG_FLOAT(global_config, ground_g);
+	CONFIG_FLOAT(global_config, ground_b);
+	CONFIG_FLOAT(global_config, grid_r);
+	CONFIG_FLOAT(global_config, grid_g);
+	CONFIG_FLOAT(global_config, grid_b);
+
 
 	{
 		PSL::variable src = psl.get("kinect1_calibration");

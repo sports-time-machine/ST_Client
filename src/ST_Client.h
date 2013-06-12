@@ -79,6 +79,7 @@ struct Kdev
 
 struct Mode
 {
+	bool simple_dot_body;
 	bool auto_clipping;
 	bool show_hit_boxes;
 	bool sync_enabled;

@@ -23,6 +23,11 @@ struct glRGBA
 		set(r,g,b,a);
 	}
 
+	glRGBA(float r, float g, float b, float a=1.0)
+	{
+		set(r*255,g*255,b*255,a*255);
+	}
+
 	void set(int r, int g, int b, int a=255)
 	{
 		this->r = (uint8)r;
