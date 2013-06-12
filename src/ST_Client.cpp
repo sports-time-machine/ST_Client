@@ -402,7 +402,8 @@ bool StClient::init(int argc, char **argv)
 	}
 
 	// @init @image
-	background_image.createFromImageA("C:/ST/Picture/Pretty-Blue-Heart-Design.jpg");
+//	background_image.createFromImageA("C:/ST/Picture/Pretty-Blue-Heart-Design.jpg");
+	background_image.createFromImageA("C:/ST/Picture/mountain-04.jpg");
 
 	return true;
 }
@@ -1320,6 +1321,41 @@ void StClient::drawKdev(Kdev& kdev, int x, int y, int w, int h)
 }
 
 
+void drawFieldGrid()
+{
+	glBegin(GL_LINES);
+	const float F = 1.2;
+
+	glLineWidth(1.0f);
+	glRGBA(200,200,200, 150).glColorUpdate();
+	for (float i=0.0f; i<=F; i+=0.1f)
+	{
+		glVertex3f(-F, 0,  i);
+		glVertex3f(+F, 0,  i);
+		glVertex3f(-F, 0, -i);
+		glVertex3f(+F, 0, -i);
+
+		glVertex3f( i, 0, -F);
+		glVertex3f( i, 0, +F);
+		glVertex3f(-i, 0, -F);
+		glVertex3f(-i, 0, +F);
+	}
+
+	// Centre line
+	glRGBA(255,255,0).glColorUpdate();
+	glLineWidth(5.0f);
+	glEnable(GL_LINE_SMOOTH);
+	glVertex3f(-5.0f, 0, 0);
+	glVertex3f(+5.0f, 0, 0);
+	glVertex3f(0, 0, -5.0f);
+	glVertex3f(0, 0, +5.0f);
+	glDisable(GL_LINE_SMOOTH);
+
+	glLineWidth(1.0f);
+	glEnd();
+}
+
+
 
 size_t hit_object_stage = 0;
 void StClient::display()
@@ -1343,63 +1379,118 @@ void StClient::display()
 
 		::glMatrixMode(GL_PROJECTION);
 		::glLoadIdentity();
-		::gluPerspective(60.0f, 4.0/3.0, 1.0f, 100.0f);
+		::gluPerspective(40.0f, 4.0/3.0, 1.0f, 100.0f);
 		::gluLookAt(
 			ex,
-			0.25,
+			0.35,
 			ez,
 			
 			0,
-			0.25,
+			0.65,
 			0,
 			0.0, 1.0, 0.0);
 
-		const float u1 = 0.0f;
-		const float v1 = 0.0f;
-		const float u2 = 1.0f;
-		const float v2 = 1.0f;
-		const int x1 = 0;
-		const int y1 = 0;
-		const int x2 = 640;
-		const int y2 = 480;
+		::glMatrixMode(GL_MODELVIEW);
+		::glLoadIdentity();
 
-		glBegin(GL_LINES);
-			for (float i=-3.0f; i<=3.0f; i+=0.1f)
+
+	{
+		const float Z = 1.0f;
+		gl::Texture(true);
+		glPushMatrix();
+		gl::LoadIdentity();
+		glBindTexture(GL_TEXTURE_2D, background_image.getTexture());
+		const float u = background_image.getTextureWidth();
+		const float v = background_image.getTextureHeight();
+		glBegin(GL_QUADS);
+			for (int i=-5; i<=5; ++i)
 			{
-				if (i>=-0.01 && i<=0.01)
-				{
-					glRGBA(255,0,0).glColorUpdate();
-				}
-				else
-				{
-					glRGBA(100,100,100).glColorUpdate();
-				}
-
-				glVertex3f(-3.0f, 0, i);
-				glVertex3f(+3.0f, 0, i);
-				glVertex3f(i, 0, -3.0f);
-				glVertex3f(i, 0, +3.0f);
+				glTexCoord2f(0,0); glVertex3f(-1.5f+3*i, 2.6f, Z);
+				glTexCoord2f(u,0); glVertex3f( 1.5f+3*i, 2.6f, Z); //¶ã
+				glTexCoord2f(u,v); glVertex3f( 1.5f+3*i, 0.0f, Z); //¶‰º
+				glTexCoord2f(0,v); glVertex3f(-1.5f+3*i, 0.0f, Z);
 			}
 		glEnd();
+		glPopMatrix();
+		gl::Texture(false);
+	}
 
+
+	drawFieldGrid();
 		dev1.CreateRawDepthImage();
 
-#define USE_LINE 0
+#define USE_TRI 0
 
-#if USE_LINE
-		glBegin(GL_LINES);
+#if USE_TRI
+		glBegin(GL_TRIANGLES);
 #else
 		glBegin(GL_POINTS);
 #endif
 			const uint16* data = dev1.raw_depth.image.data();
 			dev1.raw_depth.CalcDepthMinMax();
+#if USE_TRI
+			for (int y=0; y<480-1; ++y)
+			{
+				for (int x=0; x<640-1; ++x)
+				{
+					const int base = x + y*640;
+					int val1 = data[base];
+					int val2 = data[base+1];
+					int val3 = data[base+1+640];
+					int val4 = data[base+640];
+
+					float z1 = (float)(val1-dev1.raw_depth.min_value)/dev1.raw_depth.range;
+					float z2 = (float)(val2-dev1.raw_depth.min_value)/dev1.raw_depth.range;
+					float z3 = (float)(val3-dev1.raw_depth.min_value)/dev1.raw_depth.range;
+					float z4 = (float)(val4-dev1.raw_depth.min_value)/dev1.raw_depth.range;
+					
+					if (val1!=0 && val2!=0 && val3!=0)
+					{
+						// 1-2-3
+						glColor4f(z1,z1,z1, z1+0.4);
+						glVertex3f(
+							 (x)/640.0f - 0.5,
+							-(y)/480.0f + 1.0,
+							z1 - 0.5);
+						glColor4f(z2,z2,z2, z2+0.4);
+						glVertex3f(
+							 (x+1)/640.0f - 0.5,
+							-(y  )/480.0f + 1.0,
+							z2 - 0.5);
+						glColor4f(z3,z3,z3, z3+0.4);
+						glVertex3f(
+							 (x+1)/640.0f - 0.5,
+							-(y+1)/480.0f + 1.0,
+							z3 - 0.5);
+					}
+
+					if (val1!=0 && val3!=0 && val4!=0)
+					{
+						// 1-3-4
+						glColor4f(z1,z1,z1, z1+0.4);
+						glVertex3f(
+							 (x)/640.0f - 0.5,
+							-(y)/480.0f + 1.0,
+							z1 - 0.5);
+						glColor4f(z3,z3,z3, z3+0.4);
+						glVertex3f(
+							 (x+1)/640.0f - 0.5,
+							-(y+1)/480.0f + 1.0,
+							z3 - 0.5);
+						glColor4f(z4,z4,z4, z4+0.4);
+						glVertex3f(
+							 (x  )/640.0f - 0.5,
+							-(y+1)/480.0f + 1.0,
+							z4 - 0.5);
+					}
+#else
 			for (int y=0; y<480; ++y)
 			{
 				for (int x=0; x<640; ++x)
 				{
-					volatile int val = *data++;
+					int val = *data++;
 
-					volatile int alpha = (val-dev1.raw_depth.min_value)*255/dev1.raw_depth.range;
+					int alpha = (val-dev1.raw_depth.min_value)*255/dev1.raw_depth.range;
 					if (alpha<0) continue;
 					if (alpha>255) alpha=255;
 
@@ -1409,16 +1500,6 @@ void StClient::display()
 						c,
 						c,
 						255-alpha).glColorUpdate();
-#if USE_LINE
-					glVertex3f(
-						x/640.0f-0.5,
-						-y/480.0f + 1.0,
-						val/2000.0f-0.02);
-					glVertex3f(
-						x/640.0f-0.5,
-						-y/480.0f + 1.0,
-						val/2000.0f+0.02);
-#else
 					float z = val/2000.0f;
 					glVertex3f(
 						x/640.0f-0.5,
@@ -1429,6 +1510,7 @@ void StClient::display()
 			}
 		glEnd();
 	}
+
 
 
 	gl::Texture(false);
@@ -1452,7 +1534,6 @@ void StClient::display()
 		break;
 	}
 
-
 	// Mode 1: Raw depth
 	{
 // 		dev1.CreateRawDepthImage();
@@ -1463,6 +1544,7 @@ void StClient::display()
 //	drawKdev(dev2, 320,0, 320,240);
 
 	//dev1.RawDepthImageToRgbaTex3D(dev1.raw_depth);
+
 
 
 
@@ -1731,16 +1813,16 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		break;
 
 	case KEY_LEFT:
-		eye_r -= 0.15;
+		eye_r -= shift ? 0.02 : 0.15;
 		break;
 	case KEY_RIGHT:
-		eye_r += 0.15;
+		eye_r += shift ? 0.02 : 0.15;
 		break;
 	case KEY_UP:
-		eye_d -= 0.33;
+		eye_d -= shift ? 0.02 : 0.33;
 		break;
 	case KEY_DOWN:
-		eye_d += 0.33;
+		eye_d += shift ? 0.02 : 0.33;
 		break;
 
 	case 27:

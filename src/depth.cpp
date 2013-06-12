@@ -128,7 +128,7 @@ void RawDepthImage::CalcDepthMinMax()
 		this->min_value = 500;
 		this->range = this->max_value - this->min_value;
 	}
-}
+	}
 
 void Kdev::CreateTransformed()
 {

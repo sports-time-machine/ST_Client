@@ -283,17 +283,21 @@ int main(int argc, char** argv)
 
 		std::string first, second;
 		get_kinect_devices(first, second);
-		init_kinect(
-			first.c_str(),
-			//openni::ANY_DEVICE,
-			dev1);
-		init_kinect(
-			second.c_str(),
-			//openni::ANY_DEVICE,
-			dev2);
+		if (!first.empty())
+		{
+			init_kinect(
+				first.c_str(),
+				dev1);
+		}
+		if (!second.empty())
+		{
+			init_kinect(
+				second.c_str(),
+				dev2);
+		}
 	}
 
-	StClient st_client(dev2, dev1);
+	StClient st_client(dev1, dev2);
 	if (st_client.init(argc, argv)==false)
 	{
 		if (global_config.enable_kinect)

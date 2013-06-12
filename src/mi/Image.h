@@ -17,6 +17,9 @@ public:
 	uint getTexture() const { return _gl_tex; }
 	bool enabled()    const { return _gl_tex!=0u; }
 
+	float getTextureWidth()  const { return _tex_x_ratio; }
+	float getTextureHeight() const { return _tex_y_ratio; }
+
 private:
 	void _DibToPicture(void* void_dib);
 
