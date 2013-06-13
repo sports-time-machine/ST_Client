@@ -23,20 +23,4 @@ private:
 	double* _dest_ptr;
 };
 
-class TimePrint
-{
-public:
-	TimePrint()
-	{
-	}
-
-	virtual ~TimePrint()
-	{
-		fprintf(stderr, "%.2f msec\n", tm.get());
-	}
-
-private:
-	Timer tm;
-};
-
 }//namespace mi

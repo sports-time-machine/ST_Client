@@ -57,6 +57,7 @@ struct Kdev
 	RawDepthImage raw_cooked;
 	RawDepthImage raw_work;
 	RawDepthImage raw_transformed;
+	RawDepthImage raw_mixed;
 
 	RgbaTex  img_rawdepth;
 	RgbaTex  img_floor;
@@ -97,6 +98,7 @@ struct Mode
 	Mode()
 	{
 		auto_clipping = true;
+		simple_dot_body = true;
 	}
 };
 

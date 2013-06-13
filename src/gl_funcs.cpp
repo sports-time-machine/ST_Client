@@ -84,10 +84,17 @@ void gl::CapState(int cap, bool state)
 	(state ? glEnable : glDisable)(cap);
 }
 
-void gl::AlphaBlending()
+void gl::AlphaBlending(bool state)
 {
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	if (state)
+	{
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	}
+	else
+	{
+		glDisable(GL_BLEND);
+	}
 }
 
 void gl::Projection()

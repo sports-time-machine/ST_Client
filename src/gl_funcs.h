@@ -80,7 +80,7 @@ public:
 	static void Texture(bool state)          { CapState(GL_TEXTURE_2D, state); }
 	static void CapState(int cap, bool state);
 
-	static void AlphaBlending();
+	static void AlphaBlending(bool state);
 
 	// Full Screen
 	static void ToggleFullScreen();
