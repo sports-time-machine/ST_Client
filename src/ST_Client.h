@@ -73,6 +73,8 @@ struct Kdev
 	void RawDepthImageToRgbaTex(const RawDepthImage& raw, RgbaTex& dest);
 	void RawDepthImageToRgbaTex3D(const RawDepthImage& raw);
 	void CreateTransformed();
+
+	void CreateRawDepthImage_Read();
 	void CreateRawDepthImage();
 	void saveFloorDepth();
 };

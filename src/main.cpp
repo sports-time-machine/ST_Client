@@ -285,11 +285,11 @@ static void init_kinect(const char* uri, Kdev& k)
 }
 
 
+#include "mi/Timer.h"
 
 int main(int argc, char** argv)
 {
 	load_config();
-
 
 	Kdev dev1, dev2;
 

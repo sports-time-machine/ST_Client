@@ -5,8 +5,7 @@
 
 const int far_clipping = 5000;
 
-
-void Kdev::CreateRawDepthImage()
+void Kdev::CreateRawDepthImage_Read()
 {
 	if (!depth.isValid())
 	{
@@ -14,10 +13,13 @@ void Kdev::CreateRawDepthImage()
 		return;
 	}
 
-	using namespace openni;
-
 	// Read depth image from Kinect
 	depth.readFrame(&depthFrame);
+}
+
+void Kdev::CreateRawDepthImage()
+{
+	using namespace openni;
 
 	const bool mirroring = mode.mirroring ^ config.mirroring;
 

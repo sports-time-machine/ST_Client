@@ -5,15 +5,35 @@
 #include "mi/Image.h"
 #include "mi/Udp.h"
 #include "mi/Libs.h"
+#include "mi/Timer.h"
 #include "FreeType.h"
 #include "gl_funcs.h"
 #include "file_io.h"
-#include "gl_funcs.h"
 #include "Config.h"
 #include <map>
 #pragma warning(disable:4366)
 #define GL_GENERATE_MIPMAP_SGIS 0x8191
 #include "ST_Client.h"
+
+
+struct TimeProfile
+{
+	double draw_wall;
+	double draw_grid;
+
+	double read1_depth_dev1;
+	double read1_depth_dev2;
+	double read2_depth_dev1;
+	double read2_depth_dev2;
+
+	double draw_depth;
+};
+
+TimeProfile time_profile;
+
+
+
+
 
 
 extern void load_config();
@@ -22,11 +42,11 @@ extern void load_config();
 static int old_x, old_y;
 
 float ex,ey,ez;
-float eye_d  = 4.00f;
+float eye_d  =  4.00f;
 float eye_rh =  1.56;
 float eye_rv =  0.42;
-float eye_x  =  -0.24f;
-float eye_z  =  -4.01f;
+float eye_x  = -0.24f;
+float eye_z  = -4.01f;
 
 float eye_y  =  0.33f;
 float fovy = 40.0f;
@@ -1440,12 +1460,33 @@ void StClient::display()
 	::glMatrixMode(GL_MODELVIEW);
 	::glLoadIdentity();
 
-	drawWall();
-	drawFieldGrid(5.0f);
+	{
+		mi::Timer tm(&time_profile.draw_wall);
+		drawWall();
+	}
+	{
+		mi::Timer tm(&time_profile.draw_grid);
+		drawFieldGrid(5.0f);
+	}
+	{
+		mi::Timer tm(&time_profile.read1_depth_dev1);
+		dev1.CreateRawDepthImage_Read();
+	}
+	{
+		mi::Timer tm(&time_profile.read2_depth_dev1);
+		dev1.CreateRawDepthImage();
+	}
+	{
+		mi::Timer tm(&time_profile.read1_depth_dev2);
+		dev2.CreateRawDepthImage_Read();
+	}
+	{
+		mi::Timer tm(&time_profile.read2_depth_dev2);
+		dev2.CreateRawDepthImage();
+	}
 
-	dev1.CreateRawDepthImage();
-
-	drawBody(dev1.raw_depth, 50,150,240);
+	drawBody(dev1.raw_depth, 200,250,250);
+	drawBody(dev2.raw_depth, 250,250,200);
 
 	switch (movie_mode)
 	{
@@ -1491,7 +1532,7 @@ void StClient::display()
 				raw.image[i] = raw_depth[i];
 			}
 			raw.CalcDepthMinMax();
-			drawBody(raw, 1.0, 0.5, 0.0);
+			drawBody(raw, 185,140,166);
 		}
 		break;
 	}
@@ -1553,6 +1594,16 @@ void StClient::display()
 			diff_y,
 			diff_z,
 			fovy);
+
+		freetype::print(monospace, 20,360, "read=[%5.2f,%5.2f] read2=[%5.2f,%4.2f] d-depth=%.2f, d-grid=%.2f, d-wall=%.2f",
+			time_profile.read1_depth_dev1,
+			time_profile.read1_depth_dev2,
+			time_profile.read2_depth_dev1,
+			time_profile.read2_depth_dev2,
+
+			time_profile.draw_depth,
+			time_profile.draw_grid,
+			time_profile.draw_wall);
 	}
 
 	glRGBA::white.glColorUpdate();
