@@ -1,12 +1,42 @@
 #pragma once
 #include <OpenNI.h>
 #include "mi/Core.h"
+#include "mi/Udp.h"
+#include "mi/Image.h"
 #include "Config.h"
 
 #define WITHOUT_KINECT 1
 
 #define MIN_NUM_CHUNKS(data_size, chunk_size)	((((data_size)-1) / (chunk_size) + 1))
 #define MIN_CHUNKS_SIZE(data_size, chunk_size)	(MIN_NUM_CHUNKS(data_size, chunk_size) * (chunk_size))
+
+
+const int UDP_SERVER_RECV = 38702;
+const int UDP_CLIENT_RECV = 38708;
+
+
+// WINNT.H
+#undef STATUS_TIMEOUT
+
+enum ClientStatus
+{
+	// Idle
+	STATUS_IDLE,
+
+	// Demo status
+	STATUS_BLACK,
+	STATUS_PICTURE,
+	STATUS_DEPTH,
+
+	// Main status
+	STATUS_GAMEREADY,   // IDENT‚ðŽó‚¯‚Ä‚©‚ç
+	STATUS_GAME,        // START‚µ‚Ä‚©‚ç
+
+	// Game end status
+	STATUS_TIMEOUT,
+	STATUS_GAMESTOP,
+	STATUS_GOAL,
+};
 
 
 
@@ -164,6 +194,9 @@ private:
 
 	void CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage& raw_depth, const RawDepthImage& raw_floor);
 
+	mi::UdpReceiver udp_recv;
+	mi::UdpSender   udp_send;
+
 
 	void drawPlaybackMovie();
 	void displayCalibrationInfo();
@@ -175,6 +208,18 @@ struct Global
 {
 	int window_w;
 	int window_h;
+	ClientStatus client_status;
+	mi::Image pic;
+	mi::Image background_image;
+	mi::Image dot_image;
+	mi::File save_file;
+
+	Global()
+	{
+		window_w = 0;
+		window_h = 0;
+		client_status = STATUS_DEPTH;
+	}
 };
 
 #include "Config.h"  // EXTERN
@@ -182,3 +227,7 @@ struct Global
 
 SmartExtern Global global;
 SmartExtern Mode mode;
+
+
+extern void load_config();
+extern void toggle(bool& ref);

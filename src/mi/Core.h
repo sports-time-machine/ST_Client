@@ -29,6 +29,8 @@ struct RGBA_raw
 
 #ifdef __cplusplus
 
+namespace mi{
+
 class File
 {
 private:
@@ -106,6 +108,8 @@ public:
 		}
 	}
 };
+
+}//namespace mi
 
 
 class Core

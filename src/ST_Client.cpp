@@ -20,6 +20,18 @@
 #define USE_GLFW 0
 
 
+enum CameraMode
+{
+	CAM_A,
+	CAM_B,
+	CAM_BOTH,
+};
+
+CameraMode camera_mode = CAM_A;
+
+
+
+
 
 const float PI = 3.141592653;
 
@@ -58,10 +70,6 @@ TimeProfile time_profile;
 
 
 
-
-extern void load_config();
-
-
 static int old_x, old_y;
 
 float ex,ey,ez;
@@ -93,6 +101,7 @@ void Kdev::initRam()
 	calibration.c = Point2i(0,480);
 	calibration.d = Point2i(640,480);
 
+#if 0
 	fov_ratio = 1.0;
 	fovy   =    40.0f;
 	eye_x  =  0;
@@ -100,6 +109,25 @@ void Kdev::initRam()
 	eye_z  = -4.6;
 	eye_rh = PI/2;
 	eye_rv = 0.135;
+#else
+	// view1
+	fov_ratio = 1.0;
+	fovy   =    60.0f;
+	eye_x  =  4.3f;
+	eye_y  =  2.2f;
+	eye_z  = -3.0f;
+	eye_rh = 2.34500f;
+	eye_rv = 1.00000f;
+
+	// view2
+	fov_ratio = 1.0;
+	fovy   =    60.0f;
+	eye_x  = -4.0f;
+	eye_y  =  2.2f;
+	eye_z  = -4.0f;
+	eye_rh = 0.91750f;
+	eye_rv = 1.30000f;
+#endif
 }
 
 
@@ -134,34 +162,7 @@ struct VodyInfo
 
 VodyInfo vody;
 
-// WINNT.H
-#undef STATUS_TIMEOUT
 
-enum ClientStatus
-{
-	// Idle
-	STATUS_IDLE,
-
-	// Demo status
-	STATUS_BLACK,
-	STATUS_PICTURE,
-	STATUS_DEPTH,
-
-	// Main status
-	STATUS_GAMEREADY,   // IDENT‚ðŽó‚¯‚Ä‚©‚ç
-	STATUS_GAME,        // START‚µ‚Ä‚©‚ç
-
-	// Game end status
-	STATUS_TIMEOUT,
-	STATUS_GAMESTOP,
-	STATUS_GOAL,
-};
-
-ClientStatus client_status = STATUS_DEPTH;
-
-mi::Image pic;
-mi::Image background_image;
-mi::Image dot_image;
 
 
 
@@ -309,15 +310,6 @@ typedef std::map<int,RgbScreen> RgbScreenMovie;
 size_t movie_index = 0;
 
 openni::RGB888Pixel* moviex = nullptr;
-
-mi::UdpReceiver udp_recv;
-mi::UdpSender   udp_send;
-
-const int UDP_SERVER_RECV = 38702;
-const int UDP_CLIENT_RECV = 38708;
-
-
-
 
 
 GLuint depth_tex;
@@ -470,8 +462,8 @@ bool StClient::init(int argc, char **argv)
 
 	// @init @image @png @jpg
 //	background_image.createFromImageA("C:/ST/Picture/Pretty-Blue-Heart-Design.jpg");
-	background_image.createFromImageA("C:/ST/Picture/mountain-04.jpg");
-	dot_image.createFromImageA("C:/ST/Picture/dot.png");
+	global.background_image.createFromImageA("C:/ST/Picture/mountain-04.jpg");
+	global.dot_image.createFromImageA("C:/ST/Picture/dot.png");
 
 	return true;
 }
@@ -883,305 +875,13 @@ void StClient::displayBlackScreen()
 
 void StClient::displayPictureScreen()
 {
-	if (pic.enabled())
+	if (global.pic.enabled())
 	{
-		pic.draw(0,0, 640,480, 255);
+		global.pic.draw(0,0, 640,480, 255);
 	}
 }
 
 
-
-
-
-
-
-bool commandIs(const std::string& cmd,
-		const char* cmd1,
-		const char* cmd2=nullptr,
-		const char* cmd3=nullptr)
-{
-	if (cmd1!=nullptr && cmd.compare(cmd1)==0)
-		return true;
-	if (cmd2!=nullptr && cmd.compare(cmd2)==0)
-		return true;
-	if (cmd3!=nullptr && cmd.compare(cmd3)==0)
-		return true;
-	return false;
-}
-
-
-
-	enum InvalidFormat
-	{
-		INVALID_FORMAT,
-	};
-
-typedef const std::vector<VariantType> Args;
-
-
-void arg_check(Args& arg, size_t x)
-{
-	if (arg.size()!=x)
-		throw INVALID_FORMAT;
-}
-
-
-
-
-void commandDepth(Args& arg)
-{
-	arg_check(arg, 0);
-	client_status = STATUS_DEPTH;
-}
-
-void commandBlack(Args& arg)
-{
-	arg_check(arg, 0);
-	client_status = STATUS_BLACK;
-}
-
-void commandMirror(Args& arg)
-{
-	arg_check(arg, 0);
-	toggle(mode.mirroring);
-}
-
-void commandDiskInfo(Args& arg)
-{
-	arg_check(arg, 0);
-
-	static const ULARGE_INTEGER zero = {};
-	ULARGE_INTEGER free_bytes;
-	ULARGE_INTEGER total_bytes;
-
-	if (GetDiskFreeSpaceEx("C:", &free_bytes, &total_bytes, nullptr)==0)
-	{
-		free_bytes  = zero;
-		total_bytes = zero;
-		fprintf(stderr, "(error) GetDiskFreeSpaceEx\n");
-	}
-
-	auto mega_bytes = [](ULARGE_INTEGER ul)->uint32{
-		const uint64 size = ((uint64)ul.HighPart<<32) | ((uint64)ul.LowPart);
-		return (uint32)(size / 1000000);
-	};
-
-	uint32 free  = mega_bytes(free_bytes);
-	uint32 total = mega_bytes(total_bytes);
-	printf("%u MB free(%.1f%%), %u MB total\n",
-			free,
-			free*100.0f/total,
-			total);
-}
-
-static void commandReloadConfig(Args& arg)
-{
-	arg_check(arg, 0);
-	load_config();
-}
-
-void sendStatus()
-{
-	std::string s;
-	s += "STATUS ";
-	s += Core::getComputerName();
-	s += " ";
-	s += (
-		(client_status==STATUS_BLACK) ? "BLACK" :
-		(client_status==STATUS_PICTURE) ? "PICTURE" :
-		(client_status==STATUS_IDLE) ? "IDLE" :
-		(client_status==STATUS_GAMEREADY) ? "GAMEREADY" :
-		(client_status==STATUS_GAME) ? "GAME" :
-		(client_status==STATUS_DEPTH) ? "DEPTH" :
-		(client_status==STATUS_GAMESTOP) ? "GAMESTOP" :
-		(client_status==STATUS_TIMEOUT) ? "TIMEOUT" :
-		(client_status==STATUS_GOAL) ? "GOAL" :
-			"UNKNOWN-STATUS");
-	udp_send.send(s);
-}
-
-static void commandStatus(Args& arg)
-{
-	arg_check(arg, 0);
-	sendStatus();
-}
-
-static void commandStart(Args& arg)
-{
-	arg_check(arg, 0);
-
-	client_status = STATUS_GAME;
-	sendStatus();
-}
-
-static void commandBorderLine(Args& arg)
-{
-	arg_check(arg, 0);
-	toggle(mode.borderline);
-}
-
-const char* to_s(int x)
-{
-	static char to_s_buf[1000];
-	_ltoa(x, to_s_buf, 10);
-	return to_s_buf;
-}
-
-static void commandPing(Args& arg)
-{
-	arg_check(arg, 1);
-
-	printf("PING received: server is '%s'\n", arg[0].to_s());
-
-	std::string s;
-	s += "PONG ";
-	s += Core::getComputerName();
-	s += " ";
-	s += mi::Udp::getIpAddress();
-	s += " ";
-	s += to_s(config.client_number);
-
-	udp_send.init(arg[0].to_s(), UDP_SERVER_RECV);
-	udp_send.send(s);
-}
-
-void commandPict(Args& arg)
-{
-	arg_check(arg, 1);
-
-	std::string path;
-	path += "//STMX64/ST/Picture/";
-	path += arg[0].to_s();
-	if (pic.createFromImageA(path.c_str()))
-	{
-		client_status = STATUS_PICTURE;
-		return;
-	}
-	else
-	{
-		printf("picture load error. %s\n", arg[0].to_s());
-	}
-}
-
-
-File save_file;
-
-
-
-
-void commandIdent(Args& arg)
-{
-	arg_check(arg, 2);
-
-
-	printf("%s, %s\n", arg[0].to_s(), arg[1].to_s());
-	
-	std::string filename = (arg[0].string() + "-" + arg[1].string());
-	if (!save_file.openForWrite(filename.c_str()))
-	{
-		puts("Open error (savefile)");
-		return;
-	}
-
-	printf("Filename %s ok\n", filename.c_str());
-
-	client_status = STATUS_GAMEREADY;
-	sendStatus();
-}
-
-void commandBye(Args& arg)
-{
-	arg_check(arg, 0);
-	exit(0);
-}
-
-void commandHitBoxes(Args& arg)
-{
-	arg_check(arg, 0);
-	toggle(mode.show_hit_boxes);
-}
-
-
-bool StClient::doCommand()
-{
-	std::string rawstring;
-	if (udp_recv.receive(rawstring)<=0)
-	{
-		return false;
-	}
-
-	std::vector<std::string> lines;
-	Lib::splitStringToLines(rawstring, lines);
-
-	for (size_t i=0; i<lines.size(); ++i)
-	{
-		doCommand2(lines[i]);
-	}
-	return true;
-}
-
-bool StClient::doCommand2(const std::string& line)
-{
-	std::string cmd;
-	std::vector<VariantType> arg;
-	Lib::splitString(line, cmd, arg);
-
-	// Daemon command
-	if (cmd[0]=='#')
-	{
-		printf("[DAEMON COMMAND] '%s' -- ignore", cmd.c_str());
-		return true;
-	}
-
-
-	printf("[UDP COMMAND] '%s' ", cmd.c_str());
-	for (size_t i=0; i<arg.size(); ++i)
-	{
-		if (arg[i].is_int())
-		{
-			printf("[int:%d]", arg[i].to_i());
-		}
-		else
-		{
-			printf("[str:%s]", arg[i].to_s());
-		}
-	}
-	printf("\n");
-
-	const int argc = arg.size();
-
-	try
-	{
-		// @command
-#define COMMAND(CMD, PROC)    if (cmd.compare(CMD)==0) { PROC(arg); return true; }
-		COMMAND("HITBOXES", commandHitBoxes);
-		COMMAND("RELOADCONFIG", commandReloadConfig);
-
-		COMMAND("DISKINFO", commandDiskInfo);
-		COMMAND("MIRROR",   commandMirror);
-		COMMAND("BLACK",    commandBlack);
-		COMMAND("DEPTH",    commandDepth);
-		COMMAND("STATUS",   commandStatus);
-		COMMAND("START",    commandStart);
-
-		COMMAND("BORDERLINE", commandBorderLine);
-		COMMAND("IDENT",    commandIdent);
-		COMMAND("PING",     commandPing);
-		COMMAND("PICT",     commandPict);
-		COMMAND("BYE",      commandBye);
-		COMMAND("QUIT",     commandBye);
-		COMMAND("EXIT",     commandBye);
-#undef COMMAND
-
-		printf("Invalid udp-command '%s'\n", cmd.c_str());
-	}
-	catch (InvalidFormat)
-	{
-		printf("Invalid format '%s' argc=%d\n", cmd.c_str(), argc);
-	}
-
-	return false;
-}
 
 
 void display2()
@@ -1350,14 +1050,16 @@ void drawFieldGrid(int size_cm)
 
 void drawWall()
 {
+	auto& img = global.background_image;
+
 	// @wall
 	const float Z = global_config.wall_depth;
 	gl::Texture(true);
 	glPushMatrix();
 	gl::LoadIdentity();
-	glBindTexture(GL_TEXTURE_2D, background_image.getTexture());
-	const float u = background_image.getTextureWidth();
-	const float v = background_image.getTextureHeight();
+	glBindTexture(GL_TEXTURE_2D, img.getTexture());
+	const float u = img.getTextureWidth();
+	const float v = img.getTextureHeight();
 	glBegin(GL_QUADS);
 	const float SZ = Z/2;
 	for (int i=-5; i<=5; ++i)
@@ -1384,7 +1086,7 @@ void drawBody(RawDepthImage& raw, int red, int green, int blue)
 	{
 		glBegin(GL_QUADS);
 		gl::Texture(true);
-		glBindTexture(GL_TEXTURE_2D, dot_image);
+		glBindTexture(GL_TEXTURE_2D, global.dot_image);
 	}
 	else
 	{
@@ -1475,7 +1177,7 @@ void drawBodyDS(DepthScreen& ds, int red, int green, int blue)
 	{
 		glBegin(GL_QUADS);
 		gl::Texture(true);
-		glBindTexture(GL_TEXTURE_2D, dot_image);
+		glBindTexture(GL_TEXTURE_2D, global.dot_image);
 	}
 	else
 	{
@@ -1704,6 +1406,12 @@ void StClient::display()
 	// @fov
 	::glMatrixMode(GL_PROJECTION);
 	::glLoadIdentity();
+	
+	if (1)
+	{
+		gluPerspective(30.0f, 4.0f/3.0f, 1.0f, 100.0f);
+	}
+	else
 	{
 		const float left   = -2.0f;
 		const float right  = +2.0f;
@@ -1713,6 +1421,8 @@ void StClient::display()
 		const float farf   =  24.0;
 		glOrtho(left, right, bottom, top, nearf, farf);
 	}
+
+
 
 #if 1
 	::gluLookAt(
@@ -1775,13 +1485,36 @@ void StClient::display()
 	{
 		// @dsinit
 		DS_Init(depth_screen);
-		CreateMixed(depth_screen, dev1.raw_depth);
-		CreateMixed(depth_screen, dev2.raw_depth);
 
-		// @body
-		drawBodyDS(depth_screen, 250,250,250);
+		// @body @draw @camera
+		const char* text = "?";
+		switch (camera_mode)
+		{
+		case CAM_A:
+			CreateMixed(depth_screen, dev1.raw_depth);
+			text = "A Only";
+			drawBodyDS(depth_screen, 250,190,80);
+			break;
+		case CAM_B:
+			CreateMixed(depth_screen, dev2.raw_depth);
+			text = "B Only";
+			drawBodyDS(depth_screen, 100,120,250);
+			break;
+		case CAM_BOTH:
+			CreateMixed(depth_screen, dev1.raw_depth);
+			CreateMixed(depth_screen, dev2.raw_depth);
+			text = "Both";
+			drawBodyDS(depth_screen, 250,250,250);
+			break;
+		}
+		{
+			ModelViewObject mo;
+			glRGBA::white.glColorUpdate();
+			freetype::print(monospace, 300,50,
+				"[camera=%s]",
+				text);
+		}
 	}
-
 
 
 
@@ -1846,7 +1579,7 @@ void StClient::display()
 	gl::Projection();
 	gl::LoadIdentity();
 
-	switch (client_status)
+	switch (global.client_status)
 	{
 	case STATUS_BLACK:        displayBlackScreen();   break;
 	case STATUS_PICTURE:      displayPictureScreen(); break;
@@ -1859,21 +1592,6 @@ void StClient::display()
 		displayDepthScreen();
 		break;
 	}
-
-	// Mode 1: Raw depth
-	{
-// 		dev1.CreateRawDepthImage();
-//		dev2.CreateRawDepthImage();
-	}
-
-//	drawKdev(dev1,   0,0, 320,240);
-//	drawKdev(dev2, 320,0, 320,240);
-
-	//dev1.RawDepthImageToRgbaTex3D(dev1.raw_depth);
-
-
-
-
 
 
 	{
@@ -2154,6 +1872,38 @@ void StClient::onMouse(int button, int state, int x, int y)
 	}
 }
 
+void view1()
+{
+	fov_ratio = 1.0;
+	fovy   =    60.0f;
+	eye_x  =  4.3f;
+	eye_y  =  2.2f;
+	eye_z  = -4.0f;
+	eye_rh = 2.34500f;
+	eye_rv = 1.30000f;
+}
+
+void view2()
+{
+	fov_ratio = 1.0;
+	fovy   =    60.0f;
+	eye_x  = -4.0f;
+	eye_y  =  2.2f;
+	eye_z  = -4.0f;
+	eye_rh = 0.91750f;
+	eye_rv = 1.30000f;
+}
+
+void view3()
+{
+	fov_ratio = 1.0;
+	fovy   =    60.0f;
+	eye_x  =  0.0f;
+	eye_y  =  2.2f;
+	eye_z  = -6.3f;
+	eye_rh = PI/2;
+	eye_rv = 1.60f;
+}
 
 void StClient::onKey(int key, int /*x*/, int /*y*/)
 {
@@ -2163,11 +1913,20 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	const bool shift = (kbd[VK_SHIFT] & 0x80)!=0;
 	const float movespeed = shift ? 0.01 : 0.1;
 
-	switch (key)
+	enum { SK_SHIFT=0x10000 };
+
+	switch (key + (shift ? SK_SHIFT : 0))
 	{
 	default:
 		printf("[key %d]\n", key);
 		break;
+
+	case KEY_F8  | SK_SHIFT:   view1();  break;
+	case KEY_F9  | SK_SHIFT:   view2();  break;
+	case KEY_F10 | SK_SHIFT:   view3();  break;
+	case KEY_F8:    camera_mode = CAM_A;  break;
+	case KEY_F9:    camera_mode = CAM_B;  break;
+	case KEY_F10:   camera_mode = CAM_BOTH;  break;
 
 	case KEY_PAGEUP:
 		config.near_threshold -= shift ? 1 : 10;
@@ -2233,7 +1992,7 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		openni::OpenNI::shutdown();
 		exit(1);
 	case 'z':
-		client_status = STATUS_DEPTH;
+		global.client_status = STATUS_DEPTH;
 		break;
 	case KEY_F1:
 		if (movie_mode!=MOVIE_RECORD)

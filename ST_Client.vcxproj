@@ -33,6 +33,7 @@
     <ClCompile Include="src\mi\Udp.cpp" />
     <ClCompile Include="src\ST_Client.cpp" />
     <ClCompile Include="src\ST_Client_GLUT.cpp" />
+    <ClCompile Include="src\ST_Client_Udp.cpp" />
     <ClCompile Include="src\zlibpp.cpp" />
   </ItemGroup>
   <ItemGroup>
