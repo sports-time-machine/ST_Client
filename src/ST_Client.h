@@ -87,7 +87,6 @@ struct Kdev
 	RawDepthImage raw_depth;
 	RawDepthImage raw_floor;
 	RawDepthImage raw_cooked;
-	RawDepthImage raw_work;
 
 	RgbaTex  img_rawdepth;
 
@@ -95,10 +94,6 @@ struct Kdev
 	uint vram_floor;
 
 	void initRam();
-
-	void RawDepthImageToRgbaTex(const RawDepthImage& raw, RgbaTex& dest);
-	void RawDepthImageToRgbaTex3D(const RawDepthImage& raw);
-	void CreateTransformed();
 
 	void CreateRawDepthImage_Read();
 	void CreateRawDepthImage();

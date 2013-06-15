@@ -612,48 +612,6 @@ uint16 floor_depth2[640*480];
 
 
 
-void Kdev::RawDepthImageToRgbaTex(const RawDepthImage& raw, RgbaTex& dimg)
-{
-	const uint16* src = raw.image.data();
-	const int range = max(1, raw.range);
-	for (int y=0; y<480; ++y)
-	{
-		RGBA_raw* dest = dimg.vram + y*dimg.pitch;
-		for (int x=0; x<640; ++x, ++dest, ++src)
-		{
-			const uint16 d = *src;
-			uint v = 255 * (d - raw.min_value) / range;
-			if (v==0)
-			{
-				// n/a
-				dest->set(80,50,0);
-			}
-			else if (v>255)
-			{
-				// too far!
-				dest->set(0,30,70);
-			}
-			else
-			{
-				if (mode.borderline && v>=20 && v<=240)
-				{
-					if (v%2==0)
-						v = 20;
-					else
-						v = 240;
-				}
-
-				dest->set(
-					(255-v)*256>>8,
-					(255-v)*230>>8,
-					(255-v)*50>>8,
-					255);
-			}
-		}
-	}
-}
-
-
 void DrawRgbaTex_Build(const RgbaTex& img)
 {
 	gl::Texture(true);
