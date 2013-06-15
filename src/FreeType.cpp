@@ -57,9 +57,16 @@ void make_dlist(FT_Face face, int ch, GLuint list_base, GLuint* tex_base)
 	//is the the Freetype bitmap otherwise.
 	for(int j=0; j <height;j++) {
 		for(int i=0; i < width; i++){
-			expanded_data[2*(i+j*width)]= expanded_data[2*(i+j*width)+1] = 
+			GLubyte data = 
 				(i>=bitmap.width || j>=bitmap.rows) ?
-				0 : bitmap.buffer[i + bitmap.width*j];
+					0 : bitmap.buffer[i + bitmap.width*j];
+
+			// gamma
+			float d = data/255.0;
+			data = (GLubyte)(powf(d, 1/3.2f) * 255.0);
+
+			expanded_data[2*(i+j*width)]   = data;
+			expanded_data[2*(i+j*width)+1] = data;
 		}
 	}
 
@@ -197,7 +204,6 @@ inline int pushScreenCoordinateMatrix() {
 	glPushMatrix();
 	glLoadIdentity();
 
-//	gluOrtho2D(viewport[0],viewport[2],viewport[1],viewport[3]);
 	glOrtho(viewport[0],viewport[2],viewport[1],viewport[3],-1,1);
 	
 	glPopAttrib();

@@ -3,6 +3,7 @@
 #include "mi/Udp.h"
 #include "mi/Libs.h"
 #include "mi/Timer.h"
+#pragma warning(disable: 4996)
 
 
 bool commandIs(const std::string& cmd,

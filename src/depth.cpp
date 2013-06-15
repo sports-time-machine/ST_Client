@@ -130,37 +130,4 @@ void RawDepthImage::CalcDepthMinMax()
 		this->min_value = 500;
 		this->range = this->max_value - this->min_value;
 	}
-	}
-
-void Kdev::CreateTransformed()
-{
-	//     x
-	//  A-----B          A-_
-	//  |     |         /   \_
-	// e|-----|f -->  e/-__   B
-	//  |     |       /    --/f
-	//  C-----D      C------D
-	const Point2i a = calibration.a;
-	const Point2i b = calibration.b;
-	const Point2i c = calibration.c;
-	const Point2i d = calibration.d;
-	int index = 0;
-	for (int y=0; y<480; ++y)
-	{
-		Point2i e(
-			a.x*(480-y)/480 + c.x*(y)/480,
-			a.y*(480-y)/480 + c.y*(y)/480);
-		Point2i f(
-			b.x*(480-y)/480 + d.x*(y)/480,
-			b.y*(480-y)/480 + d.y*(y)/480);
-		for (int x=0; x<640; ++x)
-		{
-			Point2i k(
-				e.x*(640-x)/640 + f.x*(x)/640,
-				e.y*(640-x)/640 + f.y*(x)/640);
-			raw_transformed.image[index] = raw_cooked.image[k.y*640 + k.x];
-			++index;
-		}
-	}
-	raw_transformed.CalcDepthMinMax();
 }

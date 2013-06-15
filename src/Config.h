@@ -17,11 +17,6 @@ struct GlobalConfig
 	GlobalConfig();
 };
 
-struct KinectCalibration
-{
-	Point2i a,b,c,d;
-};
-
 struct Config
 {
 	int client_number;
@@ -40,9 +35,6 @@ struct Config
 		int top_mm;
 		int ground_px;
 	} metrics;
-
-	KinectCalibration kinect1_calibration;
-	KinectCalibration kinect2_calibration;
 
 	Config();
 };

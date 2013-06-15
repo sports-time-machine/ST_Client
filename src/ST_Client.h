@@ -4,6 +4,8 @@
 #include "mi/Udp.h"
 #include "mi/Image.h"
 #include "Config.h"
+#include "vec4.h"
+
 
 #define WITHOUT_KINECT 1
 
@@ -94,7 +96,12 @@ struct Kdev
 	RgbaTex  img_cooked;
 	RgbaTex  img_transformed;
 
-	KinectCalibration calibration;
+	mat4x4 mat_x_plane;
+	mat4x4 mat_y_plane;
+	mat4x4 mat_z_plane;
+	mat4x4 mat_move;
+	mat4x4 mat_scale;
+	mat4x4 mat_calib;
 
 	uint vram_tex;
 	uint vram_floor;
@@ -124,11 +131,13 @@ struct Mode
 	bool borderline;
 	bool calibration;
 	bool view4test;
+	bool perspective;
 
 	Mode()
 	{
 		auto_clipping = true;
 		simple_dot_body = true;
+		perspective = true;
 	}
 };
 
@@ -199,13 +208,21 @@ private:
 
 
 	void drawPlaybackMovie();
-	void displayCalibrationInfo();
-	void drawKdev(Kdev& kdev, int x, int y, int w, int h);
 };
 
 
+enum ViewMode
+{
+	VM_2D_TOP,
+	VM_2D_FRONT,
+	VM_3D_LEFT,
+	VM_3D_RIGHT,
+	VM_3D_FRONT,
+};
+
 struct Global
 {
+	ViewMode view_mode;
 	int window_w;
 	int window_h;
 	ClientStatus client_status;
@@ -216,6 +233,7 @@ struct Global
 
 	Global()
 	{
+		view_mode = VM_2D_TOP;
 		window_w = 0;
 		window_h = 0;
 		client_status = STATUS_DEPTH;

@@ -8,6 +8,7 @@
 #pragma warning(disable: 4100) // unused variable
 #pragma warning(disable: 4201) // non-standard expanded function
 #pragma warning(disable: 4512) // 
+#pragma warning(disable: 4996) // unsafe function
 #include "PSL/PSL.h"
 #pragma warning(pop)
 //end of psl
@@ -47,15 +48,6 @@ Config::Config()
 	metrics.left_mm   = 0;
 	metrics.right_mm  = 4000;
 	metrics.top_mm    = 2500;
-
-	kinect1_calibration.a = Point2i(0,0);
-	kinect1_calibration.b = Point2i(640,0);
-	kinect1_calibration.c = Point2i(0,480);
-	kinect1_calibration.d = Point2i(640,480);
-	kinect2_calibration.a = Point2i(0,0);
-	kinect2_calibration.b = Point2i(640,0);
-	kinect2_calibration.c = Point2i(0,480);
-	kinect2_calibration.d = Point2i(640,480);
 }
 
 
@@ -148,24 +140,6 @@ void load_config()
 	CONFIG_FLOAT(global_config, grid_g);
 	CONFIG_FLOAT(global_config, grid_b);
 
-
-	{
-		PSL::variable src = psl.get("kinect1_calibration");
-		auto& dest = config.kinect1_calibration;
-		dest.a = Point2i(src[0][0], src[0][1]);
-		dest.b = Point2i(src[1][0], src[1][1]);
-		dest.c = Point2i(src[2][0], src[2][1]);
-		dest.d = Point2i(src[3][0], src[3][1]);
-	}
-
-	{
-		PSL::variable src = psl.get("kinect2_calibration");
-		auto& dest = config.kinect2_calibration;
-		dest.a = Point2i(src[0][0], src[0][1]);
-		dest.b = Point2i(src[1][0], src[1][1]);
-		dest.c = Point2i(src[2][0], src[2][1]);
-		dest.d = Point2i(src[3][0], src[3][1]);
-	}
 
 #undef CONFIG_INT
 #undef CONFIG_BOOL
@@ -289,6 +263,11 @@ static void init_kinect(const char* uri, Kdev& k)
 
 int main(int argc, char** argv)
 {
+//	global_config.enable_kinect = false;
+
+
+
+
 	load_config();
 
 	Kdev dev1, dev2;

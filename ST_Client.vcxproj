@@ -31,6 +31,10 @@
     <ClCompile Include="src\mi\Libs.cpp" />
     <ClCompile Include="src\mi\Timer.cpp" />
     <ClCompile Include="src\mi\Udp.cpp" />
+    <ClCompile Include="src\pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="src\ST_Client.cpp" />
     <ClCompile Include="src\ST_Client_GLUT.cpp" />
     <ClCompile Include="src\ST_Client_Udp.cpp" />
@@ -49,7 +53,9 @@
     <ClInclude Include="src\mi\Timer.h" />
     <ClInclude Include="src\mi\Udp.h" />
     <ClInclude Include="src\OniSampleUtilities.h" />
+    <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\ST_Client.h" />
+    <ClInclude Include="src\vec4.h" />
     <ClInclude Include="src\zlibpp.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -133,6 +139,9 @@
       <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level4</WarningLevel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -171,6 +180,9 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>

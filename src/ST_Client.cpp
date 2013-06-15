@@ -16,9 +16,59 @@
 #include "ST_Client.h"
 #include <GL/glfw.h>
 #pragma comment(lib,"GLFW_x32.lib")
+#pragma warning(disable:4996) // unsafe function
 
 #define USE_GLFW 0
 
+
+
+
+
+
+
+
+struct Calparam
+{
+	struct Point3D
+	{
+		int x,y;
+		float z;
+		
+		Point3D()
+		{
+			x=y=0;
+			z=0.0f;
+		}
+
+		void setPoint(const Point3D& a, const Point3D& b, int t, int end)
+		{
+			const int q = end - t;
+			this->x = (t*a.x + q*b.x) / end;
+			this->y = (t*a.y + q*b.y) / end;
+			this->z = (t*a.z + q*b.z) / end;
+		}
+	};
+
+	float rot_x, rot_y, rot_z;
+	float x,y,z;
+
+	Calparam()
+	{
+		x = y = z = 0.0f;
+		rot_x = 0.0f;
+		rot_y = 0.0f;
+		rot_z = 0.0f;
+	}
+};
+
+struct Calset
+{
+	Calparam curr, prev;
+};
+
+Calset cal_cam1, cal_cam2;
+
+Calset* focus_cal = nullptr;
 
 enum CameraMode
 {
@@ -27,9 +77,26 @@ enum CameraMode
 	CAM_BOTH,
 };
 
-CameraMode camera_mode = CAM_A;
+CameraMode camera_mode = CAM_BOTH;
 
 
+
+void drawSphere(float x, float y, float z)
+{
+	static GLUquadricObj *sphere = nullptr;
+	if (sphere==nullptr)
+	{
+		sphere = gluNewQuadric();
+	}
+
+	gluQuadricDrawStyle(sphere, GLU_LINE);
+	glRGBA(255,255,255).glColorUpdate();
+	glPushMatrix();
+		glLoadIdentity();
+		glTranslatef(x,y,z);
+		gluSphere(sphere, 0.01, 10.0, 10.0);
+	glPopMatrix();
+}
 
 
 
@@ -71,18 +138,69 @@ TimeProfile time_profile;
 
 
 static int old_x, old_y;
-
-float ex,ey,ez;
 float eye_d  =  4.00f;
-float eye_rh =  PI/2;
-float eye_rv =  0.42;
-float eye_x  = 0;
-float eye_z  = -3.00f;
+struct Eye
+{
+	float x,y,z;    // 視線の原点
+	float rh;       // 視線の水平方向(rad)
+	float v;        // 視線の垂直方向
 
-float eye_y  =  0.33f;
+	void set(float x, float y, float z, float h, float v)
+	{
+		this->x  = x;
+		this->y  = y;
+		this->z  = z;
+		this->rh = h;
+		this->v  = v;
+	}
+
+	void gluLookAt()
+	{
+		const float ex = x + cos(rh)*eye_d;
+		const float ez = z + sin(rh)*eye_d;
+		const float ey = y + v;
+
+		::gluLookAt(x,y,z, ex,ey,ez, 0,1,0);
+	}
+};
+
 float fovy = 40.0f;
 float fov_ratio = 1.0;
 float fov_step  = 1.0;
+
+Eye eye;
+
+
+
+void view_2d_top()
+{
+	global.view_mode = VM_2D_TOP;
+	eye.set(0.0f, 18.4, 5.2f, -PI/2, -15.0f);
+}
+
+void view_2d_front()
+{
+	global.view_mode = VM_2D_FRONT;
+	eye.set(0.0f, 2.2f, 5.2f, -PI/2, -1.92);
+}
+
+void view_3d_left()
+{
+	global.view_mode = VM_3D_LEFT;
+	eye.set(-3.6f, 3.8f, 5.75f, -1.06f, -1.72f);
+}
+
+void view_3d_right()
+{
+	global.view_mode = VM_3D_RIGHT;
+	eye.set(3.6f, 3.8f, 5.75f, -2.05f, -1.72f);
+}
+
+void view_3d_front()
+{
+	global.view_mode = VM_3D_FRONT;
+	eye.set(0.0f, 3.8f, 4.75f, -PI/2, -2.10f);
+}
 
 
 
@@ -95,39 +213,6 @@ void Kdev::initRam()
 	this->img_floor      .create(640,480);
 	this->img_cooked     .create(640,480);
 	this->img_transformed.create(640,480);
-	
-	calibration.a = Point2i(0,0);
-	calibration.b = Point2i(640,0);
-	calibration.c = Point2i(0,480);
-	calibration.d = Point2i(640,480);
-
-#if 0
-	fov_ratio = 1.0;
-	fovy   =    40.0f;
-	eye_x  =  0;
-	eye_y  =  1.3;
-	eye_z  = -4.6;
-	eye_rh = PI/2;
-	eye_rv = 0.135;
-#else
-	// view1
-	fov_ratio = 1.0;
-	fovy   =    60.0f;
-	eye_x  =  4.3f;
-	eye_y  =  2.2f;
-	eye_z  = -3.0f;
-	eye_rh = 2.34500f;
-	eye_rv = 1.00000f;
-
-	// view2
-	fov_ratio = 1.0;
-	fovy   =    60.0f;
-	eye_x  = -4.0f;
-	eye_y  =  2.2f;
-	eye_z  = -4.0f;
-	eye_rh = 0.91750f;
-	eye_rv = 1.30000f;
-#endif
 }
 
 
@@ -226,8 +311,8 @@ MovieMode movie_mode = MOVIE_READY;
 #include "XnCppWrapper.h"
 #include "OniSampleUtilities.h"
 
-const int GL_WIN_SIZE_X = 640;
-const int GL_WIN_SIZE_Y	= 480;
+const int INITIAL_WIN_SIZE_X = 1024;
+const int INITIAL_WIN_SIZE_Y = 768;
 const int TEXTURE_SIZE = 512;
 
 const int MOVIE_MAX_SECS = 50;
@@ -326,6 +411,9 @@ StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 	ms_self = this;
 
 	glGenTextures(1, &depth_tex);
+
+	view_3d_left();
+
 
 	udp_recv.init(UDP_CLIENT_RECV);
 	printf("host: %s\n", Core::getComputerName().c_str());
@@ -456,7 +544,10 @@ bool StClient::init(int argc, char **argv)
 	{
 		puts("Init font...");
 		const std::string font_folder = "C:/Windows/Fonts/";
-		monospace.init(font_folder + "Courbd.ttf", 12);
+		monospace.init(font_folder + "Cour.ttf", 12);
+
+		// Consolas
+		//monospace.init(font_folder + "trebuc.ttf", 10);
 		puts("Init font...done!");
 	}
 
@@ -550,7 +641,7 @@ void StClient::drawImageMode()
 
 #if 0
 	drawBitmap(
-		0, 0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y,
+		0, 0, 640, 480,
 		m_pTexMap,
 		m_nTexMapX, m_nTexMapY,
 		0.0f,
@@ -705,7 +796,7 @@ void StClient::drawPlaybackMovie()
 		video_ram2,
 		m_nTexMapX, m_nTexMapY);
 	drawBitmap(
-		0, 0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y,
+		0, 0, 640, 480,
 		0.0f,
 		0.0f,
 		(float)m_width  / m_nTexMapX,
@@ -854,8 +945,8 @@ void StClient::drawDepthMode()
 	// @draw
 	const int draw_x = 0;
 	const int draw_y = 0;
-	const int draw_w = GL_WIN_SIZE_X/2;
-	const int draw_h = GL_WIN_SIZE_Y/2;
+	const int draw_w = 640/2;
+	const int draw_h = 480/2;
 	drawBitmap(
 		draw_x, draw_y,
 		draw_w, draw_h,
@@ -901,12 +992,73 @@ void display2()
 	int time_diff = (timeGetTime() - time_begin);
 
 	glRGBA::white.glColorUpdate();
-	freetype::print(monospace, 0, 476, "%dmm",
-		config.metrics.left_mm);
-	freetype::print(monospace, 570, 476, "%5dmm",
-		config.metrics.right_mm);
 
-	freetype::print(monospace, 20, 160, "#%d Near(%dmm) Far(%dmm) [%s][%s]",
+	const int H=15;
+	int y = 10;
+
+	auto nl = [&](){ y+=H/2; };
+	auto pr = freetype::print;
+
+	glRGBA heading(80,255,120);
+	glRGBA text(200,200,200);
+
+	heading.glColorUpdate();
+	pr(monospace, 20, y+=H, "View Mode: %s",
+		(global.view_mode==VM_2D_TOP)   ? "2D top" :
+		(global.view_mode==VM_2D_FRONT) ? "2D front" :
+		(global.view_mode==VM_3D_LEFT)  ? "3D left" :
+		(global.view_mode==VM_3D_RIGHT) ? "3D right" :
+		(global.view_mode==VM_3D_FRONT) ? "3D front" : "unknown");
+	text.glColorUpdate();
+	pr(monospace, 20, y+=H, "[F1] 2D top");
+	pr(monospace, 20, y+=H, "[F2] 2D front");
+	pr(monospace, 20, y+=H, "[F3] 3D left");
+	pr(monospace, 20, y+=H, "[F4] 3D right");
+	pr(monospace, 20, y+=H, "[F5] 3D front");
+	nl();
+
+	heading.glColorUpdate();
+	pr(monospace, 20, y+=H, "EYE");
+	text.glColorUpdate();
+	pr(monospace, 20, y+=H, "x =%+9.4f", eye.x);
+	pr(monospace, 20, y+=H, "y =%+9.4f", eye.y);
+	pr(monospace, 20, y+=H, "z =%+9.4f", eye.z);
+	pr(monospace, 20, y+=H, "rh=%+9.4f(rad)", eye.rh);
+	pr(monospace, 20, y+=H, "v =%+9.4f", eye.v);
+	nl();
+
+	heading.glColorUpdate();
+	pr(monospace, 20, y+=H, "Camera A:");
+	text.glColorUpdate();
+	pr(monospace, 20, y+=H, "pos x = %9.5f", cal_cam1.curr.x);
+	pr(monospace, 20, y+=H, "pos y = %9.5f", cal_cam1.curr.y);
+	pr(monospace, 20, y+=H, "pos z = %9.5f", cal_cam1.curr.z);
+	pr(monospace, 20, y+=H, "rot x = %9.5f", cal_cam1.curr.rot_x);
+	pr(monospace, 20, y+=H, "rot y = %9.5f", cal_cam1.curr.rot_y);
+	pr(monospace, 20, y+=H, "rot z = %9.5f", cal_cam1.curr.rot_z);
+	nl();
+
+	heading.glColorUpdate();
+	pr(monospace, 20, y+=H, "Camera B:");
+	text.glColorUpdate();
+	pr(monospace, 20, y+=H, "pos x = %9.5f", cal_cam2.curr.x);
+	pr(monospace, 20, y+=H, "pos y = %9.5f", cal_cam2.curr.y);
+	pr(monospace, 20, y+=H, "pos z = %9.5f", cal_cam2.curr.z);
+	pr(monospace, 20, y+=H, "rot x = %9.5f", cal_cam2.curr.rot_x);
+	pr(monospace, 20, y+=H, "rot y = %9.5f", cal_cam2.curr.rot_y);
+	pr(monospace, 20, y+=H, "rot z = %9.5f", cal_cam2.curr.rot_z);
+	nl();
+
+	heading.glColorUpdate();
+	pr(monospace, 20, y+=H, "Camera:");
+	text.glColorUpdate();
+	pr(monospace, 20, y+=H, " X 2D top view");
+	pr(monospace, 20, y+=H, " [w] 3D view (left)");
+	pr(monospace, 20, y+=H, " [e] 3D view (right)");
+	nl();
+
+	pr(monospace, 20, y+=H,
+		"#%d Near(%dmm) Far(%dmm) [%s][%s]",
 			config.client_number,
 			config.near_threshold,
 			config.far_threshold,
@@ -914,7 +1066,7 @@ void display2()
 			mode.auto_clipping ? "auto clipping" : "no auto clip");
 
 	// @fps
-	freetype::print(monospace, 20, 180, "%d, %d, %.1ffps, %.2ffps, %d, %d",
+	pr(monospace, 20, y+=H, "%d, %d, %.1ffps, %.2ffps, %d, %d",
 			frames,
 			time_diff,
 			1000.0f * frames/time_diff,
@@ -953,59 +1105,13 @@ void display2()
 }
 
 
-
-void StClient::drawKdev(Kdev& kdev, int x, int y, int w, int h)
-{
-	w /= 2;
-	h /= 2;
-	const int x1 = x;
-	const int y1 = y;
-	const int x2 = x+w;
-	const int y2 = y+h;
-
-	if (mode.view4test)
-	{
-		kdev.raw_depth.CalcDepthMinMax();
-		kdev.RawDepthImageToRgbaTex(dev1.raw_depth, dev1.img_rawdepth);
-		DrawRgbaTex(dev1.img_rawdepth, x1,y1, w,h);
-	}
-
-	// Mode 2: Floor
-	{
-		if (mode.view4test){
-			DrawRgbaTex(kdev.img_floor, x2,y1, w,h);
-		}
-	}
-
-	// Mode 3: Floor filtered depth (cooked depth)
-	{
-		CreateCoockedDepth(kdev.raw_cooked, kdev.raw_depth, kdev.raw_floor);
-		if (mode.view4test){
-			kdev.RawDepthImageToRgbaTex(kdev.raw_cooked, kdev.img_cooked);
-			DrawRgbaTex(kdev.img_cooked, x1,y2, w,h);
-		}
-	}
-
-	// Mode 4: Transformed depth
-	{
-		kdev.CreateTransformed();
-		kdev.RawDepthImageToRgbaTex(kdev.raw_transformed, kdev.img_transformed);
-		if (mode.view4test){
-			DrawRgbaTex(kdev.img_transformed, x2,y2, w,h);
-		}else{
-			DrawRgbaTex(kdev.img_transformed, x1,y1,2*w,2*h);
-		}
-	}
-}
-
-
 void drawFieldGrid(int size_cm)
 {
 	glBegin(GL_LINES);
 	const float F = size_cm/100.0f;
 
 	glLineWidth(1.0f);
-	for (int i=0; i<size_cm; i+=50)
+	for (int i=-size_cm/2; i<size_cm/2; i+=50)
 	{
 		const float f = i/100.0f;
 
@@ -1014,6 +1120,11 @@ void drawFieldGrid(int size_cm)
 		{
 			// centre line
 			glRGBA(0.25f, 0.66f, 1.00f, 1.00f).glColorUpdate();
+		}
+		else if (i==100)
+		{
+			// centre line
+			glRGBA(1.00f, 0.33f, 0.33f, 1.00f).glColorUpdate();
 		}
 		else
 		{
@@ -1024,26 +1135,22 @@ void drawFieldGrid(int size_cm)
 				0.40f).glColorUpdate();
 		}
 
-		glVertex3f(-F, 0,  f);
-		glVertex3f(+F, 0,  f);
-		glVertex3f(-F, 0, -f);
-		glVertex3f(+F, 0, -f);
+		glVertex3f(-F, 0, f);
+		glVertex3f(+F, 0, f);
 
 		glVertex3f( f, 0, -F);
 		glVertex3f( f, 0, +F);
-		glVertex3f(-f, 0, -F);
-		glVertex3f(-f, 0, +F);
 	}
 
 	glEnd();
 
-	// run space
+	// run space, @green
 	glRGBA(0.25f, 1.00f, 0.25f, 0.25f).glColorUpdate();
 	glBegin(GL_QUADS);
-	glVertex3f(-2, 0, 2);
-	glVertex3f(-2, 0, 0);
-	glVertex3f( 2, 0, 0);
-	glVertex3f( 2, 0, 2);
+	glVertex3f(-2, 0,  0);
+	glVertex3f(-2, 0, -2);
+	glVertex3f( 2, 0, -2);
+	glVertex3f( 2, 0,  0);
 	glEnd();
 }
 
@@ -1075,7 +1182,7 @@ void drawWall()
 }
 
 
-void drawBody(RawDepthImage& raw, int red, int green, int blue)
+void drawBody___(RawDepthImage& raw, int red, int green, int blue)
 {
 #define USE_DOT_TEX 1
 
@@ -1095,10 +1202,6 @@ void drawBody(RawDepthImage& raw, int red, int green, int blue)
 
 	const float ax = 0.01;
 	const float az = 0.01;
-
-//	const int RANGE = min(dev1.raw_depth.range;
-//
-	
 
 	const int RANGE = config.far_threshold - config.near_threshold;
 	for (int y=0; y<480; ++y)
@@ -1167,213 +1270,127 @@ void drawBody(RawDepthImage& raw, int red, int green, int blue)
 }
 
 
-
-void drawBodyDS(DepthScreen& ds, int red, int green, int blue)
+struct Point3D
 {
-#define USE_DOT_TEX 1
+	float x,y,z;
+};
 
-	// @body @dot
-	if (!mode.simple_dot_body)
-	{
-		glBegin(GL_QUADS);
-		gl::Texture(true);
-		glBindTexture(GL_TEXTURE_2D, global.dot_image);
-	}
-	else
-	{
-		glBegin(GL_POINTS);
-	}
-
-	const float ax = 0.01;
-	const float az = 0.01;
-
-//	const int RANGE = min(dev1.raw_depth.range;
-//
-
-	for (int i=0; i<1024; ++i)
-	{
-		ds[0].big_depth[i] = 10;
-		ds[511].big_depth[i] = 10;
-	}
-
-	
-	for (int y=0; y<512; ++y)
-	{
-		if (ds[y].begin==DepthLine::INVALID)
-		{
-			// ignore this line
-			continue;
-		}
-
-		const DepthLine& dl = ds[y];
-		for (int x=0; x<1024; ++x)
-		{
-			const int val = dl.big_depth[x];
-			if (val==0)
-			{
-				continue;
-			}
-
-#if 1
-			if (val < config.near_threshold)
-			{
-				continue;
-			}
-			
-			if (val > config.far_threshold)
-			{
-				continue;
-			}
-#endif
-
-			// - dev1.raw_depth.min_value
-			int depth = 0;
-			if (val==10)
-			{
-				depth = 0;
-				glRGBA(
-					240,
-					240,
-					50,
-					255).glColorUpdate();
-			}
-			else
-			{
-				depth = (val - config.near_threshold)*255 / (config.far_threshold - config.near_threshold);
-
-				int alpha = depth;
-				//int alpha = 240;
-				if (alpha<0) continue;
-				if (alpha>255) alpha=255;
-				//alpha = 255 - alpha;
-
-				glRGBA(
-					red   * alpha >> 8,
-					green * alpha >> 8,
-					blue  * alpha >> 8,
-					alpha/2).glColorUpdate();
-			}
-
-			const float z = depth/1000.0f - 0.5;
-			const float dy = (480-y)/512.0f * 2.6;
-			const float dz =  z;
-			
-			// -0.5 < dx01 < 0.5
-			const float dx01 = (x/1024.0f) - 0.5;
-			const float dx = (dx01) * 4;
-
-			if (!mode.simple_dot_body)
-			{
-				const float F = 0.0025;
-
-				glVertex3f(dx-ax, dy  , dz-az);
-				glVertex3f(dx+ax, dy-F, dz-az);
-				glVertex3f(dx+ax, dy,   dz+az);
-				glVertex3f(dx-ax, dy-F, dz+az);
-			}
-			else
-			{
-				glVertex3f(dx,dy,dz);
-			}
-		}
-	}
-
-	glEnd();
+typedef std::vector<Point3D> Dots;
+Dots dot_set;
 
 
-	GLUquadricObj *sphere = gluNewQuadric();
-	gluQuadricDrawStyle(sphere, GLU_LINE);
 
-	glRGBA(255,255,255).glColorUpdate();
-	const float r = 0.05;
-	glPushMatrix();
-		glLoadIdentity();
-		glTranslatef(-2, 0, 0);
-		gluSphere(sphere, r, 10.0, 10.0);
-
-		glLoadIdentity();
-		glTranslatef(+2, 0, 0);
-		gluSphere(sphere, r, 10.0, 10.0);
-
-		glLoadIdentity();
-		glTranslatef(-2, 2.4, 0);
-		gluSphere(sphere, r, 10.0, 10.0);
-
-		glLoadIdentity();
-		glTranslatef(+2, 2.4, 0);
-		gluSphere(sphere, r, 10.0, 10.0);
-	glPopMatrix();
-
-	gluDeleteQuadric(sphere);
+void DS_Init(Dots& dots)
+{
+	dots.clear();
 }
 
 
 
-void DS_Init(DepthScreen& ds)
+
+
+
+void MixDepth(Dots& dots, const RawDepthImage& src, const Calparam& calparam)
 {
-	for (size_t i=0; i<ds.size(); ++i)
+	mat4x4 trans;
 	{
-		DepthLine& dl = ds[i];
-		memset(dl.big_depth, 0, sizeof(dl.big_depth));
-		dl.begin = DepthLine::INVALID;
-		dl.end   = DepthLine::INVALID;
+		// X軸回転
+		float cos = cosf(calparam.rot_x);
+		float sin = sinf(calparam.rot_x);
+		trans = mat4x4(
+			1,   0,    0, 0,
+			0, cos, -sin, 0,
+			0, sin,  cos, 0,
+			0,   0,    0, 1) * trans;
 	}
-}
+	{
+		// Y軸回転
+		float cos = cosf(calparam.rot_y);
+		float sin = sinf(calparam.rot_y);
+		trans = mat4x4(
+			 cos, 0, sin, 0,
+			   0, 1,   0, 0,
+			-sin, 0, cos, 0,
+			   0, 0,   0, 1) * trans;
+	}
+	{
+		// Z軸回転
+		float cos = cosf(calparam.rot_z);
+		float sin = sinf(calparam.rot_z);
+		trans = mat4x4(
+			cos,-sin, 0, 0,
+			sin, cos, 0, 0,
+			  0,   0, 1, 0,
+			  0,   0, 0, 1) * trans;
+	}
 
+	// 平行移動
+	trans = mat4x4(
+		1, 0, 0, calparam.x,
+		0, 1, 0, calparam.y,
+		0, 0, 1, calparam.z,
+		0, 0, 0, 1) * trans;
 
-void CreateMixed(DepthScreen& ds, const RawDepthImage& src)
-{
+	int index = 0;
 	for (int y=0; y<480; ++y)
 	{
 		for (int x=0; x<640; ++x)
 		{
-			const int depth = src.image[x + y*640];
-			
-			if (depth==0)
-			{
-				// ignore
-				continue;
-			}
+			int z = src.image[index++];
 
-			const volatile int dx = x + 80;
-			const volatile int dy = y - 40;
+			// ignore
+			if (z==0) continue;
 
-			if ((uint)dx >= 1024)
-			{
-				// x-overflow
-				continue;
-			}
-			if ((uint)dy >= 512)
-			{
-				// y-overflow
-				continue;
-			}
+			Point3D p;
+			float fx = (320-x)/640.0f;
+			float fy = (240-y)/640.0f;
+			float fz = z/1000.0f; // milli-meter(mm) to meter(m)
 
-			DepthLine& dl = ds[dy];
-			if (dl.begin==DepthLine::INVALID)
-			{
-				dl.begin = dx;
-				dl.end   = dx;
-			}
-			else
-			{
-				dl.begin = min(dl.begin, dx);  // enlarge left  <--
-				dl.end   = max(dl.end,   dx);  // enlarge right -->
-			}
+			// -0.5 <= fx <= 0.5
+			// -0.5 <= fy <= 0.5
+			//  0.0 <= fz <= 10.0  (10m)
 
-			auto& dest = dl.big_depth[dx*1024/640];
-			if (dest==0)
-			{
-				dest = depth;
-			}
-			else
-			{
-				dest = min(dest, depth);
-			}
+			fx = fx * fz;
+			fy = fy * fz;
+
+			vec4 point = trans * vec4(fx, fy, fz, 1.0f);
+
+			// 平行移動
+			p.x = point[0];
+			p.y = point[1];
+			p.z = point[2];
+			dots.push_back(p);
 		}
 	}
 }
 
+void drawBodyDS(const Dots& dots, glRGBA rgba)
+{
+	// @body @dot
+	glBegin(GL_POINTS);
+
+	for (size_t i=0; i<dots.size(); ++i)
+	{
+		float x = dots[i].x;
+		float y = dots[i].y;
+		float z = dots[i].z;
+
+		float col = z/4;
+		if (col<0.25f) col=0.25f;
+		if (col>1.0f) col=1.0f;
+		col = 1.0f - col;
+
+		glRGBA(
+			rgba.r,
+			rgba.g,
+			rgba.b,
+			(int)(col*255)).glColorUpdate();
+
+		glVertex3f(x,y,-z);
+	}
+
+	glEnd();
+}
 
 
 
@@ -1395,66 +1412,7 @@ void StClient::display()
 		1.00);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-
-	gl::Texture(false);
-	gl::DepthTest(true);
-
-	ex = eye_x + cos(eye_rh)*eye_d;
-	ez = eye_z + sin(eye_rh)*eye_d;
-	ey = eye_rv;
-
-	// @fov
-	::glMatrixMode(GL_PROJECTION);
-	::glLoadIdentity();
-	
-	if (1)
-	{
-		gluPerspective(30.0f, 4.0f/3.0f, 1.0f, 100.0f);
-	}
-	else
-	{
-		const float left   = -2.0f;
-		const float right  = +2.0f;
-		const float top    =  2.4f;
-		const float bottom =  0.0f;
-		const float nearf  = -5.0;
-		const float farf   =  24.0;
-		glOrtho(left, right, bottom, top, nearf, farf);
-	}
-
-
-
-#if 1
-	::gluLookAt(
-		eye_x,
-		eye_y,
-		eye_z,
-		
-		ex,
-		ey,
-		ez,
-		0.0, 1.0, 0.0);
-#endif
-
-	const float diff_x = eye_x - ex;
-	const float diff_y = eye_y - ey;
-	const float diff_z = eye_z - ez;
-
-
-
-
-	::glMatrixMode(GL_MODELVIEW);
-	::glLoadIdentity();
-
-	{
-		mi::Timer tm(&time_profile.draw_wall);
-		drawWall();
-	}
-	{
-		mi::Timer tm(&time_profile.draw_grid);
-		drawFieldGrid(500);
-	}
-	
+	// Kinectから情報をもらう
 	if (dev1.device.isValid())
 	{
 		{
@@ -1465,6 +1423,21 @@ void StClient::display()
 			mi::Timer tm(&time_profile.read2_depth_dev1);
 			dev1.CreateRawDepthImage();
 		}
+	}
+	else
+	{
+		// ダミーの情報 @random @noise
+		static int no = 0;
+		for (int i=0; i<640*480; ++i)
+		{
+			int v = 0;
+			if (((i*2930553>>3)^((i*39920>>4)+no))%3==0)
+			{
+				v = (i+no*3)%6500 + (i+no)%2000 + 500;
+			}
+			dev1.raw_depth.image[i] = v;
+		}
+		no += 6;
 	}
 
 	if (dev2.device.isValid())
@@ -1479,45 +1452,82 @@ void StClient::display()
 		}
 	}
 
-//#	RawDepthImage raw_mixed;
-//#	CreateMixed(raw_mixed, dev1.raw_depth);
 
+	//============
+	// 3D Section
+	//============
+	bool draw3d = false;
+	bool draw2d = false;
+	::glMatrixMode(GL_PROJECTION);
+	::glLoadIdentity();
+	switch (global.view_mode)
 	{
-		// @dsinit
-		DS_Init(depth_screen);
+	case VM_2D_TOP:
+		glOrtho(-3,+3, 0,(6.0*3/4), 1.0,+100);
+		draw2d = true;
+		break;
+	case VM_2D_FRONT:
+		glOrtho(-2,+2, 0,3, 1.0,+100);
+		draw2d = true;
+		break;
+	case VM_3D_LEFT:
+		gluPerspective(30.0f, 4.0f/3.0f, 1.0f, 100.0f);
+		draw3d = true;
+		break;
+	case VM_3D_RIGHT:
+		gluPerspective(30.0f, 4.0f/3.0f, 1.0f, 100.0f);
+		draw3d = true;
+		break;
+	case VM_3D_FRONT:
+		gluPerspective(30.0f, 4.0f/3.0f, 1.0f, 100.0f);
+		draw3d = true;
+		break;
+	}
 
-		// @body @draw @camera
-		const char* text = "?";
-		switch (camera_mode)
+	eye.gluLookAt();
+
+	gl::Texture(false);
+	gl::DepthTest(true);
+	::glMatrixMode(GL_MODELVIEW);
+	::glLoadIdentity();
+
+	{mi::Timer tm(&time_profile.draw_wall);
+		//drawWall();
+	}
+	{mi::Timer tm(&time_profile.draw_grid);
+		drawFieldGrid(500);
+	}
+
+	glRGBA color_cam1(80,190,250);
+	glRGBA color_cam2(250,190,80);
+	glRGBA color_both(255,255,255);
+	glRGBA color_other(120,120,120);
+
+	if (camera_mode==CAM_BOTH)
+	{
 		{
-		case CAM_A:
-			CreateMixed(depth_screen, dev1.raw_depth);
-			text = "A Only";
-			drawBodyDS(depth_screen, 250,190,80);
-			break;
-		case CAM_B:
-			CreateMixed(depth_screen, dev2.raw_depth);
-			text = "B Only";
-			drawBodyDS(depth_screen, 100,120,250);
-			break;
-		case CAM_BOTH:
-			CreateMixed(depth_screen, dev1.raw_depth);
-			CreateMixed(depth_screen, dev2.raw_depth);
-			text = "Both";
-			drawBodyDS(depth_screen, 250,250,250);
-			break;
+			DS_Init(dot_set);
+			MixDepth(dot_set, dev1.raw_depth, cal_cam1.curr);
+			MixDepth(dot_set, dev2.raw_depth, cal_cam2.curr);
+			drawBodyDS(dot_set, color_both);
+		}
+	}
+	else
+	{
+		{
+			DS_Init(dot_set);
+			MixDepth(dot_set, dev1.raw_depth, cal_cam1.curr);
+			drawBodyDS(dot_set, (camera_mode==CAM_A) ? color_cam1 : color_other);
 		}
 		{
-			ModelViewObject mo;
-			glRGBA::white.glColorUpdate();
-			freetype::print(monospace, 300,50,
-				"[camera=%s]",
-				text);
+			DS_Init(dot_set);
+			MixDepth(dot_set, dev2.raw_depth, cal_cam2.curr);
+			drawBodyDS(dot_set, (camera_mode==CAM_B) ? color_cam2 : color_other);
 		}
 	}
 
 
-
+#if 0
 	switch (movie_mode)
 	{
 	case MOVIE_READY:
@@ -1542,6 +1552,11 @@ void StClient::display()
 		}
 		break;
 	case MOVIE_PLAYBACK:
+		if (curr_movie.recorded_tail==0)
+		{
+			puts("Movie empty.");
+		}
+		else
 		{
 			zlibpp::bytes& byte_stream = curr_movie.frames[movie_index];
 			if (++movie_index >= curr_movie.recorded_tail)
@@ -1568,10 +1583,12 @@ void StClient::display()
 		}
 		break;
 	}
+#endif
 
 
-
-
+	//============
+	// 2D Section
+	//============
 	gl::Texture(false);
 	gl::DepthTest(false);
 	glOrtho(0, 640, 480, 0, -1.0, 1.0);
@@ -1594,9 +1611,14 @@ void StClient::display()
 	}
 
 
+#if 0
+	//#
 	{
 		ModelViewObject mo;
 		glRGBA::white.glColorUpdate();
+		freetype::print(monospace, 20,380, "Dots: %8d",
+			dot_set.size());
+
 		freetype::print(monospace, 20,420, "min:%dmm max:%dmm",
 				dev1.raw_depth.min_value,
 				dev1.raw_depth.max_value);
@@ -1622,6 +1644,7 @@ void StClient::display()
 			time_profile.draw_grid,
 			time_profile.draw_wall);
 	}
+#endif
 
 	glRGBA::white.glColorUpdate();
 
@@ -1630,16 +1653,7 @@ void StClient::display()
 		display2();
 	}
 
-	if (mode.view4test)
-	{
-		ModelViewObject mo;
-		glRGBA::white.glColorUpdate();
-		freetype::print(monospace,  20,  20, "1. Raw depth view");
-		freetype::print(monospace, 340,  20, "2. Floor filtered view");
-		freetype::print(monospace,  20, 260, "3. Floor view");
-		freetype::print(monospace, 340, 260, "4. Transformed view");
-	}
-
+#if 0
 	glRGBA(255,255,255,100).glColorUpdate();
 	gl::Line2D(Point2i(0,240), Point2i(640,240));
 	gl::Line2D(Point2i(320,0), Point2i(320,480));
@@ -1648,16 +1662,6 @@ void StClient::display()
 	{
 		gl::Line2D(Point2i(0, 40), Point2i(640, 40));
 		gl::Line2D(Point2i(0,440), Point2i(640,440));
-	}
-
-	if (!mode.view4test)
-	{
-		ModelViewObject mo;
-		glRGBA(255,255,255).glColorUpdate();
-		freetype::print(monospace, 580,  40, "2400mm");
-		freetype::print(monospace, 580, 240, "1200mm");
-		freetype::print(monospace, 580, 440, "   0mm");
-		freetype::print(monospace, 320,  10, "2m");
 	}
 
 	if (mode.calibration)
@@ -1669,73 +1673,12 @@ void StClient::display()
 	glRGBA(255,255,255).glColorUpdate();
 		glVertex2d(old_x, old_y);
 	glEnd();
+#endif
 
 #if !USE_GLFW
 	glutSwapBuffers();
 #endif
 }
-
-
-void StClient::displayCalibrationInfo()
-{
-	gl::Texture(false);
-	gl::DepthTest(false);
-
-	glRGBA(0,0,0,128).glColorUpdate();
-	glBegin(GL_QUADS);
-		Point2f(0,0).glVertex2();
-		Point2f(700,0).glVertex2();
-		Point2f(640,480).glVertex2();
-		Point2f(0,480).glVertex2();
-	glEnd();
-
-
-	auto draw_calib = [&](const KinectCalibration& kc, glRGBA rgba){
-		rgba.glColorUpdate();
-		glBegin(GL_LINE_LOOP);
-			kc.a.glVertex2();
-			kc.b.glVertex2();
-			kc.d.glVertex2();
-			kc.c.glVertex2();
-		glEnd();
-	};
-
-	draw_calib(dev1.calibration, glRGBA(250,220,220));
-	draw_calib(dev2.calibration, glRGBA(220,220,250));
-
-	if (calibration_focus!=nullptr)
-	{
-		glRGBA::white.glColorUpdate();
-		gl::RectangleFill(
-			calibration_focus->x-5,
-			calibration_focus->y-5,
-			10,10);
-	}
-
-	{
-		ModelViewObject m;
-		glRGBA::white.glColorUpdate();
-		{
-			const auto& kc = dev1.calibration;
-			freetype::print(monospace, 20,  20, "[Kinect-1 Calibration Mode]");
-			freetype::print(monospace, 20,  40, "A = (%d,%d)", kc.a.x, kc.a.y);
-			freetype::print(monospace, 20,  60, "B = (%d,%d)", kc.b.x, kc.b.y);
-			freetype::print(monospace, 20,  80, "C = (%d,%d)", kc.c.x, kc.c.y);
-			freetype::print(monospace, 20, 100, "D = (%d,%d)", kc.d.x, kc.d.y);
-		}
-		{
-			const auto& kc = dev2.calibration;
-			freetype::print(monospace, 20, 120, "[Kinect-2 Calibration Mode]");
-			freetype::print(monospace, 20, 140, "A = (%d,%d)", kc.a.x, kc.a.y);
-			freetype::print(monospace, 20, 160, "B = (%d,%d)", kc.b.x, kc.b.y);
-			freetype::print(monospace, 20, 180, "C = (%d,%d)", kc.c.x, kc.c.y);
-			freetype::print(monospace, 20, 200, "D = (%d,%d)", kc.d.x, kc.d.y);
-		}
-	}
-}
-
-
-
 
 
 enum
@@ -1771,6 +1714,7 @@ void saveAgent(int slot)
 	FILE* fp = fopen(buf, "wb");
 	if (fp==nullptr)
 	{
+
 		puts("invalid!!");
 	}
 	else
@@ -1835,24 +1779,78 @@ float eye_rh_base, eye_rv_base;
 
 void StClient::onMouseMove(int x, int y)
 {
-	const bool left_first  = (GetAsyncKeyState(VK_LBUTTON) & 1)!=0;
-	const bool right_first = (GetAsyncKeyState(VK_RBUTTON) & 1)!=0;
-	const bool left  = (GetAsyncKeyState(VK_LBUTTON) & 0x8000)!=0;
-	const bool right = (GetAsyncKeyState(VK_RBUTTON) & 0x8000)!=0;
+//	const bool left_first  = (GetAsyncKeyState(VK_LBUTTON) & 1)!=0;
+//	const bool right_first = (GetAsyncKeyState(VK_RBUTTON) & 1)!=0;
+	BYTE kbd[256];
+	GetKeyboardState(kbd);
 
-	if (left)
+	const bool left  = (kbd[VK_LBUTTON] & 0x80)!=0;
+	const bool right = (kbd[VK_RBUTTON] & 0x80)!=0;
+	const bool shift = (kbd[VK_SHIFT  ] & 0x80)!=0;
+	const bool ctrl  = (kbd[VK_CONTROL] & 0x80)!=0;
+	const bool alt   = (kbd[VK_MENU   ] & 0x80)!=0;
+
+	const bool rot_x  = (kbd['T'] & 0x80)!=0;
+	const bool rot_y  = (kbd['Y'] & 0x80)!=0;
+	const bool rot_z  = (kbd['U'] & 0x80)!=0;
+
+	x = x * 640 / global.window_w;
+	y = y * 480 / global.window_h;
+
+	bool move_eye = false;
+
+	if (right)
 	{
-		x = x * 640 / global.window_w;
-		y = y * 480 / global.window_h;
+		move_eye = true;
+	}
+	else if (left)
+	{
+		switch (camera_mode)
+		{
+		case CAM_A:
+		case CAM_B:
+			if (rot_x)
+			{
+				focus_cal->curr.rot_x = focus_cal->prev.rot_x - (x - old_x)/100.0f;
+			}
+			else if (rot_y)
+			{
+				focus_cal->curr.rot_y = focus_cal->prev.rot_y - (x - old_x)/100.0f;
+			}
+			else if (rot_z)
+			{
+				focus_cal->curr.rot_z = focus_cal->prev.rot_z - (x - old_x)/100.0f;
+			}
+			else if (shift)
+			{
+				focus_cal->curr.x = focus_cal->prev.x + (x - old_x)/100.0f;
+				focus_cal->curr.y = focus_cal->prev.y - (y - old_y)/100.0f;
+			}
+			else
+			{
+				focus_cal->curr.x = focus_cal->prev.x + (x - old_x)/100.0f;
+				focus_cal->curr.z = focus_cal->prev.z - (y - old_y)/100.0f;
+			}
+			focus_cal->prev = focus_cal->curr;
+			old_x = x;
+			old_y = y;
+			break;
+		case CAM_BOTH:
+			move_eye = true;
+			break;
+		}
+	}
 
-		eye_rh = eye_rh_base - (x - old_x)*0.0025 * fov_ratio;
-		eye_rv = eye_rv_base + (y - old_y)*0.0100 * fov_ratio;
+	if (move_eye)
+	{
+		eye.rh = eye_rh_base - (x - old_x)*0.0025 * fov_ratio;
+		eye. v = eye_rv_base + (y - old_y)*0.0100 * fov_ratio;
 	}
 }
 
 void StClient::onMouse(int button, int state, int x, int y)
 {
-	if (button==GLUT_LEFT_BUTTON && state==GLUT_DOWN)
+	if ((button==GLUT_LEFT_BUTTON || button==GLUT_RIGHT_BUTTON) && state==GLUT_DOWN)
 	{
 		// Convert screen position to internal position
 		x = x * 640 / global.window_w;
@@ -1860,8 +1858,27 @@ void StClient::onMouse(int button, int state, int x, int y)
 
 		old_x = x;
 		old_y = y;
-		eye_rh_base = eye_rh;
-		eye_rv_base = eye_rv;
+		eye_rh_base = eye.rh;
+		eye_rv_base = eye. v;
+
+		switch (camera_mode)
+		{
+		case CAM_A:
+			focus_cal = &cal_cam1;
+			break;
+		case CAM_B:
+			focus_cal = &cal_cam2;
+			break;
+		default:
+			focus_cal = nullptr;
+			break;
+		}
+
+		// 現在値を保存しておく
+		if (focus_cal!=nullptr)
+		{
+			focus_cal->prev = focus_cal->curr;
+		}
 
 		// 補正なし時のみ設定できる
 		if (calibration_focus!=nullptr && !mode.calibration)
@@ -1872,38 +1889,7 @@ void StClient::onMouse(int button, int state, int x, int y)
 	}
 }
 
-void view1()
-{
-	fov_ratio = 1.0;
-	fovy   =    60.0f;
-	eye_x  =  4.3f;
-	eye_y  =  2.2f;
-	eye_z  = -4.0f;
-	eye_rh = 2.34500f;
-	eye_rv = 1.30000f;
-}
 
-void view2()
-{
-	fov_ratio = 1.0;
-	fovy   =    60.0f;
-	eye_x  = -4.0f;
-	eye_y  =  2.2f;
-	eye_z  = -4.0f;
-	eye_rh = 0.91750f;
-	eye_rv = 1.30000f;
-}
-
-void view3()
-{
-	fov_ratio = 1.0;
-	fovy   =    60.0f;
-	eye_x  =  0.0f;
-	eye_y  =  2.2f;
-	eye_z  = -6.3f;
-	eye_rh = PI/2;
-	eye_rv = 1.60f;
-}
 
 void StClient::onKey(int key, int /*x*/, int /*y*/)
 {
@@ -1911,29 +1897,50 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	GetKeyboardState(kbd);
 
 	const bool shift = (kbd[VK_SHIFT] & 0x80)!=0;
+	const bool ctrl  = (kbd[VK_CONTROL] & 0x80)!=0;
 	const float movespeed = shift ? 0.01 : 0.1;
 
 	enum { SK_SHIFT=0x10000 };
+	enum { SK_CTRL =0x20000 };
 
-	switch (key + (shift ? SK_SHIFT : 0))
+	// A           'a'
+	// Shift+A     'A'
+	// F1          F1
+	// Shift+F1    F1 | SHIFT
+	if (!isalpha(key))
+	{
+		key += (shift ? SK_SHIFT : 0);
+		key += (ctrl  ? SK_CTRL  : 0);
+	}
+
+	switch (key)
 	{
 	default:
 		printf("[key %d]\n", key);
 		break;
 
-	case KEY_F8  | SK_SHIFT:   view1();  break;
-	case KEY_F9  | SK_SHIFT:   view2();  break;
-	case KEY_F10 | SK_SHIFT:   view3();  break;
-	case KEY_F8:    camera_mode = CAM_A;  break;
-	case KEY_F9:    camera_mode = CAM_B;  break;
-	case KEY_F10:   camera_mode = CAM_BOTH;  break;
+	case '1':
+		camera_mode = CAM_A;
+		break;
+	case '2':
+		camera_mode = CAM_B;
+		break;
+	case '3':
+		camera_mode = CAM_BOTH;
+		break;
 
-	case KEY_PAGEUP:
-		config.near_threshold -= shift ? 1 : 10;
+	case 't':
+	case 'y':
+	case 'u':
+		// キャリブレーション用に使用
 		break;
-	case KEY_PAGEDOWN:
-		config.near_threshold += shift ? 1 : 10;
-		break;
+
+	case KEY_F1: view_2d_top(); break;
+	case KEY_F2: view_2d_front(); break;
+	case KEY_F3: view_3d_left(); break;
+	case KEY_F4: view_3d_right(); break;
+	case KEY_F5: view_3d_front(); break;
+
 	case KEY_HOME:
 		config.far_threshold -= shift ? 1 : 10;
 		break;
@@ -1943,44 +1950,37 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 
 	case 'a':
 	case 'A':
-		eye_x += movespeed * cos(eye_rh - 90*PI/180);
-		eye_z += movespeed * sin(eye_rh - 90*PI/180);
+	case KEY_LEFT:
+		eye.x += movespeed * cos(eye.rh - 90*PI/180);
+		eye.z += movespeed * sin(eye.rh - 90*PI/180);
 		break;
 	case 'd':
 	case 'D':
-		eye_x += movespeed * cos(eye_rh + 90*PI/180);
-		eye_z += movespeed * sin(eye_rh + 90*PI/180);
+	case KEY_RIGHT:
+		eye.x += movespeed * cos(eye.rh + 90*PI/180);
+		eye.z += movespeed * sin(eye.rh + 90*PI/180);
 		break;
 	case 's':
 	case 'S':
-		eye_x += movespeed * cos(eye_rh + 180*PI/180) * fov_step;
-		eye_z += movespeed * sin(eye_rh + 180*PI/180) * fov_step;
+	case KEY_DOWN:
+		eye.x += movespeed * cos(eye.rh + 180*PI/180) * fov_step;
+		eye.z += movespeed * sin(eye.rh + 180*PI/180) * fov_step;
 		break;
 	case 'w':
 	case 'W':
-		eye_x += movespeed * cos(eye_rh + 0*PI/180) * fov_step;
-		eye_z += movespeed * sin(eye_rh + 0*PI/180) * fov_step;
+	case KEY_UP:
+		eye.x += movespeed * cos(eye.rh + 0*PI/180) * fov_step;
+		eye.z += movespeed * sin(eye.rh + 0*PI/180) * fov_step;
 		break;
 	case 'q':
 	case 'Q':
-		eye_y += movespeed;
+	case KEY_PAGEDOWN:
+		eye.y += -movespeed;
 		break;
 	case 'e':
 	case 'E':
-		eye_y += -movespeed;
-		break;
-
-	case KEY_LEFT:
-		eye_rh -= shift ? 0.02 : 0.15;
-		break;
-	case KEY_RIGHT:
-		eye_rh += shift ? 0.02 : 0.15;
-		break;
-	case KEY_UP:
-		eye_rv -= (shift ? 0.02 : 0.33);
-		break;
-	case KEY_DOWN:
-		eye_rv += (shift ? 0.02 : 0.33);
+	case KEY_PAGEUP:
+		eye.y += movespeed;
 		break;
 
 	case 27:
@@ -1994,7 +1994,7 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	case 'z':
 		global.client_status = STATUS_DEPTH;
 		break;
-	case KEY_F1:
+	case SK_CTRL + KEY_F1:
 		if (movie_mode!=MOVIE_RECORD)
 		{
 			curr_movie.frames.clear();
@@ -2017,13 +2017,13 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 			movie_index = 0;
 		}
 		break;
-	case KEY_F2:
+	case SK_CTRL + KEY_F2:
 		printf("playback movie.\n");
 		movie_mode = MOVIE_PLAYBACK;
 		movie_index = 0;
 		break;
 	
-	case KEY_F3:
+	case KEY_F8:
 		load_config();
 		break;
 
@@ -2037,15 +2037,6 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	case 'b':  toggle(mode.borderline);    break;
 	case 'B':  toggle(mode.simple_dot_body);  break;
 
-	case '1':  calibration_focus = &dev1.calibration.a;  break;
-	case '2':  calibration_focus = &dev1.calibration.b;  break;
-	case '3':  calibration_focus = &dev1.calibration.c;  break;
-	case '4':  calibration_focus = &dev1.calibration.d;  break;
-	case '5':  calibration_focus = &dev2.calibration.a;  break;
-	case '6':  calibration_focus = &dev2.calibration.b;  break;
-	case '7':  calibration_focus = &dev2.calibration.c;  break;
-	case '8':  calibration_focus = &dev2.calibration.d;  break;
-
 	case 'g':
 		fovy -= 0.05;
 		break;
@@ -2053,15 +2044,7 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		fovy += 0.05;
 		break;
 
-	case 'J':
-		fov_ratio = 1.0;
-		fovy   =    40.0f;
-		eye_x  =  0;
-		eye_y  =  1.3;
-		eye_z  = -4.6;
-		eye_rh = PI/2;
-		eye_rv = 0.135;
-		break;
+	case 'p':     toggle(mode.perspective);    break;
 
 	case '9':
 		calibration_focus = nullptr;
@@ -2076,7 +2059,7 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	case 'T':
 		clearFloorDepth();
 		break;
-	case 't':
+	case 'X':
 		dev1.saveFloorDepth();
 		break;
 	case 13:
@@ -2100,7 +2083,7 @@ bool StClient::initOpenGL(int argc, char **argv)
 		config.initial_window_x,
 		config.initial_window_y);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
-	glutInitWindowSize(GL_WIN_SIZE_X, GL_WIN_SIZE_Y);
+	glutInitWindowSize(INITIAL_WIN_SIZE_X, INITIAL_WIN_SIZE_Y);
 
 	{
 		std::string name;
