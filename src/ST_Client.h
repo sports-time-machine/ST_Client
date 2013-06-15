@@ -88,20 +88,8 @@ struct Kdev
 	RawDepthImage raw_floor;
 	RawDepthImage raw_cooked;
 	RawDepthImage raw_work;
-	RawDepthImage raw_transformed;
-	RawDepthImage raw_mixed;
 
 	RgbaTex  img_rawdepth;
-	RgbaTex  img_floor;
-	RgbaTex  img_cooked;
-	RgbaTex  img_transformed;
-
-	mat4x4 mat_x_plane;
-	mat4x4 mat_y_plane;
-	mat4x4 mat_z_plane;
-	mat4x4 mat_move;
-	mat4x4 mat_scale;
-	mat4x4 mat_calib;
 
 	uint vram_tex;
 	uint vram_floor;

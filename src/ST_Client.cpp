@@ -78,6 +78,7 @@ enum CameraMode
 };
 
 CameraMode camera_mode = CAM_BOTH;
+float eye_rh_base, eye_rv_base;
 
 
 
@@ -101,9 +102,6 @@ void drawSphere(float x, float y, float z)
 
 
 const float PI = 3.141592653;
-
-
-bool debug_bool = false;
 
 
 struct DepthLine
@@ -209,10 +207,7 @@ void Kdev::initRam()
 {
 	glGenTextures(1, &this->vram_tex);
 	glGenTextures(1, &this->vram_floor);
-	this->img_rawdepth   .create(640,480);
-	this->img_floor      .create(640,480);
-	this->img_cooked     .create(640,480);
-	this->img_transformed.create(640,480);
+	this->img_rawdepth.create(640,480);
 }
 
 
@@ -1686,9 +1681,6 @@ void Kdev::saveFloorDepth()
 	raw_floor.max_value = raw_depth.max_value;
 	raw_floor.min_value = raw_depth.min_value;
 	raw_floor.range     = raw_depth.range;
-
-	// Convert floor data: uint16[] to RGBA
-	RawDepthImageToRgbaTex(raw_floor, img_floor);
 }
 
 void clearFloorDepth()
@@ -1699,20 +1691,16 @@ void clearFloorDepth()
 	}
 }
 
-float eye_rh_base, eye_rv_base;
-
 void StClient::onMouseMove(int x, int y)
 {
-//	const bool left_first  = (GetAsyncKeyState(VK_LBUTTON) & 1)!=0;
-//	const bool right_first = (GetAsyncKeyState(VK_RBUTTON) & 1)!=0;
 	BYTE kbd[256];
 	GetKeyboardState(kbd);
 
 	const bool left  = (kbd[VK_LBUTTON] & 0x80)!=0;
 	const bool right = (kbd[VK_RBUTTON] & 0x80)!=0;
 	const bool shift = (kbd[VK_SHIFT  ] & 0x80)!=0;
-	const bool ctrl  = (kbd[VK_CONTROL] & 0x80)!=0;
-	const bool alt   = (kbd[VK_MENU   ] & 0x80)!=0;
+//	const bool ctrl  = (kbd[VK_CONTROL] & 0x80)!=0;
+//	const bool alt   = (kbd[VK_MENU   ] & 0x80)!=0;
 
 	const bool rot_x  = (kbd['T'] & 0x80)!=0;
 	const bool rot_y  = (kbd['Y'] & 0x80)!=0;
@@ -1969,10 +1957,6 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		break;
 	case 13:
 		gl::ToggleFullScreen();
-		break;
-	case ':':
-		toggle(debug_bool);
-		printf("debug_bool is %s\n", debug_bool ? "true" : "false");
 		break;
 	}
 }
