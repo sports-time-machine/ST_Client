@@ -221,8 +221,6 @@ void Kdev::initRam()
 
 
 
-Point2i* calibration_focus = nullptr;
-
 struct HitObject
 {
 	Point point;
@@ -375,9 +373,6 @@ void toggle(bool& ref)
 	puts("-----------------------------");
 	log(mode.sync_enabled,     'k', "sync");
 	log(mode.mixed_enabled,    'm', "mixed");
-	log(mode.zero255_show,     'z', "zero255");
-	log(mode.alpha_mode,       'a', "alpha");
-	log(mode.pixel_completion, 'e', "pixel completion");
 	log(mode.mirroring,        '?', "mirroring");
 	log(mode.borderline,       'b', "borderline");
 	log(mode.view4test,        '$', "view4test");
@@ -420,7 +415,6 @@ StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 	printf("ip: %s\n", mi::Udp::getIpAddress().c_str());
 
 	mode.mirroring   = config.mirroring;
-	mode.calibration = false;
 
 	depth_screen.resize(512);
 
@@ -613,44 +607,6 @@ void drawBitmap(
 }
 
 
-void StClient::drawImageMode()
-{
-	using namespace openni;
-
-	const RGB888Pixel* source_row = (const RGB888Pixel*)dev1.colorFrame.getData();
-	RGBA_raw* dest_row = video_ram + dev1.colorFrame.getCropOriginY() * m_nTexMapX;
-	const int source_rows = dev1.colorFrame.getStrideInBytes() / sizeof(RGB888Pixel);
-
-	for (int y=0; y<dev1.colorFrame.getHeight(); ++y)
-	{
-		const RGB888Pixel* src = source_row;
-		RGBA_raw* dest = dest_row + dev1.colorFrame.getCropOriginX();
-
-		for (int x=0; x<dev1.colorFrame.getWidth(); ++x)
-		{
-			dest->r = src->r;
-			dest->g = src->g;
-			dest->b = src->b;
-			dest->a = 255;
-			++dest, ++src;
-		}
-
-		dest_row   += m_nTexMapX;
-		source_row += source_rows;
-	}
-
-#if 0
-	drawBitmap(
-		0, 0, 640, 480,
-		m_pTexMap,
-		m_nTexMapX, m_nTexMapY,
-		0.0f,
-		0.0f,
-		(float)m_width  / m_nTexMapX,
-		(float)m_height / m_nTexMapY);
-#endif
-}
-
 int decomp_time = 0;
 int draw_time = 0;
 uint8 floor_depth[640*480];
@@ -804,7 +760,9 @@ void StClient::drawPlaybackMovie()
 }
 
 
-void StClient::drawDepthMode()
+#if 0
+//#
+void StClient::drawDepthModh()
 {
 	using namespace openni;
 
@@ -955,6 +913,8 @@ void StClient::drawDepthMode()
 		(float)m_width  / m_nTexMapX,
 		(float)m_height / m_nTexMapY);
 }
+#endif
+
 
 void StClient::displayDepthScreen()
 {
@@ -1610,42 +1570,6 @@ void StClient::display()
 		break;
 	}
 
-
-#if 0
-	//#
-	{
-		ModelViewObject mo;
-		glRGBA::white.glColorUpdate();
-		freetype::print(monospace, 20,380, "Dots: %8d",
-			dot_set.size());
-
-		freetype::print(monospace, 20,420, "min:%dmm max:%dmm",
-				dev1.raw_depth.min_value,
-				dev1.raw_depth.max_value);
-		freetype::print(monospace, 20,440, "EYE-HV(%.4f,%.4f) EYE-XZ(%.3f,%.3f,%.3f)",
-				eye_rh,
-				eye_rv,
-				eye_x,
-				eye_y,
-				eye_z);
-		freetype::print(monospace, 20,460, "DIFF(%.2f,%.2f,%.2f) FOVY(%.2f)",
-			diff_x,
-			diff_y,
-			diff_z,
-			fovy);
-
-		freetype::print(monospace, 20,360, "read=[%5.2f,%5.2f] read2=[%5.2f,%4.2f] d-depth=%.2f, d-grid=%.2f, d-wall=%.2f",
-			time_profile.read1_depth_dev1,
-			time_profile.read1_depth_dev2,
-			time_profile.read2_depth_dev1,
-			time_profile.read2_depth_dev2,
-
-			time_profile.draw_depth,
-			time_profile.draw_grid,
-			time_profile.draw_wall);
-	}
-#endif
-
 	glRGBA::white.glColorUpdate();
 
 	{
@@ -1879,13 +1803,6 @@ void StClient::onMouse(int button, int state, int x, int y)
 		{
 			focus_cal->prev = focus_cal->curr;
 		}
-
-		// •â³‚È‚µŽž‚Ì‚ÝÝ’è‚Å‚«‚é
-		if (calibration_focus!=nullptr && !mode.calibration)
-		{
-			calibration_focus->x = x;
-			calibration_focus->y = y;
-		}
 	}
 }
 
@@ -2031,9 +1948,6 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	case 'k':  toggle(mode.sync_enabled);  break;
 	case 'm':  toggle(mode.mixed_enabled); break;
 	case 'M':  toggle(mode.mirroring); break;
-	case 'Z':  toggle(mode.zero255_show);  break;
-	case 'O':  toggle(mode.alpha_mode);    break;
- 	case 'P':  toggle(mode.pixel_completion); break;
 	case 'b':  toggle(mode.borderline);    break;
 	case 'B':  toggle(mode.simple_dot_body);  break;
 
@@ -2042,15 +1956,6 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		break;
 	case 'h':
 		fovy += 0.05;
-		break;
-
-	case 'p':     toggle(mode.perspective);    break;
-
-	case '9':
-		calibration_focus = nullptr;
-		break;
-	case '\t':
-		toggle(mode.calibration);
 		break;
 
 	case '$':

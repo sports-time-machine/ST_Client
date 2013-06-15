@@ -124,20 +124,14 @@ struct Mode
 	bool show_hit_boxes;
 	bool sync_enabled;
 	bool mixed_enabled;
-	bool zero255_show;
-	bool alpha_mode;
-	bool pixel_completion;
 	bool mirroring;
 	bool borderline;
-	bool calibration;
 	bool view4test;
-	bool perspective;
 
 	Mode()
 	{
 		auto_clipping = true;
 		simple_dot_body = true;
-		perspective = true;
 	}
 };
 
@@ -177,8 +171,6 @@ private:
 	StClient(const StClient&);           // disable
 	StClient& operator=(StClient&);      // disable
 
-	void drawImageMode();
-	void drawDepthMode();
 	void BuildDepthImage(uint8* dest);
 
 	static StClient* ms_self;
