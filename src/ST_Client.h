@@ -188,8 +188,11 @@ private:
 
 enum ViewMode
 {
-	VM_2D_TOP,
-	VM_2D_FRONT,
+	VM_2D_TOP,      // 見下ろし：Z軸調整用
+	VM_2D_LEFT,     // 左から：　Y軸調整用
+	VM_2D_FRONT,    // 前から：　X軸調整用
+	VM_2D_RUN,
+
 	VM_3D_LEFT,
 	VM_3D_RIGHT,
 	VM_3D_FRONT,
@@ -206,9 +209,21 @@ struct Global
 	mi::Image dot_image;
 	mi::File save_file;
 
+	struct 
+	{
+		struct Ortho
+		{
+			double width;
+		} ortho;
+		struct Perspective
+		{
+		} perspective;
+		bool is_ortho;
+	} view;
+
 	Global()
 	{
-		view_mode = VM_2D_TOP;
+		view_mode = VM_2D_LEFT;
 		window_w = 0;
 		window_h = 0;
 		client_status = STATUS_DEPTH;

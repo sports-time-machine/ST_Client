@@ -128,7 +128,6 @@ void load_config()
 	config.metrics.top_mm    = (int)(1000 * top_meter);
 	config.metrics.ground_px = ground_px;
 
-
 	// Init flags
 	CONFIG_BOOL(global_config, enable_kinect);
 	CONFIG_BOOL(global_config, enable_color);
@@ -140,6 +139,19 @@ void load_config()
 	CONFIG_FLOAT(global_config, grid_g);
 	CONFIG_FLOAT(global_config, grid_b);
 
+	auto set_camera_param = [&](CamParam& cam, const char* varname){
+		PSL::variable var = psl.get(varname);
+		cam.x     = var["x"].toDouble();
+		cam.y     = var["y"].toDouble();
+		cam.z     = var["z"].toDouble();
+		cam.rotx  = var["rotx"].toDouble();
+		cam.roty  = var["roty"].toDouble();
+		cam.rotz  = var["rotz"].toDouble();
+		cam.scale = var["scale"].toDouble();
+	};
+
+	set_camera_param(config.cam1, "camera1");
+	set_camera_param(config.cam2, "camera2");
 
 #undef CONFIG_INT
 #undef CONFIG_BOOL

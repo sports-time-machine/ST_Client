@@ -21,54 +21,25 @@
 #define USE_GLFW 0
 
 
+#define local static
 
 
 
-
-
-
-struct Calparam
+struct HitData
 {
-	struct Point3D
-	{
-		int x,y;
-		float z;
-		
-		Point3D()
-		{
-			x=y=0;
-			z=0.0f;
-		}
-
-		void setPoint(const Point3D& a, const Point3D& b, int t, int end)
-		{
-			const int q = end - t;
-			this->x = (t*a.x + q*b.x) / end;
-			this->y = (t*a.y + q*b.y) / end;
-			this->z = (t*a.z + q*b.z) / end;
-		}
-	};
-
-	float rot_x, rot_y, rot_z;
-	float x,y,z;
-
-	Calparam()
-	{
-		x = y = z = 0.0f;
-		rot_x = 0.0f;
-		rot_y = 0.0f;
-		rot_z = 0.0f;
-	}
+	bool hit[80*60];
 };
+
+local HitData hitdata;
+
+
 
 struct Calset
 {
-	Calparam curr, prev;
+	CamParam curr, prev;
 };
 
-Calset cal_cam1, cal_cam2;
-
-Calset* focus_cal = nullptr;
+local Calset cal_cam1, cal_cam2;
 
 enum CameraMode
 {
@@ -77,8 +48,8 @@ enum CameraMode
 	CAM_BOTH,
 };
 
-CameraMode camera_mode = CAM_BOTH;
-float eye_rh_base, eye_rv_base;
+local CameraMode camera_mode = CAM_BOTH;
+local float eye_rh_base, eye_rv_base, eye_y_base;
 
 
 
@@ -114,7 +85,7 @@ struct DepthLine
 
 typedef std::vector<DepthLine> DepthScreen;
 
-DepthScreen depth_screen;
+local DepthScreen depth_screen;
 
 
 
@@ -131,12 +102,11 @@ struct TimeProfile
 	double draw_depth;
 };
 
-TimeProfile time_profile;
+local TimeProfile time_profile;
 
 
 
 static int old_x, old_y;
-float eye_d  =  4.00f;
 struct Eye
 {
 	float x,y,z;    // 視線の原点
@@ -154,50 +124,70 @@ struct Eye
 
 	void gluLookAt()
 	{
-		const float ex = x + cos(rh)*eye_d;
-		const float ez = z + sin(rh)*eye_d;
+		const float eye_depth = 4.0f;
+		const float ex = x + cos(rh) * eye_depth;
+		const float ez = z + sin(rh) * eye_depth;
 		const float ey = y + v;
 
 		::gluLookAt(x,y,z, ex,ey,ez, 0,1,0);
 	}
 };
 
-float fovy = 40.0f;
-float fov_ratio = 1.0;
-float fov_step  = 1.0;
-
-Eye eye;
+local Eye eye;
 
 
+
+void view_2d_left()
+{
+	global.view.is_ortho = true;
+	global.view.ortho.width = 4.5;
+	global.view_mode = VM_2D_LEFT;
+	eye.set(-10.0f, -0.2f, -1.5f, 0.0f, 0.0f);
+}
 
 void view_2d_top()
 {
+	global.view.is_ortho = true;
+	global.view.ortho.width = 5.0;
 	global.view_mode = VM_2D_TOP;
-	eye.set(0.0f, 18.4, 5.2f, -PI/2, -15.0f);
+	eye.set(0.0f, 110.0, 5.2f, -PI/2, -100.0f);
 }
 
 void view_2d_front()
 {
+	global.view.is_ortho = true;
+	global.view.ortho.width = 4.5;  // 少し広く
 	global.view_mode = VM_2D_FRONT;
-	eye.set(0.0f, 2.2f, 5.2f, -PI/2, -1.92);
+	eye.set(0.0f, -0.2f, 10.0f, -PI/2, 0.0f);
+}
+
+void view_2d_run()
+{
+	global.view.is_ortho = true;
+	global.view.ortho.width = 4.0;
+	global.view_mode = VM_2D_RUN;
+	eye.set(0.0f, -0.4f, 5.0f, -PI/2, 0.0f);
 }
 
 void view_3d_left()
 {
+	global.view.is_ortho = false;
 	global.view_mode = VM_3D_LEFT;
-	eye.set(-3.6f, 3.8f, 5.75f, -1.06f, -1.72f);
+	eye.set(-2.9f, 1.5f, 3.6f, -1.03f, -0.82f);
 }
 
 void view_3d_right()
 {
+	global.view.is_ortho = false;
 	global.view_mode = VM_3D_RIGHT;
-	eye.set(3.6f, 3.8f, 5.75f, -2.05f, -1.72f);
+	eye.set(2.9f, 1.5f, 3.6f, -2.11f, -0.82f);
 }
 
 void view_3d_front()
 {
+	global.view.is_ortho = false;
 	global.view_mode = VM_3D_FRONT;
-	eye.set(0.0f, 3.8f, 4.75f, -PI/2, -2.10f);
+	eye.set(0.0f, 1.5f, 4.00f, -PI/2, -0.60f);
 }
 
 
@@ -222,7 +212,7 @@ struct HitObject
 	glRGBA color;
 };
 
-std::vector<HitObject> hit_objects;
+local std::vector<HitObject> hit_objects;
 
 
 struct VodyInfo
@@ -238,7 +228,7 @@ struct VodyInfo
 	int histogram[256]; // バーチャルボディのデプスヒストグラム
 };
 
-VodyInfo vody;
+local VodyInfo vody;
 
 
 
@@ -286,7 +276,7 @@ float miFps::getFps() const
 }
 
 
-miFps fps_counter;
+local miFps fps_counter;
 
 
 
@@ -298,7 +288,7 @@ enum MovieMode
 	MOVIE_PLAYBACK,
 };
 
-MovieMode movie_mode = MOVIE_READY;
+local MovieMode movie_mode = MOVIE_READY;
 
 
 #include "XnCppWrapper.h"
@@ -382,12 +372,9 @@ StClient* StClient::ms_self = nullptr;
 typedef std::vector<openni::RGB888Pixel> RgbScreen;
 typedef std::map<int,RgbScreen> RgbScreenMovie;
 
-size_t movie_index = 0;
-
-openni::RGB888Pixel* moviex = nullptr;
-
-
-GLuint depth_tex;
+local size_t movie_index = 0;
+local openni::RGB888Pixel* moviex = nullptr;
+local freetype::font_data monospace;
 
 
 
@@ -400,9 +387,13 @@ StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 {
 	ms_self = this;
 
-	glGenTextures(1, &depth_tex);
-
 	view_3d_left();
+
+
+	// コンフィグデータからのロード
+	cal_cam1.curr = config.cam1;
+	cal_cam2.curr = config.cam2;
+
 
 
 	udp_recv.init(UDP_CLIENT_RECV);
@@ -442,11 +433,6 @@ StClient::~StClient()
 
 	ms_self = nullptr;
 }
-
-
-freetype::font_data monospace;
-
-
 
 
 
@@ -602,12 +588,12 @@ void drawBitmap(
 }
 
 
-int decomp_time = 0;
-int draw_time = 0;
-uint8 floor_depth[640*480];
-uint8 depth_cook[640*480];
-int floor_depth_count = 0;
-uint16 floor_depth2[640*480];
+local int decomp_time = 0;
+local int draw_time = 0;
+local uint8 floor_depth[640*480];
+local uint8 depth_cook[640*480];
+local int floor_depth_count = 0;
+local uint16 floor_depth2[640*480];
 
 
 
@@ -888,6 +874,26 @@ void StClient::displayPictureScreen()
 
 
 
+struct ChangeCalParamKeys
+{
+	bool rot_x, rot_y, rot_z, scale, ctrl, up, left, right, down;
+};
+
+ChangeCalParamKeys getChangeCalParamKeys()
+{
+	BYTE kbd[256];
+	GetKeyboardState(kbd);
+
+	ChangeCalParamKeys keys;
+	keys.ctrl  = (kbd[VK_CONTROL] & 0x80)!=0;
+	keys.rot_x = (kbd['T'] & 0x80)!=0;
+	keys.rot_y = (kbd['Y'] & 0x80)!=0;
+	keys.rot_z = (kbd['U'] & 0x80)!=0;
+	keys.scale = (kbd['I'] & 0x80)!=0;
+	return keys;
+}
+
+
 void display2()
 {
 	static uint time_begin;
@@ -915,26 +921,46 @@ void display2()
 	glRGBA heading(80,255,120);
 	glRGBA text(200,200,200);
 
+	auto color = [](bool status){
+		status
+			? glRGBA(240,200,50).glColorUpdate()
+			: glRGBA(200,200,200).glColorUpdate();
+	};
+
+
+	
+	{
+		auto keys = getChangeCalParamKeys();
+		heading.glColorUpdate();
+		pr(monospace, 320, y,
+			(keys.rot_x) ? "<X-rotation (vertical)>" :
+			(keys.rot_y) ? "<Y-rotation (horizontal)>" :
+			(keys.rot_z) ? "<Z-rotation (rotation)>" :
+			(keys.scale) ? "<Scaling>" : "");
+	}
+
+
 	heading.glColorUpdate();
-	pr(monospace, 20, y+=H, "View Mode: %s",
-		(global.view_mode==VM_2D_TOP)   ? "2D top" :
-		(global.view_mode==VM_2D_FRONT) ? "2D front" :
-		(global.view_mode==VM_3D_LEFT)  ? "3D left" :
-		(global.view_mode==VM_3D_RIGHT) ? "3D right" :
-		(global.view_mode==VM_3D_FRONT) ? "3D front" : "unknown");
+	pr(monospace, 20, y+=H, "View Mode");
 	text.glColorUpdate();
-	pr(monospace, 20, y+=H, "[F1] 2D top");
-	pr(monospace, 20, y+=H, "[F2] 2D front");
-	pr(monospace, 20, y+=H, "[F3] 3D left");
-	pr(monospace, 20, y+=H, "[F4] 3D right");
-	pr(monospace, 20, y+=H, "[F5] 3D front");
+	{
+		const auto vm = global.view_mode;
+		color(vm==VM_2D_LEFT);  pr(monospace, 20, y+=H, "[F1] 2D left");
+		color(vm==VM_2D_TOP);   pr(monospace, 20, y+=H, "[F2] 2D top");
+		color(vm==VM_2D_FRONT); pr(monospace, 20, y+=H, "[F3] 2D front");
+		color(false);           pr(monospace, 20, y+=H, "[F4] ----");
+		color(vm==VM_2D_RUN);   pr(monospace, 20, y+=H, "[F5] 2D run");
+		color(vm==VM_3D_LEFT);  pr(monospace, 20, y+=H, "[F6] 3D left");
+		color(vm==VM_3D_RIGHT); pr(monospace, 20, y+=H, "[F7] 3D right");
+		color(vm==VM_3D_FRONT); pr(monospace, 20, y+=H, "[F8] 3D front");
+	}
 	nl();
 
 	heading.glColorUpdate();
 	pr(monospace, 20, y+=H, "EYE");
 	text.glColorUpdate();
 	pr(monospace, 20, y+=H, "x =%+9.4f", eye.x);
-	pr(monospace, 20, y+=H, "y =%+9.4f", eye.y);
+	pr(monospace, 20, y+=H, "y =%+9.4f [q/e]", eye.y);
 	pr(monospace, 20, y+=H, "z =%+9.4f", eye.z);
 	pr(monospace, 20, y+=H, "rh=%+9.4f(rad)", eye.rh);
 	pr(monospace, 20, y+=H, "v =%+9.4f", eye.v);
@@ -946,9 +972,10 @@ void display2()
 	pr(monospace, 20, y+=H, "pos x = %9.5f", cal_cam1.curr.x);
 	pr(monospace, 20, y+=H, "pos y = %9.5f", cal_cam1.curr.y);
 	pr(monospace, 20, y+=H, "pos z = %9.5f", cal_cam1.curr.z);
-	pr(monospace, 20, y+=H, "rot x = %9.5f", cal_cam1.curr.rot_x);
-	pr(monospace, 20, y+=H, "rot y = %9.5f", cal_cam1.curr.rot_y);
-	pr(monospace, 20, y+=H, "rot z = %9.5f", cal_cam1.curr.rot_z);
+	pr(monospace, 20, y+=H, "rot x = %9.5f", cal_cam1.curr.rotx);
+	pr(monospace, 20, y+=H, "rot y = %9.5f", cal_cam1.curr.roty);
+	pr(monospace, 20, y+=H, "rot z = %9.5f", cal_cam1.curr.rotz);
+	pr(monospace, 20, y+=H, "scale = %9.5f", cal_cam1.curr.scale);
 	nl();
 
 	heading.glColorUpdate();
@@ -957,17 +984,10 @@ void display2()
 	pr(monospace, 20, y+=H, "pos x = %9.5f", cal_cam2.curr.x);
 	pr(monospace, 20, y+=H, "pos y = %9.5f", cal_cam2.curr.y);
 	pr(monospace, 20, y+=H, "pos z = %9.5f", cal_cam2.curr.z);
-	pr(monospace, 20, y+=H, "rot x = %9.5f", cal_cam2.curr.rot_x);
-	pr(monospace, 20, y+=H, "rot y = %9.5f", cal_cam2.curr.rot_y);
-	pr(monospace, 20, y+=H, "rot z = %9.5f", cal_cam2.curr.rot_z);
-	nl();
-
-	heading.glColorUpdate();
-	pr(monospace, 20, y+=H, "Camera:");
-	text.glColorUpdate();
-	pr(monospace, 20, y+=H, " X 2D top view");
-	pr(monospace, 20, y+=H, " [w] 3D view (left)");
-	pr(monospace, 20, y+=H, " [e] 3D view (right)");
+	pr(monospace, 20, y+=H, "rot x = %9.5f", cal_cam2.curr.rotx);
+	pr(monospace, 20, y+=H, "rot y = %9.5f", cal_cam2.curr.roty);
+	pr(monospace, 20, y+=H, "rot z = %9.5f", cal_cam2.curr.rotz);
+	pr(monospace, 20, y+=H, "scale = %9.5f", cal_cam2.curr.scale);
 	nl();
 
 	pr(monospace, 20, y+=H,
@@ -1056,6 +1076,34 @@ void drawFieldGrid(int size_cm)
 	}
 
 	glEnd();
+
+	const float BOX_WIDTH  = 4.0f;
+	const float BOX_HEIGHT = 3.0f;
+	const float BOX_DEPTH  = 3.0f;
+	const float LEFT  = -(BOX_WIDTH/2);
+	const float RIGHT = +(BOX_WIDTH/2);
+
+	// Left and right box
+	for (int i=0; i<2; ++i)
+	{
+		const float x = (i==0) ? LEFT : RIGHT;
+		glBegin(GL_LINE_LOOP);
+			glVertex3f(x,  BOX_HEIGHT,  0);
+			glVertex3f(x,  BOX_HEIGHT, -BOX_DEPTH);
+			glVertex3f(x,           0, -BOX_DEPTH);
+			glVertex3f(x,           0,  0);
+		glEnd();
+	}
+
+	// Ceil bar
+	glBegin(GL_LINES);
+		glVertex3f(LEFT,  BOX_HEIGHT, 0);
+		glVertex3f(RIGHT, BOX_HEIGHT, 0);
+		glVertex3f(LEFT,  BOX_HEIGHT, -BOX_DEPTH);
+		glVertex3f(RIGHT, BOX_HEIGHT, -BOX_DEPTH);
+	glEnd();
+
+
 
 	// run space, @green
 	glRGBA(0.25f, 1.00f, 0.25f, 0.25f).glColorUpdate();
@@ -1203,13 +1251,13 @@ void DS_Init(Dots& dots)
 
 
 
-void MixDepth(Dots& dots, const RawDepthImage& src, const Calparam& calparam)
+void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& calparam)
 {
 	mat4x4 trans;
 	{
 		// X軸回転
-		float cos = cosf(calparam.rot_x);
-		float sin = sinf(calparam.rot_x);
+		float cos = cosf(calparam.rotx);
+		float sin = sinf(calparam.rotx);
 		trans = mat4x4(
 			1,   0,    0, 0,
 			0, cos, -sin, 0,
@@ -1218,8 +1266,8 @@ void MixDepth(Dots& dots, const RawDepthImage& src, const Calparam& calparam)
 	}
 	{
 		// Y軸回転
-		float cos = cosf(calparam.rot_y);
-		float sin = sinf(calparam.rot_y);
+		float cos = cosf(calparam.roty);
+		float sin = sinf(calparam.roty);
 		trans = mat4x4(
 			 cos, 0, sin, 0,
 			   0, 1,   0, 0,
@@ -1228,8 +1276,8 @@ void MixDepth(Dots& dots, const RawDepthImage& src, const Calparam& calparam)
 	}
 	{
 		// Z軸回転
-		float cos = cosf(calparam.rot_z);
-		float sin = sinf(calparam.rot_z);
+		float cos = cosf(calparam.rotz);
+		float sin = sinf(calparam.rotz);
 		trans = mat4x4(
 			cos,-sin, 0, 0,
 			sin, cos, 0, 0,
@@ -1238,10 +1286,11 @@ void MixDepth(Dots& dots, const RawDepthImage& src, const Calparam& calparam)
 	}
 
 	// 平行移動
+	const float s = calparam.scale;
 	trans = mat4x4(
-		1, 0, 0, calparam.x,
-		0, 1, 0, calparam.y,
-		0, 0, 1, calparam.z,
+		s, 0, 0, calparam.x,
+		0, s, 0, calparam.y,
+		0, 0, s, calparam.z,
 		0, 0, 0, 1) * trans;
 
 	int index = 0;
@@ -1277,27 +1326,48 @@ void MixDepth(Dots& dots, const RawDepthImage& src, const Calparam& calparam)
 	}
 }
 
-void drawBodyDS(const Dots& dots, glRGBA rgba)
+void drawBoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, bool half=false)
 {
-	// @body @dot
+	// @boxel @dot
 	glBegin(GL_POINTS);
 
 	for (size_t i=0; i<dots.size(); ++i)
 	{
-		float x = dots[i].x;
-		float y = dots[i].y;
-		float z = dots[i].z;
+		if ((i%2==0))
+		{
+			continue;
+		}
 
+		const float x = dots[i].x;
+		const float y = dots[i].y;
+		const float z = dots[i].z;
+
+		const bool in_x = (x>=-2.0f && x<=+2.0f);
+		const bool in_y = (y>=+0.0f && y<=+4.0f);
+		const bool in_z = (z>=+0.0f);
+		
 		float col = z/4;
 		if (col<0.25f) col=0.25f;
-		if (col>1.0f) col=1.0f;
-		col = 1.0f - col;
+		if (col>0.90f) col=0.90f;
+		col = 1.00f - col;
+		const int col255 = (int)(col*255);
 
-		glRGBA(
-			rgba.r,
-			rgba.g,
-			rgba.b,
-			(int)(col*255)).glColorUpdate();
+		if (in_x && in_y && in_z)
+		{
+			glRGBA(
+				inner_color.r,
+				inner_color.g,
+				inner_color.b,
+				col255).glColorUpdate();
+		}
+		else
+		{
+			glRGBA(
+				outer_color.r,
+				outer_color.g,
+				outer_color.b,
+				col255>>3).glColorUpdate();
+		}
 
 		glVertex3f(x,y,-z);
 	}
@@ -1369,33 +1439,22 @@ void StClient::display()
 	//============
 	// 3D Section
 	//============
-	bool draw3d = false;
-	bool draw2d = false;
 	::glMatrixMode(GL_PROJECTION);
 	::glLoadIdentity();
-	switch (global.view_mode)
+
+
+	if (global.view.is_ortho)
 	{
-	case VM_2D_TOP:
-		glOrtho(-3,+3, 0,(6.0*3/4), 1.0,+100);
-		draw2d = true;
-		break;
-	case VM_2D_FRONT:
-		glOrtho(-2,+2, 0,3, 1.0,+100);
-		draw2d = true;
-		break;
-	case VM_3D_LEFT:
-		gluPerspective(30.0f, 4.0f/3.0f, 1.0f, 100.0f);
-		draw3d = true;
-		break;
-	case VM_3D_RIGHT:
-		gluPerspective(30.0f, 4.0f/3.0f, 1.0f, 100.0f);
-		draw3d = true;
-		break;
-	case VM_3D_FRONT:
-		gluPerspective(30.0f, 4.0f/3.0f, 1.0f, 100.0f);
-		draw3d = true;
-		break;
+		// 2D視点です!!
+		const double w = global.view.ortho.width;
+		glOrtho(-w/2, +w/2, 0, (w*3/4), -3.0, +120.0);
 	}
+	else
+	{
+		// 3D視点です!!
+		gluPerspective(30.0f, 4.0f/3.0f, 1.0f, 100.0f);
+	}
+
 
 	eye.gluLookAt();
 
@@ -1415,6 +1474,7 @@ void StClient::display()
 	glRGBA color_cam2(250,190,80);
 	glRGBA color_both(255,255,255);
 	glRGBA color_other(120,120,120);
+	glRGBA color_outer(80,80,144);
 
 	if (camera_mode==CAM_BOTH)
 	{
@@ -1422,25 +1482,59 @@ void StClient::display()
 			DS_Init(dot_set);
 			MixDepth(dot_set, dev1.raw_depth, cal_cam1.curr);
 			MixDepth(dot_set, dev2.raw_depth, cal_cam2.curr);
-			drawBodyDS(dot_set, color_both);
+			drawBoxels(dot_set, color_both, color_outer);
 		}
 	}
 	else
 	{
+		if (camera_mode==CAM_A)
 		{
 			DS_Init(dot_set);
 			MixDepth(dot_set, dev1.raw_depth, cal_cam1.curr);
-			drawBodyDS(dot_set, (camera_mode==CAM_A) ? color_cam1 : color_other);
-		}
-		{
+			drawBoxels(dot_set, color_cam1, color_outer);
 			DS_Init(dot_set);
 			MixDepth(dot_set, dev2.raw_depth, cal_cam2.curr);
-			drawBodyDS(dot_set, (camera_mode==CAM_B) ? color_cam2 : color_other);
+			drawBoxels(dot_set, color_other, color_other);
+		}
+		else
+		{
+			DS_Init(dot_set);
+			MixDepth(dot_set, dev1.raw_depth, cal_cam1.curr);
+			drawBoxels(dot_set, color_other, color_other);
+			DS_Init(dot_set);
+			MixDepth(dot_set, dev2.raw_depth, cal_cam2.curr);
+			drawBoxels(dot_set, color_cam2, color_outer);
 		}
 	}
 
 
-#if 0
+	memset(hitdata.hit, 0, sizeof(hitdata.hit));
+	for (size_t i=0; i<dot_set.size(); ++i)
+	{
+		// デプスはGreenのなかだけ
+		Point3D p = dot_set[i];
+		if (!(p.z>=0.0f && p.z<=2.0f))
+		{
+			// ignore: too far, too near
+			continue;
+		}
+
+		// (x,z)を、大きさ1の正方形におさめる（はみ出すこともある）
+		float fx = ((p.x+2.0)/4.0);
+		float fy = ((2.4-p.y)/2.4);
+
+		const int x = (int)(fx * 80);
+		const int y = (int)(fy * 60);
+
+		if ((uint)x<80 && (uint)y<60)
+		{
+			hitdata.hit[x + y*80] = true;
+		}
+	}
+
+
+
+
 	switch (movie_mode)
 	{
 	case MOVIE_READY:
@@ -1453,15 +1547,62 @@ void StClient::display()
 		}
 		else
 		{
+#if 0
+			float* float_mem = new float[3*dot_set.size()];
+			int index = 0;
+			int boxel_count = 0;
+			for (size_t i=0; i<dot_set.size(); ++i)
+			{
+				const auto& d = dot_set[i];
+				if (d.x>=-2.5f && d.x<=+2.5f && d.y>=-0.5f && d.y<=3.0f && d.z>=0.0f && d.z<=4.0f)
+				{
+					float_mem[index+0] = d.x;
+					float_mem[index+1] = d.y;
+					float_mem[index+2] = d.z;
+					index += 3;
+					++boxel_count;
+				}
+			}
+
 			zlibpp::bytes& byte_stream = curr_movie.frames[curr_movie.recorded_tail++];
 			zlibpp::compress(
-				(byte*)dev1.raw_depth.image.data(),
-				640*480*sizeof(uint16),
-				byte_stream, 2);
-			printf("frame %d, %d bytes (%.1f%%)\n",
+				(byte*)float_mem,
+				sizeof(float)*3*dot_set.size(),
+				byte_stream, 0);
+			printf("frame %d, %d boxels, %d bytes (%.1f%%)\n",
 				curr_movie.recorded_tail,
+				boxel_count,
 				byte_stream.size(),
-				byte_stream.size() * 100.0 / (640*480));
+				byte_stream.size() * 100.0 / (640*480*3*sizeof(float)));
+			delete[] float_mem;
+#endif
+			static uint16* int_mem = new uint16[2*3*640*480];
+			int index = 0;
+			int boxel_count = 0;
+			for (size_t i=0; i<dot_set.size(); ++i)
+			{
+				const auto& d = dot_set[i];
+				if (d.x>=-2.5f && d.x<=+2.5f && d.y>=-0.5f && d.y<=3.0f && d.z>=0.0f && d.z<=4.0f)
+				{
+					int_mem[index+0] = (uint16)((d.x+2.5f)*65535/5.0f);
+					int_mem[index+1] = (uint16)((d.y     )*65535/3.0f);
+					int_mem[index+2] = (uint16)((d.z     )*65535/4.0f);
+					index += 3;
+					++boxel_count;
+				}
+			}
+
+			zlibpp::bytes& byte_stream = curr_movie.frames[curr_movie.recorded_tail++];
+			zlibpp::compress(
+				(byte*)int_mem,
+				sizeof(uint16)*3*boxel_count,
+				byte_stream, 0);
+			printf("frame %d, %d boxels, %d bytes (%.1f%%)\n",
+				curr_movie.recorded_tail,
+				boxel_count,
+				byte_stream.size(),
+				byte_stream.size() * 100.0 / (640*480*3*sizeof(uint16)));
+//			delete[] int_mem;
 		}
 		break;
 	case MOVIE_PLAYBACK:
@@ -1478,36 +1619,87 @@ void StClient::display()
 				puts("movie end.");
 			}
 
+#if 0
 			zlibpp::bytes outdata;
 			zlibpp::decompress(
 				byte_stream,
 				outdata);
-			RawDepthImage raw;
-			const uint16* raw_depth = (const uint16*)outdata.data();
-			raw.image.resize(640*480);
-			for (int i=0; i<640*480; ++i)
+			size_t boxel_count = outdata.size()/sizeof(float)/3;
+			const float* float_mem = (const float*)outdata.data();
+			
+			Dots dots;
+			dots.resize(boxel_count);
+			for (size_t i=0; i<boxel_count; ++i)
 			{
-				raw.image[i] = raw_depth[i];
+				dots[i].x = *float_mem++;
+				dots[i].y = *float_mem++;
+				dots[i].z = *float_mem++;
 			}
-			raw.CalcDepthMinMax();
+
+			drawBoxels(dots, glRGBA(250,100,60), glRGBA(200,70,30));
+#else
+			zlibpp::bytes outdata;
+			zlibpp::decompress(
+				byte_stream,
+				outdata);
+			size_t boxel_count = outdata.size()/sizeof(uint16)/3;
+			const uint16* int_mem = (const uint16*)outdata.data();
+			
+			Dots dots;
+			dots.resize(boxel_count);
+			for (size_t i=0; i<boxel_count; ++i)
 			{
-				drawBody(raw, 185,140,166);
+				const uint16 x = *int_mem++;
+				const uint16 y = *int_mem++;
+				const uint16 z = *int_mem++;
+
+				dots[i].x = x/65535.0f * 5.0f - 2.5f;
+				dots[i].y = y/65535.0f * 3.0f;
+				dots[i].z = z/65535.0f * 4.0f;
 			}
+
+			drawBoxels(dots, glRGBA(250,100,60), glRGBA(200,70,30), true);
+#endif
 		}
 		break;
 	}
-#endif
 
 
 	//============
 	// 2D Section
 	//============
-	gl::Texture(false);
-	gl::DepthTest(false);
-	glOrtho(0, 640, 480, 0, -1.0, 1.0);
-
 	gl::Projection();
 	gl::LoadIdentity();
+	glOrtho(0, 640, 480, 0, -1.0, 1.0);
+
+	gl::Texture(false);
+	gl::DepthTest(false);
+
+	{
+		glRGBA body(240,220,60, 180);
+		glRGBA empty(50,60,80, 60);
+		
+		glBegin(GL_QUADS);
+		for (int y=0; y<60; ++y)
+		{
+			for (int x=0; x<80; ++x)
+			{
+				hitdata.hit[x+y*80]
+					? body.glColorUpdate()
+					: empty.glColorUpdate();
+				const int S = 2;
+				const int M = 10;
+				const int dx = x*S + 640 - M - 80*S;
+				const int dy = y*S +   0 + M;
+				glVertex2i(dx,   dy);
+				glVertex2i(dx+S, dy);
+				glVertex2i(dx+S, dy+S);
+				glVertex2i(dx,   dy+S);
+			}
+		}
+		glEnd();
+	}
+
 
 	switch (global.client_status)
 	{
@@ -1525,10 +1717,7 @@ void StClient::display()
 
 	glRGBA::white.glColorUpdate();
 
-	{
-		ModelViewObject mo;
-		display2();
-	}
+	display2();
 
 #if 0
 	glRGBA(255,255,255,100).glColorUpdate();
@@ -1649,6 +1838,103 @@ void clearFloorDepth()
 	}
 }
 
+
+void change_cal_param(Calset& set, float mx, float my, const ChangeCalParamKeys& keys)
+{
+	auto& curr = set.curr;
+	auto& prev = set.prev;
+
+	if (keys.scale)
+	{
+		curr.scale = prev.scale - mx + my;
+	}
+	else if (keys.rot_x)
+	{
+		curr.rotx = prev.rotx - mx + my;
+	}
+	else if (keys.rot_y)
+	{
+		curr.roty = prev.roty - mx + my;
+	}
+	else if (keys.rot_z)
+	{
+		curr.rotz = prev.rotz - mx + my;
+	}
+	else
+	{
+		switch (global.view_mode)
+		{
+		case VM_2D_TOP:// ウエキャリブレーション
+			if (keys.ctrl)
+			{
+				curr.roty = prev.roty + mx - my;
+			}
+			else
+			{
+				curr.x = prev.x + mx;
+				curr.z = prev.z - my;
+			}
+			break;
+		case VM_2D_LEFT:// ヨコキャリブレーション
+			if (keys.ctrl)
+			{
+				curr.rotx = prev.rotx - mx + my;
+			}
+			else
+			{
+				curr.z = prev.z - mx;
+				curr.y = prev.y - my;
+			}
+			break;
+		case VM_2D_FRONT:// マエキャリブレーション
+		case VM_2D_RUN:  // 走り画面
+			if (keys.ctrl)
+			{
+				curr.rotz = prev.rotz - mx - my;
+			}
+			else
+			{
+				curr.x = prev.x + mx;
+				curr.y = prev.y - my;
+			}
+			break;
+		default:
+			if (keys.ctrl)
+			{
+				curr.x = prev.x + mx;
+				curr.y = prev.y - my;
+			}				
+			else
+			{
+				curr.x = prev.x + mx;
+				curr.z = prev.z - my;
+			}
+			break;
+		}
+	}
+
+	set.prev = set.curr;
+}
+
+
+void do_calibration(float mx, float my)
+{
+	auto keys = getChangeCalParamKeys();
+	switch (camera_mode)
+	{
+	case CAM_A:
+		change_cal_param(cal_cam1, mx, my, keys);
+		break;
+	case CAM_B:
+		change_cal_param(cal_cam2, mx, my, keys);
+		break;
+	default:
+		change_cal_param(cal_cam1, mx, my, keys);
+		change_cal_param(cal_cam2, mx, my, keys);
+		break;
+	}
+}
+
 void StClient::onMouseMove(int x, int y)
 {
 	BYTE kbd[256];
@@ -1657,12 +1943,6 @@ void StClient::onMouseMove(int x, int y)
 	const bool left  = (kbd[VK_LBUTTON] & 0x80)!=0;
 	const bool right = (kbd[VK_RBUTTON] & 0x80)!=0;
 	const bool shift = (kbd[VK_SHIFT  ] & 0x80)!=0;
-//	const bool ctrl  = (kbd[VK_CONTROL] & 0x80)!=0;
-//	const bool alt   = (kbd[VK_MENU   ] & 0x80)!=0;
-
-	const bool rot_x  = (kbd['T'] & 0x80)!=0;
-	const bool rot_y  = (kbd['Y'] & 0x80)!=0;
-	const bool rot_z  = (kbd['U'] & 0x80)!=0;
 
 	x = x * 640 / global.window_w;
 	y = y * 480 / global.window_h;
@@ -1675,46 +1955,37 @@ void StClient::onMouseMove(int x, int y)
 	}
 	else if (left)
 	{
-		switch (camera_mode)
-		{
-		case CAM_A:
-		case CAM_B:
-			if (rot_x)
-			{
-				focus_cal->curr.rot_x = focus_cal->prev.rot_x - (x - old_x)/100.0f;
-			}
-			else if (rot_y)
-			{
-				focus_cal->curr.rot_y = focus_cal->prev.rot_y - (x - old_x)/100.0f;
-			}
-			else if (rot_z)
-			{
-				focus_cal->curr.rot_z = focus_cal->prev.rot_z - (x - old_x)/100.0f;
-			}
-			else if (shift)
-			{
-				focus_cal->curr.x = focus_cal->prev.x + (x - old_x)/100.0f;
-				focus_cal->curr.y = focus_cal->prev.y - (y - old_y)/100.0f;
-			}
-			else
-			{
-				focus_cal->curr.x = focus_cal->prev.x + (x - old_x)/100.0f;
-				focus_cal->curr.z = focus_cal->prev.z - (y - old_y)/100.0f;
-			}
-			focus_cal->prev = focus_cal->curr;
-			old_x = x;
-			old_y = y;
-			break;
-		case CAM_BOTH:
-			move_eye = true;
-			break;
-		}
+		const float mx = (x - old_x) * 0.01f * (shift ? 0.1f : 1.0f);
+		const float my = (y - old_y) * 0.01f * (shift ? 0.1f : 1.0f);
+		do_calibration(mx, my);
+		old_x = x;
+		old_y = y;	
+	}
+
+	// キャリブレーションのときは視点移動ができない
+	switch (global.view_mode)
+	{
+	case VM_2D_TOP:
+	case VM_2D_LEFT:
+	case VM_2D_FRONT:
+		//move_eye = false;
+		break;
+	case VM_2D_RUN:
+		// ゲーム画面等倍時はOK
+		break;
 	}
 
 	if (move_eye)
 	{
-		eye.rh = eye_rh_base - (x - old_x)*0.0025 * fov_ratio;
-		eye. v = eye_rv_base + (y - old_y)*0.0100 * fov_ratio;
+		const float x_move = (x - old_x)*0.0010;
+		const float y_move = (y - old_y)*0.0100;
+		eye.rh = eye_rh_base - x_move;
+		eye. v = eye_rv_base + y_move;
+		
+		if (!shift)
+		{
+			eye. y = eye_y_base  - y_move;
+		}
 	}
 }
 
@@ -1729,26 +2000,12 @@ void StClient::onMouse(int button, int state, int x, int y)
 		old_x = x;
 		old_y = y;
 		eye_rh_base = eye.rh;
-		eye_rv_base = eye. v;
-
-		switch (camera_mode)
-		{
-		case CAM_A:
-			focus_cal = &cal_cam1;
-			break;
-		case CAM_B:
-			focus_cal = &cal_cam2;
-			break;
-		default:
-			focus_cal = nullptr;
-			break;
-		}
+		eye_rv_base = eye.v;
+		eye_y_base  = eye.y;
 
 		// 現在値を保存しておく
-		if (focus_cal!=nullptr)
-		{
-			focus_cal->prev = focus_cal->curr;
-		}
+		cal_cam1.prev = cal_cam1.curr;
+		cal_cam2.prev = cal_cam2.curr;		
 	}
 }
 
@@ -1756,11 +2013,30 @@ void StClient::onMouse(int button, int state, int x, int y)
 
 void StClient::onKey(int key, int /*x*/, int /*y*/)
 {
-	BYTE kbd[256]={};
+	BYTE kbd[256] = {};
 	GetKeyboardState(kbd);
 
 	const bool shift = (kbd[VK_SHIFT] & 0x80)!=0;
 	const bool ctrl  = (kbd[VK_CONTROL] & 0x80)!=0;
+	const bool key_left  = ((kbd[VK_LEFT ] & 0x80)!=0);
+	const bool key_right = ((kbd[VK_RIGHT] & 0x80)!=0);
+	const bool key_up    = ((kbd[VK_UP   ] & 0x80)!=0);
+	const bool key_down  = ((kbd[VK_DOWN ] & 0x80)!=0);
+	
+	if (key_left || key_right || key_up || key_down)
+	{
+		const float U = shift ? 0.001 : 0.01;
+		const float mx =
+				(key_left  ? -U : 0.0f) +
+				(key_right ? +U : 0.0f);
+		const float my =
+				(key_up   ? -U : 0.0f) +
+				(key_down ? +U : 0.0f);
+		do_calibration(mx, my);
+		return;
+	}
+
+
 	const float movespeed = shift ? 0.01 : 0.1;
 
 	enum { SK_SHIFT=0x10000 };
@@ -1795,14 +2071,22 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	case 't':
 	case 'y':
 	case 'u':
+	case KEY_LEFT:
+	case KEY_RIGHT:
+	case KEY_UP:
+	case KEY_DOWN:
 		// キャリブレーション用に使用
 		break;
 
-	case KEY_F1: view_2d_top(); break;
-	case KEY_F2: view_2d_front(); break;
-	case KEY_F3: view_3d_left(); break;
-	case KEY_F4: view_3d_right(); break;
-	case KEY_F5: view_3d_front(); break;
+	case KEY_F1: view_2d_left();  break;
+	case KEY_F2: view_2d_top();   break;
+	case KEY_F3: view_2d_front(); break;
+	case KEY_F4: break;
+	
+	case KEY_F5: view_2d_run();   break;
+	case KEY_F6: view_3d_left();  break;
+	case KEY_F7: view_3d_right(); break;
+	case KEY_F8: view_3d_front(); break;
 
 	case KEY_HOME:
 		config.far_threshold -= shift ? 1 : 10;
@@ -1811,39 +2095,41 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		config.far_threshold += shift ? 1 : 10;
 		break;
 
-	case 'a':
-	case 'A':
-	case KEY_LEFT:
-		eye.x += movespeed * cos(eye.rh - 90*PI/180);
-		eye.z += movespeed * sin(eye.rh - 90*PI/180);
+ 	case 'a':
+ 	case 'A':
+		eye.x += movespeed * cosf(eye.rh - 90*PI/180);
+		eye.z += movespeed * sinf(eye.rh - 90*PI/180);
 		break;
-	case 'd':
-	case 'D':
-	case KEY_RIGHT:
-		eye.x += movespeed * cos(eye.rh + 90*PI/180);
-		eye.z += movespeed * sin(eye.rh + 90*PI/180);
+ 	case 'd':
+ 	case 'D':
+		eye.x += movespeed * cosf(eye.rh + 90*PI/180);
+		eye.z += movespeed * sinf(eye.rh + 90*PI/180);
 		break;
-	case 's':
-	case 'S':
-	case KEY_DOWN:
-		eye.x += movespeed * cos(eye.rh + 180*PI/180) * fov_step;
-		eye.z += movespeed * sin(eye.rh + 180*PI/180) * fov_step;
+ 	case 's':
+ 	case 'S':
+		eye.x += movespeed * cosf(eye.rh + 180*PI/180);
+		eye.z += movespeed * sinf(eye.rh + 180*PI/180);
 		break;
-	case 'w':
-	case 'W':
-	case KEY_UP:
-		eye.x += movespeed * cos(eye.rh + 0*PI/180) * fov_step;
-		eye.z += movespeed * sin(eye.rh + 0*PI/180) * fov_step;
-		break;
+ 	case 'w':
+ 	case 'W':
+		eye.x += movespeed * cosf(eye.rh + 0*PI/180);
+		eye.z += movespeed * sinf(eye.rh + 0*PI/180);
+ 		break;
 	case 'q':
 	case 'Q':
-	case KEY_PAGEDOWN:
 		eye.y += -movespeed;
 		break;
 	case 'e':
 	case 'E':
+		eye.y += movespeed;
+		break;
+	case KEY_PAGEDOWN:
+		eye.y -= movespeed;
+		eye.v += movespeed;
+		break;
 	case KEY_PAGEUP:
 		eye.y += movespeed;
+		eye.v -= movespeed;
 		break;
 
 	case 27:
@@ -1886,7 +2172,7 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		movie_index = 0;
 		break;
 	
-	case KEY_F8:
+	case KEY_F9:
 		load_config();
 		break;
 
@@ -1896,13 +2182,6 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	case 'M':  toggle(mode.mirroring); break;
 	case 'b':  toggle(mode.borderline);    break;
 	case 'B':  toggle(mode.simple_dot_body);  break;
-
-	case 'g':
-		fovy -= 0.05;
-		break;
-	case 'h':
-		fovy += 0.05;
-		break;
 
 	case '$':
 		toggle(mode.view4test);

@@ -17,6 +17,17 @@ struct GlobalConfig
 	GlobalConfig();
 };
 
+struct CamParam
+{
+	float x,y,z,rotx,roty,rotz,scale;
+
+	CamParam()
+	{
+		x=y=z=rotx=roty=rotz=0.0f;
+		scale=1.0f;
+	}
+};
+
 struct Config
 {
 	int client_number;
@@ -27,6 +38,8 @@ struct Config
 	int initial_window_y;
 	bool initial_fullscreen;
 	bool mirroring;
+
+	CamParam cam1,cam2;
 
 	struct Metrics
 	{
