@@ -442,25 +442,21 @@ void StClient::displayPictureScreen()
 }
 
 
-
-
 struct ChangeCalParamKeys
 {
-	bool rot_xy, rot_z, scale, ctrl, up, left, right, down;
+	bool rot_xy, rot_z, scale, ctrl;
+
+	void init()
+	{
+		BYTE kbd[256];
+		GetKeyboardState(kbd);
+
+		this->ctrl   = (kbd[VK_CONTROL] & 0x80)!=0;
+		this->rot_xy = (kbd['T'] & 0x80)!=0;
+		this->rot_z  = (kbd['Y'] & 0x80)!=0;
+		this->scale  = (kbd['U'] & 0x80)!=0;
+	}
 };
-
-ChangeCalParamKeys getChangeCalParamKeys()
-{
-	BYTE kbd[256];
-	GetKeyboardState(kbd);
-
-	ChangeCalParamKeys keys;
-	keys.ctrl   = (kbd[VK_CONTROL] & 0x80)!=0;
-	keys.rot_xy = (kbd['T'] & 0x80)!=0;
-	keys.rot_z  = (kbd['Y'] & 0x80)!=0;
-	keys.scale  = (kbd['U'] & 0x80)!=0;
-	return keys;
-}
 
 
 void StClient::display2()
@@ -499,7 +495,8 @@ void StClient::display2()
 
 	
 	{
-		auto keys = getChangeCalParamKeys();
+		ChangeCalParamKeys keys;
+		keys.init();
 		heading.glColorUpdate();
 		pr(monospace, 320, y,
 			(keys.rot_xy) ? "<XY-rotation>" :
@@ -710,95 +707,6 @@ void drawWall()
 	gl::Texture(false);
 }
 
-
-void drawBody___(RawDepthImage& raw, int red, int green, int blue)
-{
-#define USE_DOT_TEX 1
-
-	// @body @dot
-	const uint16* data = raw.image.data();
-	raw.CalcDepthMinMax();
-	if (!mode.simple_dot_body)
-	{
-		glBegin(GL_QUADS);
-		gl::Texture(true);
-		glBindTexture(GL_TEXTURE_2D, global.dot_image);
-	}
-	else
-	{
-		glBegin(GL_POINTS);
-	}
-
-	const float ax = 0.01;
-	const float az = 0.01;
-
-	const int RANGE = config.far_threshold - config.near_threshold;
-	for (int y=0; y<480; ++y)
-	{
-		for (int x=0; x<640; ++x)
-		{
-			const int val = *data++;
-
-			if (val < config.near_threshold)
-			{
-				continue;
-			}
-			
-			if (val > config.far_threshold)
-			{
-				continue;
-			}
-			
-			// - dev1.raw_depth.min_value
-			int alpha = (val)*255 / RANGE;
-			if (alpha<0) continue;
-			if (alpha>255) alpha=255;
-
-#if 0
-			if ((y + alpha/10)%20<=10)
-			{
-				glRGBA(
-					250 * alpha >> 8,
-					220 * alpha >> 8,
-					 50 * alpha >> 8,
-					255-alpha/2).glColorUpdate();
-			}
-			else
-#endif
-			{
-				glRGBA(
-					red   * alpha >> 8,
-					green * alpha >> 8,
-					blue  * alpha >> 8,
-					255-alpha/2).glColorUpdate();
-			}
-
-			// Aspect ratio 1:1
-			const float z = val/2000.0f;
-			const float dx = x/640.0f - 0.5;
-			const float dy = (480-y)/640.0f;
-			const float dz =  z;
-
-			if (!mode.simple_dot_body)
-			{
-				const float F = 0.0025;
-
-				glVertex3f(dx-ax, dy  , dz-az);
-				glVertex3f(dx+ax, dy-F, dz-az);
-				glVertex3f(dx+ax, dy,   dz+az);
-				glVertex3f(dx-ax, dy-F, dz+az);
-			}
-			else
-			{
-				glVertex3f(dx,dy,dz);
-			}
-		}
-	}
-
-	glEnd();
-}
-
-
 struct Point3D
 {
 	float x,y,z;
@@ -816,50 +724,12 @@ void DS_Init(Dots& dots)
 
 
 
-
-
-
-void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& calparam)
+void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& camparam)
 {
-	mat4x4 trans;
-	{
-		// Xé≤âÒì]
-		float cos = cosf(calparam.rotx);
-		float sin = sinf(calparam.rotx);
-		trans = mat4x4(
-			1,   0,    0, 0,
-			0, cos, -sin, 0,
-			0, sin,  cos, 0,
-			0,   0,    0, 1) * trans;
-	}
-	{
-		// Yé≤âÒì]
-		float cos = cosf(calparam.roty);
-		float sin = sinf(calparam.roty);
-		trans = mat4x4(
-			 cos, 0, sin, 0,
-			   0, 1,   0, 0,
-			-sin, 0, cos, 0,
-			   0, 0,   0, 1) * trans;
-	}
-	{
-		// Zé≤âÒì]
-		float cos = cosf(calparam.rotz);
-		float sin = sinf(calparam.rotz);
-		trans = mat4x4(
-			cos,-sin, 0, 0,
-			sin, cos, 0, 0,
-			  0,   0, 1, 0,
-			  0,   0, 0, 1) * trans;
-	}
-
-	// ïΩçsà⁄ìÆ
-	const float s = calparam.scale;
-	trans = mat4x4(
-		s, 0, 0, calparam.x,
-		0, s, 0, calparam.y,
-		0, 0, s, calparam.z,
-		0, 0, 0, 1) * trans;
+	const mat4x4 trans = mat4x4::create(
+			camparam.rotx, camparam.roty, camparam.rotz,
+			camparam.x,    camparam.y,    camparam.z,
+			camparam.scale);
 
 	int index = 0;
 	for (int y=0; y<480; ++y)
@@ -1476,7 +1346,8 @@ void change_cal_param(Calset& set, float mx, float my, const ChangeCalParamKeys&
 
 void StClient::do_calibration(float mx, float my)
 {
-	auto keys = getChangeCalParamKeys();
+	ChangeCalParamKeys keys;
+	keys.init();
 	switch (active_camera)
 	{
 	case CAM_A:

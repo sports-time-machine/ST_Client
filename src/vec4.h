@@ -71,6 +71,52 @@ struct mat4x4
 		v[3].set(d,h,l,p);
 	}
 
+	// rotation, move and scaling
+	static mat4x4 create(float rotx, float roty, float rotz, float x, float y, float z, float scale)
+	{
+		mat4x4 trans;
+		{
+			// Xé≤âÒì]
+			const float cos = cosf(rotx);
+			const float sin = sinf(rotx);
+			trans = mat4x4(
+				1,   0,    0, 0,
+				0, cos, -sin, 0,
+				0, sin,  cos, 0,
+				0,   0,    0, 1) * trans;
+		}
+		{
+			// Yé≤âÒì]
+			const float cos = cosf(roty);
+			const float sin = sinf(roty);
+			trans = mat4x4(
+				 cos, 0, sin, 0,
+				   0, 1,   0, 0,
+				-sin, 0, cos, 0,
+				   0, 0,   0, 1) * trans;
+		}
+		{
+			// Zé≤âÒì]
+			const float cos = cosf(rotz);
+			const float sin = sinf(rotz);
+			trans = mat4x4(
+				cos,-sin, 0, 0,
+				sin, cos, 0, 0,
+				  0,   0, 1, 0,
+				  0,   0, 0, 1) * trans;
+		}
+
+		// ïΩçsà⁄ìÆÇ∆ÉYÅ[ÉÄ
+		const float s = scale;
+		trans = mat4x4(
+			s, 0, 0, x,
+			0, s, 0, y,
+			0, 0, s, z,
+			0, 0, 0, 1) * trans;
+
+		return trans;
+	}
+
 	vec4 operator*(const vec4& s) const
 	{
 		vec4 d;
