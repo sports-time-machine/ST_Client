@@ -42,6 +42,12 @@ enum ClientStatus
 	STATUS_GOAL,
 };
 
+enum ActiveCamera
+{
+	CAM_A,
+	CAM_B,
+	CAM_BOTH,
+};
 
 
 struct RawDepthImage
@@ -62,21 +68,6 @@ struct RawDepthImage
 	void CalcDepthMinMax();
 };
 
-struct RgbaTex
-{
-	RGBA_raw* vram;
-	uint tex;
-	uint width;
-	uint height;
-	uint ram_width, ram_height;
-	uint pitch;     // f(2^X, width)
-
-	RgbaTex();
-	virtual ~RgbaTex();
-
-	void create(int w, int h);
-};
-
 struct Kdev
 {
 	openni::Device device;
@@ -89,8 +80,6 @@ struct Kdev
 	RawDepthImage raw_depth;
 	RawDepthImage raw_floor;
 	RawDepthImage raw_cooked;
-
-	RgbaTex  img_rawdepth;
 
 	uint vram_tex;
 	uint vram_floor;
@@ -192,6 +181,9 @@ private:
 	static void glutMouseMove(int x, int y);
 	static void glutReshape(int width, int height);
 
+	void do_calibration(float mx, float my);
+
+
 	unsigned int		m_nTexMapX;
 	unsigned int		m_nTexMapY;
 
@@ -210,9 +202,8 @@ private:
 
 
 	Eye     eye;
+	ActiveCamera active_camera;
 
-
-	void drawPlaybackMovie();
 	void display2();
 };
 

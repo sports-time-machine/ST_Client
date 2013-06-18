@@ -47,16 +47,7 @@ struct Calset
 
 local Calset cal_cam1, cal_cam2;
 
-enum CameraMode
-{
-	CAM_A,
-	CAM_B,
-	CAM_BOTH,
-};
-
-local CameraMode camera_mode = CAM_BOTH;
 local float eye_rh_base, eye_rv_base, eye_y_base;
-
 
 struct TimeProfile
 {
@@ -83,13 +74,7 @@ void Kdev::initRam()
 {
 	glGenTextures(1, &this->vram_tex);
 	glGenTextures(1, &this->vram_floor);
-	this->img_rawdepth.create(640,480);
 }
-
-
-
-
-
 
 
 struct HitObject
@@ -185,42 +170,6 @@ const int MOVIE_FPS = 30;
 const int MOVIE_MAX_FRAMES = MOVIE_MAX_SECS * MOVIE_FPS;
 
 
-RgbaTex::RgbaTex()
-{
-	vram = nullptr;
-	tex = 0;
-	width = 0;
-	height = 0;
-	ram_width = 0;
-	ram_height = 0;
-	pitch = 0;
-}
-
-RgbaTex::~RgbaTex()
-{
-	if (vram!=nullptr) delete[] vram;
-}
-
-void RgbaTex::create(int w, int h)
-{
-	const int TEXTURE_SIZE = 512;
-
-	glGenTextures(1, &tex);
-	glBindTexture(GL_TEXTURE_2D, tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-	width      = w;
-	height     = h;
-	ram_width  = MIN_CHUNKS_SIZE(w, TEXTURE_SIZE);
-	ram_height = MIN_CHUNKS_SIZE(h, TEXTURE_SIZE);
-	pitch      = ram_width;
-	vram = new RGBA_raw[ram_width * ram_height];
-
-	fprintf(stderr, "RgbaTex: texture %d, %dx%d creted.\n",
-		tex,
-		w, h);
-}
 
 
 
@@ -264,18 +213,16 @@ StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 	dev1(dev1_),
 	dev2(dev2_),
 	video_ram(nullptr),
-	video_ram2(nullptr)
+	video_ram2(nullptr),
+	active_camera(CAM_BOTH)
 {
 	ms_self = this;
 
 	eye.view_3d_left();
 
-
 	// コンフィグデータからのロード
 	cal_cam1.curr = config.cam1;
 	cal_cam2.curr = config.cam2;
-
-
 
 	udp_recv.init(UDP_CLIENT_RECV);
 	printf("host: %s\n", Core::getComputerName().c_str());
@@ -477,261 +424,9 @@ local uint16 floor_depth2[640*480];
 
 
 
-void DrawRgbaTex_Build(const RgbaTex& img)
-{
-	gl::Texture(true);
-	glBindTexture(GL_TEXTURE_2D, img.tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-		img.ram_width, img.ram_height,
-		0, GL_RGBA, GL_UNSIGNED_BYTE, img.vram);
-}
-
-void DrawRgbaTex_Draw(const RgbaTex& img, int dx, int dy, int dw, int dh)
-{
-	const int x1 = dx;
-	const int y1 = dy;
-	const int x2 = dx + dw;
-	const int y2 = dy + dh;
-	const float u1 = 0.0f;
-	const float v1 = 0.0f;
-	const float u2 = 1.0f * img.width  / img.ram_width;
-	const float v2 = 1.0f * img.height / img.ram_height;
-
-	glEnable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, img.tex);
-	glColor4f(1,1,1,1);
-	glBegin(GL_QUADS);
-	glTexCoord2f(u1, v1); glVertex2f(x1, y1);
-	glTexCoord2f(u2, v1); glVertex2f(x2, y1);
-	glTexCoord2f(u2, v2); glVertex2f(x2, y2);
-	glTexCoord2f(u1, v2); glVertex2f(x1, y2);
-	glEnd();
-}
-
-void DrawRgbaTex(const RgbaTex& img, int dx, int dy, int dw, int dh)
-{
-	DrawRgbaTex_Build(img);
-	DrawRgbaTex_Draw(img, dx,dy,dw,dh);
-}
 
 
 static MovieData curr_movie;
-
-
-void StClient::drawPlaybackMovie()
-{
-	int xx = timeGetTime();
-	static zlibpp::bytes outdata;
-	if (outdata.size()==0)
-	{
-		outdata.resize(640*480);
-		puts("resize outdata");
-	}
-	zlibpp::bytes& byte_stream = curr_movie.frames[movie_index++];
-	zlibpp::decompress(byte_stream, outdata);
-	decomp_time += timeGetTime()-xx;
-
-	int yy = timeGetTime();
-	const auto* src = outdata.data();
-	for (int y=0; y<480; ++y)
-	{
-		RGBA_raw* dest = video_ram2 + y*m_nTexMapX;
-		for (int x=0; x<640; ++x, ++dest, ++src)
-		{
-			const int d = *src;
-			switch (d)
-			{
-			case 0:
-				dest->a = 0;
-				break;
-			case 255:
-				dest->r = 200;
-				dest->g = 140;
-				dest->b = 100;
-				dest->a = 199;
-				break;
-			default:
-				dest->r = d;
-				dest->g = d;
-				dest->b = 0;
-				dest->a = 199;
-				break;
-			}
-		}
-	}
-	draw_time += timeGetTime()-yy;
-
-	// @draw
-	buildBitmap(
-		vram_tex2,
-		video_ram2,
-		m_nTexMapX, m_nTexMapY);
-	drawBitmap(
-		0, 0, 640, 480,
-		0.0f,
-		0.0f,
-		(float)m_width  / m_nTexMapX,
-		(float)m_height / m_nTexMapY);
-}
-
-
-#if 0
-//#
-void StClient::drawDepthModh()
-{
-	using namespace openni;
-
-	const int WORK = 4;
-	static uint8
-		curr_pre[640*480],
-		mixed[640*480],
-		work[WORK][640*480];
-	static int
-		work_total[640*480];
-	static int
-		work_index = 0;
-
-	uint8* const curr = work[work_index];
-	work_index = (work_index+1) % WORK;
-
-	{
-		const uint8* src = curr_pre;
-		uint8* dest = curr;
-		for (int y=0; y<480; ++y)
-		{
-			for (int x=0; x<640; ++x)
-			{
-				uint8 depth = *src++;
-
-				if (mode.borderline && depth>=10 && depth<=240)
-				{
-					if (depth%2==0)
-						depth = 20;
-					else
-						depth = 240;
-				}
-
-				*dest++ = depth;
-			}
-		}
-	}
-
-
-	// Curr+Back => Mixed
-	if (mode.mixed_enabled)
-	{
-		for (int i=0; i<640*480; ++i)
-		{
-			work_total[i] = 0;
-		}
-		for (int j=0; j<WORK; ++j)
-		{
-			for (int i=0; i<640*480; ++i)
-			{
-				if (work[j][i]!=255)
-				{
-					work_total[i] += work[j][i];
-				}
-			}
-		}
-
-		// Total => Mixed
-		for (int i=0; i<640*480; ++i)
-		{
-			mixed[i] = work_total[i] / WORK;
-		}
-	}
-
-	switch (movie_mode)
-	{
-	case MOVIE_RECORD:
-		if (curr_movie.recorded_tail >= curr_movie.frames.size())
-		{
-			puts("time over! record stop.");
-			movie_mode = MOVIE_READY;
-		}
-		else
-		{
-			zlibpp::bytes& byte_stream = curr_movie.frames[curr_movie.recorded_tail++];
-			zlibpp::compress(curr, 640*480, byte_stream, 2);
-			printf("frame %d, %d bytes (%.1f%%)\n",
-				curr_movie.recorded_tail,
-				byte_stream.size(),
-				byte_stream.size() * 100.0 / (640*480));
-		}
-		break;
-	case MOVIE_PLAYBACK:
-		if (movie_index >= curr_movie.recorded_tail)
-		{
-			puts("movie is end. stop.");
-			movie_mode = MOVIE_READY;
-		}
-		else
-		{
-			movie_mode = MOVIE_PLAYBACK;
-			movie_index = 0;
-		}
-		break;
-	}
-
-
-	// Mixed to Texture
-	{
-		auto* src = mode.mixed_enabled ? mixed : curr;
-
-		for (int y=0; y<480; ++y)
-		{
-			RGBA_raw* dest = video_ram + y*m_nTexMapX;
-
-			for (int x=0; x<640; ++x, ++dest, ++src)
-			{
-				const int value = *src;
-				switch (value)
-				{
-				case 0:
-					dest->set(30,50,70,200);
-					break;
-				case 1:
-					dest->set(0, 40, 80, 100);
-					break;
-				case 255:
-					dest->set(80, 50, 20, 200);
-					break;
-				default:
-					if (mode.alpha_mode)
-					{
-						dest->set(100, value, 255-value, 255);
-					}
-					else
-					{
-						dest->set(240, 220, 140, (value));
-					}
-					break;
-				}
-			}
-		}
-	}
-
-	// @build
-	buildBitmap(dev1.vram_tex, video_ram, m_nTexMapX, m_nTexMapY);
-
-	// @draw
-	const int draw_x = 0;
-	const int draw_y = 0;
-	const int draw_w = 640/2;
-	const int draw_h = 480/2;
-	drawBitmap(
-		draw_x, draw_y,
-		draw_w, draw_h,
-		0.0f,
-		0.0f,
-		(float)m_width  / m_nTexMapX,
-		(float)m_height / m_nTexMapY);
-}
-#endif
 
 
 void StClient::displayBlackScreen()
@@ -1349,7 +1044,7 @@ void StClient::display()
 	glRGBA color_other(120,120,120);
 	glRGBA color_outer(120,130,200);
 
-	if (camera_mode==CAM_BOTH)
+	if (active_camera==CAM_BOTH)
 	{
 		{
 			DS_Init(dot_set);
@@ -1360,7 +1055,7 @@ void StClient::display()
 	}
 	else
 	{
-		if (camera_mode==CAM_A)
+		if (active_camera==CAM_A)
 		{
 			DS_Init(dot_set);
 			MixDepth(dot_set, dev1.raw_depth, cal_cam1.curr);
@@ -1779,10 +1474,10 @@ void change_cal_param(Calset& set, float mx, float my, const ChangeCalParamKeys&
 }
 
 
-void do_calibration(float mx, float my)
+void StClient::do_calibration(float mx, float my)
 {
 	auto keys = getChangeCalParamKeys();
-	switch (camera_mode)
+	switch (active_camera)
 	{
 	case CAM_A:
 		change_cal_param(cal_cam1, mx, my, keys);
@@ -1921,13 +1616,13 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		break;
 
 	case '1':
-		camera_mode = CAM_A;
+		active_camera = CAM_A;
 		break;
 	case '2':
-		camera_mode = CAM_B;
+		active_camera = CAM_B;
 		break;
 	case '3':
-		camera_mode = CAM_BOTH;
+		active_camera = CAM_BOTH;
 		break;
 
 	case 't':
