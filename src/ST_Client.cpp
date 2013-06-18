@@ -16,12 +16,12 @@
 #include "ST_Client.h"
 #include <GL/glfw.h>
 #pragma comment(lib,"GLFW_x32.lib")
-#pragma warning(disable:4996) // unsafe function
 
 #define USE_GLFW 0
-
-
 #define local static
+
+#pragma warning(disable:4996) // unsafe function
+
 
 
 
@@ -51,28 +51,6 @@ enum CameraMode
 local CameraMode camera_mode = CAM_BOTH;
 local float eye_rh_base, eye_rv_base, eye_y_base;
 
-
-
-void drawSphere(float x, float y, float z)
-{
-	static GLUquadricObj *sphere = nullptr;
-	if (sphere==nullptr)
-	{
-		sphere = gluNewQuadric();
-	}
-
-	gluQuadricDrawStyle(sphere, GLU_LINE);
-	glRGBA(255,255,255).glColorUpdate();
-	glPushMatrix();
-		glLoadIdentity();
-		glTranslatef(x,y,z);
-		gluSphere(sphere, 0.01, 10.0, 10.0);
-	glPopMatrix();
-}
-
-
-
-const float PI = 3.141592653;
 
 
 struct DepthLine
@@ -107,89 +85,6 @@ local TimeProfile time_profile;
 
 
 static int old_x, old_y;
-struct Eye
-{
-	float x,y,z;    // 視線の原点
-	float rh;       // 視線の水平方向(rad)
-	float v;        // 視線の垂直方向
-
-	void set(float x, float y, float z, float h, float v)
-	{
-		this->x  = x;
-		this->y  = y;
-		this->z  = z;
-		this->rh = h;
-		this->v  = v;
-	}
-
-	void gluLookAt()
-	{
-		const float eye_depth = 4.0f;
-		const float ex = x + cos(rh) * eye_depth;
-		const float ez = z + sin(rh) * eye_depth;
-		const float ey = y + v;
-
-		::gluLookAt(x,y,z, ex,ey,ez, 0,1,0);
-	}
-};
-
-local Eye eye;
-
-
-
-void view_2d_left()
-{
-	global.view.is_ortho = true;
-	global.view.ortho.width = 4.5;
-	global.view_mode = VM_2D_LEFT;
-	eye.set(-10.0f, -0.2f, -1.5f, 0.0f, 0.0f);
-}
-
-void view_2d_top()
-{
-	global.view.is_ortho = true;
-	global.view.ortho.width = 5.0;
-	global.view_mode = VM_2D_TOP;
-	eye.set(0.0f, 110.0, 5.2f, -PI/2, -100.0f);
-}
-
-void view_2d_front()
-{
-	global.view.is_ortho = true;
-	global.view.ortho.width = 4.5;  // 少し広く
-	global.view_mode = VM_2D_FRONT;
-	eye.set(0.0f, -0.2f, 10.0f, -PI/2, 0.0f);
-}
-
-void view_2d_run()
-{
-	global.view.is_ortho = true;
-	global.view.ortho.width = 4.0;
-	global.view_mode = VM_2D_RUN;
-	eye.set(0.0f, -0.4f, 5.0f, -PI/2, 0.0f);
-}
-
-void view_3d_left()
-{
-	global.view.is_ortho = false;
-	global.view_mode = VM_3D_LEFT;
-	eye.set(-2.9f, 1.5f, 3.6f, -1.03f, -0.82f);
-}
-
-void view_3d_right()
-{
-	global.view.is_ortho = false;
-	global.view_mode = VM_3D_RIGHT;
-	eye.set(2.9f, 1.5f, 3.6f, -2.11f, -0.82f);
-}
-
-void view_3d_front()
-{
-	global.view.is_ortho = false;
-	global.view_mode = VM_3D_FRONT;
-	eye.set(0.0f, 1.5f, 4.00f, -PI/2, -0.60f);
-}
-
 
 
 
@@ -383,7 +278,7 @@ StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 {
 	ms_self = this;
 
-	view_3d_left();
+	eye.view_3d_left();
 
 
 	// コンフィグデータからのロード
@@ -889,7 +784,7 @@ ChangeCalParamKeys getChangeCalParamKeys()
 }
 
 
-void display2()
+void StClient::display2()
 {
 	static uint time_begin;
 	if (time_begin==0)
@@ -2069,15 +1964,15 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		// キャリブレーション用に使用
 		break;
 
-	case KEY_F1: view_2d_left();  break;
-	case KEY_F2: view_2d_top();   break;
-	case KEY_F3: view_2d_front(); break;
+	case KEY_F1: eye.view_2d_left();  break;
+	case KEY_F2: eye.view_2d_top();   break;
+	case KEY_F3: eye.view_2d_front(); break;
 	case KEY_F4: break;
 	
-	case KEY_F5: view_2d_run();   break;
-	case KEY_F6: view_3d_left();  break;
-	case KEY_F7: view_3d_right(); break;
-	case KEY_F8: view_3d_front(); break;
+	case KEY_F5: eye.view_2d_run();   break;
+	case KEY_F6: eye.view_3d_left();  break;
+	case KEY_F7: eye.view_3d_right(); break;
+	case KEY_F8: eye.view_3d_front(); break;
 
 	case KEY_HOME:
 		config.far_threshold -= shift ? 1 : 10;

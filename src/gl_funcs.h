@@ -91,6 +91,7 @@ public:
 	static void RectangleFill(int x, int y, int w, int h);
 	static void Line3D(vec p1, vec p2);
 	static void Line2D(Point2i p1, Point2i p2);
+	static void DrawSphere(float x, float y, float z, float r);
 
 private:
 	struct Data

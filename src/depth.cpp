@@ -5,6 +5,9 @@
 
 const int far_clipping = 5000;
 
+//========================================
+// KinectからDepthデータをそのまま読み取る
+//========================================
 void Kdev::CreateRawDepthImage_Read()
 {
 	if (!depth.isValid())
@@ -17,6 +20,12 @@ void Kdev::CreateRawDepthImage_Read()
 	depth.readFrame(&depthFrame);
 }
 
+//===========================================================
+// Depthイメージを取得する
+//------------------------
+//  - Depthデータは0-10000程度の整数でもらえ単位はmmとなる。
+//    したがって3.23mの位置にあるドットは3230というDepthになる
+//===========================================================
 void Kdev::CreateRawDepthImage()
 {
 	using namespace openni;
@@ -50,6 +59,12 @@ void Kdev::CreateRawDepthImage()
 	}
 }
 
+//=============================================================================
+// Depthイメージから床イメージを排除する
+//-------------------------------------
+//  - 床イメージは距離の「最大値」であるので、その「手前」だけを有効な画素とする。
+//    つまり床イメージDepthよりも「少ない」Depthだけが有効である。
+//=============================================================================
 void StClient::CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage& raw_depth, const RawDepthImage& raw_floor)
 {
 	// Part 1: Mix depth and floor

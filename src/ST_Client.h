@@ -7,6 +7,8 @@
 #include "vec4.h"
 
 
+const float PI = 3.141592653;
+
 #define WITHOUT_KINECT 1
 
 #define MIN_NUM_CHUNKS(data_size, chunk_size)	((((data_size)-1) / (chunk_size) + 1))
@@ -119,6 +121,32 @@ struct Mode
 };
 
 
+struct Eye
+{
+	float x,y,z;    // Ž‹ü‚ÌŒ´“_
+	float rh;       // Ž‹ü‚Ì…•½•ûŒü(rad)
+	float v;        // Ž‹ü‚Ì‚’¼•ûŒü
+
+	void set(float x, float y, float z, float h, float v)
+	{
+		this->x  = x;
+		this->y  = y;
+		this->z  = z;
+		this->rh = h;
+		this->v  = v;
+	}
+
+	void gluLookAt();
+
+	void view_2d_left();
+	void view_2d_top();
+	void view_2d_front();
+	void view_2d_run();
+	void view_3d_left();
+	void view_3d_right();
+	void view_3d_front();
+};
+
 
 class StClient
 {
@@ -182,7 +210,11 @@ private:
 	mi::UdpSender   udp_send;
 
 
+	Eye     eye;
+
+
 	void drawPlaybackMovie();
+	void display2();
 };
 
 
