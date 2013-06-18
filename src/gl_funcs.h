@@ -39,7 +39,7 @@ struct glRGBA
 		this->a = (uint8)a;
 	}
 
-	void glColorUpdate();
+	void glColorUpdate() const;
 };
 
 struct vec

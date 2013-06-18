@@ -2,10 +2,7 @@
 	#define _CRT_SECURE_NO_DEPRECATE 1
 #endif
 
-#include "mi/Image.h"
-#include "mi/Udp.h"
-#include "mi/Libs.h"
-#include "mi/Timer.h"
+#include "mi/mi.h"
 #include "FreeType.h"
 #include "gl_funcs.h"
 #include "file_io.h"
@@ -19,7 +16,6 @@
 
 #define USE_GLFW 0
 #define local static
-
 #pragma warning(disable:4996) // unsafe function
 
 
@@ -31,19 +27,54 @@ using namespace mi;
 
 
 
-struct HitData
+class HitData
 {
+private:
 	static const int AREA_W = 400; // 400cm
 	static const int AREA_H = 300; // 300cm
+
+public:
 	static const int CEL_W  = AREA_W/10;
 	static const int CEL_H  = AREA_H/10;
 
+	static bool inner(int x, int y)
+	{
+		return (uint)x<CEL_W && (uint)y<CEL_H;
+	}
+
+	int get(int x, int y) const
+	{
+		if (!inner(x,y))
+		{
+			return 0;
+		}
+		return hit[x + y*CEL_W];
+	}
+
+	void inc(int x, int y)
+	{
+		if (inner(x,y))
+		{
+			++hit[x + y*CEL_W];
+		}
+	}
+
+	void clear()
+	{
+		memset(hit, 0, sizeof(hit));
+	}
+
+private:
 	// 10cm3 box
-	bool hit[CEL_W * CEL_H];
+	int hit[CEL_W * CEL_H];
 };
 
 local HitData hitdata;
 
+
+int flashing = 0;
+int fll = 0;
+size_t hit_stage = 0;
 
 
 struct Calset
@@ -85,11 +116,19 @@ void Kdev::initRam()
 
 struct HitObject
 {
+	bool enable;
 	Point point;
 	glRGBA color;
+
+	HitObject():
+		enable(true)
+	{
+	}
 };
 
 local std::vector<HitObject> hit_objects;
+
+
 
 
 struct VodyInfo
@@ -200,8 +239,6 @@ void toggle(bool& ref)
 	puts("-----------------------------");
 }
 
-#define DEFAULT_DISPLAY_MODE	DISPLAY_MODE_DEPTH
-
 
 StClient* StClient::ms_self = nullptr;
 
@@ -212,6 +249,37 @@ local size_t movie_index = 0;
 local openni::RGB888Pixel* moviex = nullptr;
 local freetype::font_data monospace;
 
+
+void init_hit_objects()
+{
+	{
+		HitObject ho;
+		ho.point = Point(27,16);
+		ho.color = glRGBA(250, 100, 150);
+		hit_objects.push_back(ho);
+	}
+
+	{
+		HitObject ho;
+		ho.point = Point(5,10);
+		ho.color = glRGBA(20, 100, 250);
+		hit_objects.push_back(ho);
+	}
+
+	{
+		HitObject ho;
+		ho.point = Point(5,20);
+		ho.color = glRGBA(250, 50, 50);
+		hit_objects.push_back(ho);
+	}
+
+	{
+		HitObject ho;
+		ho.point = Point(30,10);
+		ho.color = glRGBA(255, 200, 120);
+		hit_objects.push_back(ho);
+	}
+}
 
 
 // @constructor, @init
@@ -236,26 +304,7 @@ StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 
 	mode.mirroring   = config.mirroring;
 
-	{
-		HitObject ho;
-		ho.point = Point(3,2);
-		ho.color = glRGBA(20, 100, 250);
-		hit_objects.push_back(ho);
-	}
-
-	{
-		HitObject ho;
-		ho.point = Point(529,380);
-		ho.color = glRGBA(250, 50, 50);
-		hit_objects.push_back(ho);
-	}
-
-	{
-		HitObject ho;
-		ho.point = Point(622,50);
-		ho.color = glRGBA(255, 200, 120);
-		hit_objects.push_back(ho);
-	}
+	init_hit_objects();
 }
 
 StClient::~StClient()
@@ -562,12 +611,14 @@ void StClient::display2()
 	nl();
 
 	pr(monospace, 20, y+=H,
-		"#%d Near(%dmm) Far(%dmm) [%s][%s]",
+		"#%d Near(%dmm) Far(%dmm) [%s][%s] hit-stage=%d flashing=%d",
 			config.client_number,
 			config.near_threshold,
 			config.far_threshold,
 			mode.borderline ? "border" : "no border",
-			mode.auto_clipping ? "auto clipping" : "no auto clip");
+			mode.auto_clipping ? "auto clipping" : "no auto clip",
+			hit_stage,
+			fll);
 
 	// @fps
 	pr(monospace, 20, y+=H, "%d, %d, %.1ffps, %.2ffps, %d, %d",
@@ -821,9 +872,9 @@ void drawBoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, bool h
 
 
 
-size_t hit_object_stage = 0;
 void StClient::display()
 {
+	// フレーム開始時にUDPコマンドの処理をする
 	while (doCommand())
 	{
 	}
@@ -952,7 +1003,7 @@ void StClient::display()
 	}
 
 
-	memset(hitdata.hit, 0, sizeof(hitdata.hit));
+	hitdata.clear();
 	for (size_t i=0; i<dot_set.size(); ++i)
 	{
 		// デプスはGreenのなかだけ
@@ -965,15 +1016,12 @@ void StClient::display()
 
 		// (x,z)を、大きさ1の正方形におさめる（はみ出すこともある）
 		float fx = ((p.x+2.0)/4.0);
-		float fy = ((2.4-p.y)/2.4);
+		float fy = ((2.8-p.y)/2.8);
 
-		const int x = (int)(fx * 80);
-		const int y = (int)(fy * 60);
+		const int x = (int)(fx * HitData::CEL_W);
+		const int y = (int)(fy * HitData::CEL_H);
 
-		if ((uint)x<80 && (uint)y<60)
-		{
-			hitdata.hit[x + y*80] = true;
-		}
+		hitdata.inc(x, y);
 	}
 
 
@@ -1116,33 +1164,106 @@ void StClient::display()
 	gl::LoadIdentity();
 	glOrtho(0, 640, 480, 0, -1.0, 1.0);
 
+
 	gl::Texture(false);
 	gl::DepthTest(false);
 
+	if (flashing>0)
 	{
-		glRGBA body(240,220,60, 180);
-		glRGBA empty(50,60,80, 60);
-		
+		flashing -= 13;
+		fll = minmax(flashing,0,255);
+		glRGBA(255,255,255, fll).glColorUpdate();
 		glBegin(GL_QUADS);
-		for (int y=0; y<60; ++y)
+			glVertex2i(0,0);
+			glVertex2i(640,0);
+			glVertex2i(640,480);
+			glVertex2i(0,480);
+		glEnd();
+	}
+
+
+	{
+		// 当たり判定オブジェクト(hitdata)の描画
+		glBegin(GL_QUADS);
+		for (int y=0; y<HitData::CEL_H; ++y)
 		{
-			for (int x=0; x<80; ++x)
+			for (int x=0; x<HitData::CEL_W; ++x)
 			{
-				hitdata.hit[x+y*80]
-					? body.glColorUpdate()
-					: empty.glColorUpdate();
-				const int S = 2;
+				int hit = hitdata.get(x,y);
+				int p = minmax(hit/5, 0, 255);
+				int q = 255-p;
+				glRGBA(
+					(240*p +  50*q)>>8,
+					(220*p +  70*q)>>8,
+					( 60*p + 110*q)>>8,
+					180).glColorUpdate();
+				const int S = 5;
+				const int V = S-1;
 				const int M = 10;
-				const int dx = x*S + 640 - M - 80*S;
+				const int dx = x*S + 640 - M - HitData::CEL_W*S;
 				const int dy = y*S +   0 + M;
 				glVertex2i(dx,   dy);
-				glVertex2i(dx+S, dy);
-				glVertex2i(dx+S, dy+S);
-				glVertex2i(dx,   dy+S);
+				glVertex2i(dx+V, dy);
+				glVertex2i(dx+V, dy+V);
+				glVertex2i(dx,   dy+V);
 			}
 		}
 		glEnd();
 	}
+	{
+		glBegin(GL_QUADS);
+		for (size_t i=0; i<hit_objects.size(); ++i)
+		{
+			const HitObject& ho = hit_objects[i];
+			ho.color.glColorUpdate();
+			const int S = 5;
+			const int V = S-1;
+			const int M = 10;
+			const int dx = ho.point.x*S + 640 - M - HitData::CEL_W*S;
+			const int dy = ho.point.y*S +   0 + M;
+			glVertex2i(dx-1, dy-1);
+			glVertex2i(dx+V, dy-1);
+			glVertex2i(dx+V, dy+V);
+			glVertex2i(dx-1, dy+V);
+		}
+		glEnd();
+	}
+
+	// 当たり判定
+	if (flashing<=0)
+	{
+		for (size_t i=hit_stage; i<=hit_stage; ++i)
+		{
+			HitObject& ho = hit_objects[i];
+			if (!ho.enable)
+				continue;
+
+			int value = hitdata.get(ho.point.x, ho.point.y);
+		
+			// 10cm3に25ドット以上あったらヒットとする
+			if (value>=25)
+			{
+				printf("HIT!! hit object %d, point (%d,%d)\n",
+					i,
+					ho.point.x,
+					ho.point.y);
+				flashing = 200;
+				ho.enable = false;
+				++hit_stage;
+				if (hit_stage>=hit_objects.size())
+				{
+					puts("CLEAR HIT STAGE");
+					hit_stage = 0;
+					for (size_t i=0; i<hit_objects.size(); ++i)
+					{
+						hit_objects[i].enable = true;
+					}
+				}
+				break;
+			}
+		}
+	}
+
 
 
 	switch (global.client_status)
@@ -1152,7 +1273,6 @@ void StClient::display()
 	}
 
 	glRGBA::white.glColorUpdate();
-
 	display2();
 
 #if 0
@@ -1176,6 +1296,9 @@ void StClient::display()
 		glVertex2d(old_x, old_y);
 	glEnd();
 #endif
+
+
+
 
 #if !USE_GLFW
 	glutSwapBuffers();

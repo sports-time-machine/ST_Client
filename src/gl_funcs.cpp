@@ -6,7 +6,7 @@ glRGBA
 	glRGBA::white(255,255,255),
 	glRGBA::black(0,0,0);
 
-void glRGBA::glColorUpdate()
+void glRGBA::glColorUpdate() const 
 {
 	glColor4ub(r,g,b,a);
 }

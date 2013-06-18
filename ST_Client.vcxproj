@@ -53,6 +53,7 @@
     <ClInclude Include="src\mi\Core.h" />
     <ClInclude Include="src\mi\Image.h" />
     <ClInclude Include="src\mi\Libs.h" />
+    <ClInclude Include="src\mi\mi.h" />
     <ClInclude Include="src\mi\Timer.h" />
     <ClInclude Include="src\mi\Udp.h" />
     <ClInclude Include="src\pch.h" />
