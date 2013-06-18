@@ -171,7 +171,6 @@ protected:
 	Kdev& dev2;
 
 private:
-	void displayDepthScreen();
 	void displayBlackScreen();
 	void displayPictureScreen();
 

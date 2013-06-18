@@ -27,7 +27,13 @@
 
 struct HitData
 {
-	bool hit[80*60];
+	static const int AREA_W = 400; // 400cm
+	static const int AREA_H = 300; // 300cm
+	static const int CEL_W  = AREA_W/10;
+	static const int CEL_H  = AREA_H/10;
+
+	// 10cm3 box
+	bool hit[CEL_W * CEL_H];
 };
 
 local HitData hitdata;
@@ -50,21 +56,6 @@ enum CameraMode
 
 local CameraMode camera_mode = CAM_BOTH;
 local float eye_rh_base, eye_rv_base, eye_y_base;
-
-
-
-struct DepthLine
-{
-	uint16 big_depth[1024];
-	int begin;
-	int end;
-	enum { INVALID=-1 };
-};
-
-typedef std::vector<DepthLine> DepthScreen;
-
-local DepthScreen depth_screen;
-
 
 
 struct TimeProfile
@@ -192,7 +183,6 @@ const int TEXTURE_SIZE = 512;
 const int MOVIE_MAX_SECS = 50;
 const int MOVIE_FPS = 30;
 const int MOVIE_MAX_FRAMES = MOVIE_MAX_SECS * MOVIE_FPS;
-const int PIXELS_PER_SCREEN = 640*480;
 
 
 RgbaTex::RgbaTex()
@@ -292,8 +282,6 @@ StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 	printf("ip: %s\n", mi::Udp::getIpAddress().c_str());
 
 	mode.mirroring   = config.mirroring;
-
-	depth_screen.resize(512);
 
 	{
 		HitObject ho;
@@ -745,10 +733,6 @@ void StClient::drawDepthModh()
 }
 #endif
 
-
-void StClient::displayDepthScreen()
-{
-}
 
 void StClient::displayBlackScreen()
 {
@@ -1594,14 +1578,6 @@ void StClient::display()
 	{
 	case STATUS_BLACK:        displayBlackScreen();   break;
 	case STATUS_PICTURE:      displayPictureScreen(); break;
-	case STATUS_DEPTH:
-		displayDepthScreen();
-		break;
-	
-	case STATUS_GAMEREADY:
-	case STATUS_GAME:
-		displayDepthScreen();
-		break;
 	}
 
 	glRGBA::white.glColorUpdate();
