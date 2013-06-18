@@ -54,7 +54,6 @@
     <ClInclude Include="src\mi\Libs.h" />
     <ClInclude Include="src\mi\Timer.h" />
     <ClInclude Include="src\mi\Udp.h" />
-    <ClInclude Include="src\OniSampleUtilities.h" />
     <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\ST_Client.h" />
     <ClInclude Include="src\vec4.h" />

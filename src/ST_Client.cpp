@@ -290,10 +290,6 @@ enum MovieMode
 
 local MovieMode movie_mode = MOVIE_READY;
 
-
-#include "XnCppWrapper.h"
-#include "OniSampleUtilities.h"
-
 const int INITIAL_WIN_SIZE_X = 1024;
 const int INITIAL_WIN_SIZE_Y = 768;
 const int TEXTURE_SIZE = 512;
@@ -876,7 +872,7 @@ void StClient::displayPictureScreen()
 
 struct ChangeCalParamKeys
 {
-	bool rot_x, rot_y, rot_z, scale, ctrl, up, left, right, down;
+	bool rot_xy, rot_z, scale, ctrl, up, left, right, down;
 };
 
 ChangeCalParamKeys getChangeCalParamKeys()
@@ -885,11 +881,10 @@ ChangeCalParamKeys getChangeCalParamKeys()
 	GetKeyboardState(kbd);
 
 	ChangeCalParamKeys keys;
-	keys.ctrl  = (kbd[VK_CONTROL] & 0x80)!=0;
-	keys.rot_x = (kbd['T'] & 0x80)!=0;
-	keys.rot_y = (kbd['Y'] & 0x80)!=0;
-	keys.rot_z = (kbd['U'] & 0x80)!=0;
-	keys.scale = (kbd['I'] & 0x80)!=0;
+	keys.ctrl   = (kbd[VK_CONTROL] & 0x80)!=0;
+	keys.rot_xy = (kbd['T'] & 0x80)!=0;
+	keys.rot_z  = (kbd['Y'] & 0x80)!=0;
+	keys.scale  = (kbd['U'] & 0x80)!=0;
 	return keys;
 }
 
@@ -933,10 +928,9 @@ void display2()
 		auto keys = getChangeCalParamKeys();
 		heading.glColorUpdate();
 		pr(monospace, 320, y,
-			(keys.rot_x) ? "<X-rotation (vertical)>" :
-			(keys.rot_y) ? "<Y-rotation (horizontal)>" :
-			(keys.rot_z) ? "<Z-rotation (rotation)>" :
-			(keys.scale) ? "<Scaling>" : "");
+			(keys.rot_xy) ? "<XY-rotation>" :
+			(keys.rot_z)  ? "<Z-rotation>" :
+			(keys.scale)  ? "<Scaling>" : "");
 	}
 
 
@@ -1474,7 +1468,7 @@ void StClient::display()
 	glRGBA color_cam2(250,190,80);
 	glRGBA color_both(255,255,255);
 	glRGBA color_other(120,120,120);
-	glRGBA color_outer(80,80,144);
+	glRGBA color_outer(120,130,200);
 
 	if (camera_mode==CAM_BOTH)
 	{
@@ -1848,13 +1842,10 @@ void change_cal_param(Calset& set, float mx, float my, const ChangeCalParamKeys&
 	{
 		curr.scale = prev.scale - mx + my;
 	}
-	else if (keys.rot_x)
+	else if (keys.rot_xy)
 	{
-		curr.rotx = prev.rotx - mx + my;
-	}
-	else if (keys.rot_y)
-	{
-		curr.roty = prev.roty - mx + my;
+		curr.rotx = prev.rotx + my;
+		curr.roty = prev.roty + mx;
 	}
 	else if (keys.rot_z)
 	{
