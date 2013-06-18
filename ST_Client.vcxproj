@@ -26,6 +26,7 @@
     <ClCompile Include="src\gl_funcs.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\mi\Audio.cpp" />
+    <ClCompile Include="src\mi\Console.cpp" />
     <ClCompile Include="src\mi\Core.cpp" />
     <ClCompile Include="src\mi\Image.cpp" />
     <ClCompile Include="src\mi\Libs.cpp" />
@@ -47,6 +48,7 @@
     <ClInclude Include="src\FreeType.h" />
     <ClInclude Include="src\gl_funcs.h" />
     <ClInclude Include="src\mi\Audio.h" />
+    <ClInclude Include="src\mi\Console.h" />
     <ClInclude Include="src\mi\Core.h" />
     <ClInclude Include="src\mi\Image.h" />
     <ClInclude Include="src\mi\Libs.h" />

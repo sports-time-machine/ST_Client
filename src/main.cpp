@@ -272,13 +272,14 @@ static void init_kinect(const char* uri, Kdev& k)
 
 
 #include "mi/Timer.h"
+#include "mi/Console.h"
+
 
 int main(int argc, char** argv)
 {
 //	global_config.enable_kinect = false;
 
-
-
+	mi::Console::setTitle("スポーツタイムマシン コンソール");
 
 	load_config();
 
