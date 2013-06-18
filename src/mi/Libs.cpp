@@ -1,6 +1,8 @@
 #include "Libs.h"
 #include <cctype>
 
+using namespace mi;
+
 
 VariantType::VariantType(const std::string& s)
 {

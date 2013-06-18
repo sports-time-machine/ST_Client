@@ -1,18 +1,21 @@
 #pragma once
 #include "Core.h"
 
+namespace mi{
 
 class VariantType
 {
+	typedef std::string String;
+
 public:
-	VariantType(const std::string&);
-	int                  to_i() const { return intvalue; }
-	const char*          to_s() const { return strvalue.c_str(); }
-	bool               is_int() const { return is_intvalue; }
-	const std::string& string() const { return strvalue; }
+	VariantType(const String&);
+	int             to_i() const { return intvalue; }
+	const char*     to_s() const { return strvalue.c_str(); }
+	bool          is_int() const { return is_intvalue; }
+	const String& string() const { return strvalue; }
 
 private:
-	std::string strvalue;
+	String strvalue;
 	int intvalue;
 	bool is_intvalue;
 };
@@ -58,3 +61,5 @@ public:
 	static void splitStringToLines(const std::string& rawstring, std::vector<std::string>& lines);
 	static bool splitString(const std::string& rawstring, std::string& cmd, std::vector<VariantType>& arg);
 };
+
+}//namespace mi
