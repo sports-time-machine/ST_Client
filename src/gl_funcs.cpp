@@ -1,5 +1,6 @@
 #include "gl_funcs.h"
 
+using namespace mgl;
 
 glRGBA
 	glRGBA::white(255,255,255),

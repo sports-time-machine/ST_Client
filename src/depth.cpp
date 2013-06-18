@@ -3,6 +3,9 @@
 #include "Config.h"
 
 
+using namespace stclient;
+
+
 const int far_clipping = 5000;
 
 //========================================

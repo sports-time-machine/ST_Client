@@ -6,6 +6,10 @@
 #pragma warning(disable: 4996)
 
 
+using namespace mi;
+using namespace stclient;
+
+
 bool commandIs(const std::string& cmd,
 		const char* cmd1,
 		const char* cmd2=nullptr,

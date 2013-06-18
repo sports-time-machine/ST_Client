@@ -13,6 +13,11 @@ typedef unsigned __int64 uint64;
 typedef unsigned int uint;
 typedef unsigned int IdNumber;
 
+
+#ifdef __cplusplus
+
+namespace mi{
+
 struct RGBA_raw
 {
 	uint8 r,g,b,a;
@@ -25,11 +30,6 @@ struct RGBA_raw
 		this->a = (uint8)a;
 	}
 };
-
-
-#ifdef __cplusplus
-
-namespace mi{
 
 class File
 {
@@ -109,9 +109,6 @@ public:
 	}
 };
 
-}//namespace mi
-
-
 class Core
 {
 public:
@@ -120,5 +117,7 @@ public:
 	static void abort(const char* title, const char* text=nullptr);
 	static const std::string& getComputerName();
 };
+
+}//namespace mi
 
 #endif//__cplusplus

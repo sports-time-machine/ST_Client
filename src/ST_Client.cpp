@@ -23,6 +23,12 @@
 #pragma warning(disable:4996) // unsafe function
 
 
+using namespace vector_and_matrix;
+using namespace mgl;
+using namespace stclient;
+using namespace mi;
+
+
 
 
 struct HitData

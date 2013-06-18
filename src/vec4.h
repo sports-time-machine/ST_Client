@@ -1,5 +1,7 @@
 #pragma once
 
+namespace vector_and_matrix{
+
 
 struct vec4
 {
@@ -159,3 +161,6 @@ struct mat4x4
 
 	vec4 v[4];
 };
+
+
+}//namespace vector_and_matrix

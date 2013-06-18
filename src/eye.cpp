@@ -1,5 +1,8 @@
 #include "ST_Client.h"
 
+using namespace stclient;
+
+
 void Eye::gluLookAt()
 {
 	const float eye_depth = 4.0f;

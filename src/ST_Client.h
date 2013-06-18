@@ -7,6 +7,9 @@
 #include "vec4.h"
 
 
+namespace stclient{
+
+
 const float PI = 3.141592653;
 
 #define WITHOUT_KINECT 1
@@ -187,9 +190,8 @@ private:
 	unsigned int		m_nTexMapX;
 	unsigned int		m_nTexMapY;
 
-	RGBA_raw* video_ram;
-
-	RGBA_raw* video_ram2;
+	mi::RGBA_raw* video_ram;
+	mi::RGBA_raw* video_ram2;
 	uint vram_tex2;
 
 	int			m_width;
@@ -259,5 +261,9 @@ SmartExtern Global global;
 SmartExtern Mode mode;
 
 
-extern void load_config();
+}//namespace stclient
+
+
+
 extern void toggle(bool& ref);
+extern void load_config();

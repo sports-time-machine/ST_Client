@@ -20,6 +20,11 @@
 #endif
 
 
+using namespace mi;
+using namespace stclient;
+
+
+
 GlobalConfig::GlobalConfig()
 {
 	enable_kinect = true;

@@ -2,6 +2,8 @@
 #include <Windows.h>
 #pragma comment(lib, "User32.lib")
 
+using namespace mi;
+
 
 int Core::getSystemTick()
 {

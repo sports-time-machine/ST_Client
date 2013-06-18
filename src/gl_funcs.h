@@ -5,6 +5,9 @@
 #include <GL/glut.h>
 
 
+namespace mgl{
+
+
 struct glRGBA
 {
 	static glRGBA white,black;
@@ -66,7 +69,6 @@ struct Point2f
 };
 
 
-
 class gl
 {
 public:
@@ -103,18 +105,5 @@ private:
 	static Data& data() { static Data d; return d; }
 };
 
-class ModelViewObject
-{
-public:
-	ModelViewObject()
-	{
-		gl::ModelView();
-		glPushMatrix();
-		gl::LoadIdentity();
-	}
-	~ModelViewObject()
-	{
-		glPopMatrix();
-		gl::Projection();
-	}
-};
+
+}//namespace mgl
