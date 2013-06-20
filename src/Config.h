@@ -20,6 +20,8 @@ struct GlobalConfig
 
 struct Config
 {
+	int person_inc;
+	int movie_inc;
 	int client_number;
 	int near_threshold;
 	int far_threshold;

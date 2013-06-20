@@ -7,6 +7,9 @@
 struct Point3D
 {
 	float x,y,z;
+
+	Point3D() { }
+	Point3D(float a, float b, float c) { x=a; y=b; z=c; }
 };
 
 struct Dots
@@ -27,6 +30,7 @@ struct Dots
 			{
 				new_size = 640*480*2;
 			}
+			printf("new size %d\n", new_size);
 
 			dots.resize(new_size);
 		}

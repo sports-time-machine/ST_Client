@@ -29,7 +29,6 @@ static void depth_to_store_aux(const RawDepthImage& depth, uint8*& store)
 	{
 		const int focus = depth_convert(depth.image[i]);
 		int run = 0;
-#if 0
 		while (run<32)
 		{
 			int addr = i+run+1;
@@ -41,7 +40,6 @@ static void depth_to_store_aux(const RawDepthImage& depth, uint8*& store)
 		}
 
 		i += run;
-#endif
 		*store++ = (uint8)(focus & 0xFF);
 		*store++ = (uint8)((focus>>8) | (run<<2));
 	}
@@ -116,7 +114,7 @@ void Depth10b6b::playback(RawDepthImage& dest1, RawDepthImage& dest2, const Movi
 				uint8 first  = src[src_index++];
 				uint8 second = src[src_index++];
 		
-				int depth = (first) | ((second&0x03)<<8);
+				int depth = ((first) | ((second&0x03)<<8)) << 2;
 				int run   = (second>>2) + 1;
 
 				for (int i=0; i<run; ++i)

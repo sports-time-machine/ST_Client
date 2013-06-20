@@ -841,7 +841,7 @@ enum DrawVoxelsStyle
 	DRAW_VOXELS_QUAD = 2,
 };
 
-void drawVoxels2(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style)
+void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style = DRAW_VOXELS_NORMAL)
 {
 	// @voxel @dot
 	if (style & DRAW_VOXELS_QUAD)
@@ -856,20 +856,23 @@ void drawVoxels2(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawV
 		glBegin(GL_POINTS);
 	}
 
-	for (int i=0; i<dots.size(); ++i)
+	const int inc = 
+		(style & DRAW_VOXELS_HALF)
+			? minmax(config.movie_inc,  1, 64)
+			: minmax(config.person_inc, 1, 64);
+	const int SIZE16 = dots.size() << 4;
+
+	for (int i16=0; i16<SIZE16; i16+=inc)
 	{
-//#		if ((style & DRAW_VOXELS_HALF) && ((i%2)==0))
-//#			continue;
-		if (i%4!=0)
-			continue;
-		
+		const int i = (i16 >> 4);
+
 		const float x = dots[i].x;
 		const float y = dots[i].y;
 		const float z = dots[i].z;
 
 		const bool in_x = (x>=-2.0f && x<=+2.0f);
 		const bool in_y = (y>=+0.0f && y<=+4.0f);
-		const bool in_z = (z>=+0.0f);
+		const bool in_z = (z>=+0.0f && z<=+3.0f);
 		
 		float col = z/4;
 		if (col<0.25f) col=0.25f;
@@ -911,11 +914,6 @@ void drawVoxels2(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawV
 	glEnd();
 }
 
-void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style=DRAW_VOXELS_NORMAL)
-{
-	drawVoxels2(dots, inner_color, outer_color, style);
-}
-
 
 
 void StClient::MoviePlayback()
@@ -929,7 +927,7 @@ void StClient::MoviePlayback()
 
 	if (movie_index >= curr_movie.total_frames)
 	{
-#if 0
+#if 1
 		movie_mode = MOVIE_READY;
 		puts("Movie end.");
 		return;
@@ -943,22 +941,12 @@ void StClient::MoviePlayback()
 	auto& mov = curr_movie;
 	static Dots dots;
 	dots.init();
-#if 0
-	{
-		Timer tm(&time_profile.playback);
-		VoxelRecorder::playback(dots, mov.frames[movie_index++]);
-	}
-	{
-		Timer tm(&time_profile.draw_playback);
-		drawVoxels(dots, glRGBA(200,240,255), glRGBA(200,70,30));
-	}
-#else
+
 	// @playback
 	Depth10b6b::playback(dev1.raw_depth, dev2.raw_depth, mov.frames[movie_index++]);
 	MixDepth(dots, dev1.raw_depth, mov.cam1);
 	MixDepth(dots, dev2.raw_depth, mov.cam2);
 	drawVoxels(dots, glRGBA(0,240,255), glRGBA(50,50,50), DRAW_VOXELS_HALF);
-#endif
 }
 
 
@@ -1147,16 +1135,17 @@ void StClient::display()
 	}
 
 
-
-	if (movie_mode==MOVIE_PLAYBACK)
-	{
-		MoviePlayback();
-	}
-
+#if 1
 	{
 		static Dots dots;
 		DrawVoxels(dots);
 		CreateAtari(dots);
+	}
+#endif
+
+	if (movie_mode==MOVIE_PLAYBACK)
+	{
+		MoviePlayback();
 	}
 
 
@@ -1164,10 +1153,12 @@ void StClient::display()
 #if 0
 	// 記録と即時再生のテスト
 	{
-		MovieData::Frame f;
-		VoxelRecorder::record(dot_set, f);
-		
 		Dots dots;
+		dots.init();
+		MovieData::Frame f;
+		VoxelRecorder::record(dots, f);
+		
+		dots.init();
 		VoxelRecorder::playback(dots, f);
 		drawVoxels(dots, glRGBA(200,240,255), glRGBA(200,70,30),
 			DRAW_VOXELS_NORMAL);
@@ -1176,18 +1167,29 @@ void StClient::display()
 #endif
 
 
-#if 0
 	// 記録と即時再生のテスト
+#if 0
 	{
 		MovieData::Frame f;
 		Depth10b6b::record(dev1.raw_depth, dev2.raw_depth, f);
-#if 1
-		DS_Init(dot_set);
-		MixDepth(dot_set, dev1.raw_depth, cal_cam1.curr);
-		MixDepth(dot_set, dev2.raw_depth, cal_cam2.curr);
-		drawVoxels(dot_set, glRGBA(200,240,255), glRGBA(200,70,30),
-			DRAW_VOXELS_NORMAL);
-#endif
+		Depth10b6b::playback(dev1.raw_depth, dev2.raw_depth, f);
+
+		{
+			CamParam cam = cal_cam1.curr;
+			cam.scale = 2.0f;
+
+
+			Dots dots;
+			dots.init();
+			dots.push(Point3D( 0, 0, 0));
+			dots.push(Point3D(-1, 0, 0));
+			dots.push(Point3D(-2, 0, 0));
+
+			MixDepth(dots, dev1.raw_depth, cam);
+			MixDepth(dots, dev2.raw_depth, cam);
+			//drawVoxels(dots, glRGBA(200,240,255), glRGBA(200,70,30));
+			drawVoxels(dots, glRGBA(255,255,255), glRGBA(200,70,30));
+		}
 	}
 #endif
 
@@ -1306,7 +1308,6 @@ void StClient::display()
 			}
 		}
 	}
-
 
 
 	switch (global.client_status)

@@ -144,6 +144,9 @@ void load_config()
 	CONFIG_FLOAT(global_config, grid_g);
 	CONFIG_FLOAT(global_config, grid_b);
 
+	CONFIG_INT(config, person_inc);
+	CONFIG_INT(config, movie_inc);
+
 	auto set_camera_param = [&](CamParam& cam, const char* varname){
 		PSL::variable var = psl.get(varname);
 		cam.x     = var["x"].toDouble();
