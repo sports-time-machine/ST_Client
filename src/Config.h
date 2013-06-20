@@ -1,5 +1,6 @@
 #pragma once
 #include "gl_funcs.h"
+#include "file_io.h"
 
 
 struct GlobalConfig
@@ -15,17 +16,6 @@ struct GlobalConfig
 	float grid_b;
 
 	GlobalConfig();
-};
-
-struct CamParam
-{
-	float x,y,z,rotx,roty,rotz,scale;
-
-	CamParam()
-	{
-		x=y=z=rotx=roty=rotz=0.0f;
-		scale=1.0f;
-	}
 };
 
 struct Config

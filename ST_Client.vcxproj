@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\depth.cpp" />
+    <ClCompile Include="src\Depth10b6b.cpp" />
     <ClCompile Include="src\eye.cpp" />
     <ClCompile Include="src\file_io.cpp" />
     <ClCompile Include="src\FreeType.cpp" />
@@ -40,6 +41,7 @@
     <ClCompile Include="src\ST_Client.cpp" />
     <ClCompile Include="src\ST_Client_GLUT.cpp" />
     <ClCompile Include="src\ST_Client_Udp.cpp" />
+    <ClCompile Include="src\VoxelRecorder.cpp" />
     <ClCompile Include="src\zlibpp.cpp" />
   </ItemGroup>
   <ItemGroup>

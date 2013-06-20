@@ -5,6 +5,7 @@
 #include "mi/Image.h"
 #include "Config.h"
 #include "vec4.h"
+#include "file_io.h"
 
 
 namespace stclient{
@@ -207,6 +208,10 @@ private:
 	ActiveCamera active_camera;
 
 	void display2();
+	void MoviePlayback();
+	void MovieRecord();
+	void DrawVoxels(Dots& dots);
+	void CreateAtari(const Dots& dots);
 };
 
 
@@ -254,11 +259,62 @@ struct Global
 	}
 };
 
+struct TimeProfile
+{
+	struct Environment
+	{
+		double total;
+		double draw_wall;
+		double draw_grid;
+		double read1;
+		double read2;
+	} environment;
+
+	struct Drawing
+	{
+		double total;
+		double mix1;
+		double mix2;
+		double drawvoxels;
+	} drawing;
+
+	double frame;
+	double atari;
+
+	struct Record
+	{
+		double total;
+		double enc_stage1;
+		double enc_stage2;
+		double enc_stage3;
+	} record;
+
+	struct Playback
+	{
+		double total;
+		double dec_stage1;
+		double dec_stage2;
+		double draw;
+	} playback;
+};
+
 #include "Config.h"  // EXTERN
 
 
 SmartExtern Global global;
 SmartExtern Mode mode;
+SmartExtern TimeProfile time_profile;
+
+
+namespace Depth10b6b{
+	void record(const RawDepthImage& depth1, const RawDepthImage& depth2, MovieData::Frame& dest_frame);
+	void playback(RawDepthImage& dest1, RawDepthImage& dest2, const MovieData::Frame& frame);
+}//namespace VoxelRecorder
+
+namespace VoxelRecorder{
+	void record(const Dots& dots, MovieData::Frame& dest_frame);
+	void playback(Dots& dots, const MovieData::Frame& frame);
+}//namespace VoxelRecorder
 
 
 }//namespace stclient

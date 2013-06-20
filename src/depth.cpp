@@ -121,9 +121,8 @@ void StClient::CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage
 //			raw_
 		}
 	}
-#endif
-
 	raw_cooked.CalcDepthMinMax();
+#endif
 }
 
 void RawDepthImage::CalcDepthMinMax()

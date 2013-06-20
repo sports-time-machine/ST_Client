@@ -17,6 +17,7 @@ void saveToFile(FILE* fp, const MovieData& movie)
 	header.graphic[1] = 'p';
 	header.graphic[2] = 't';
 	header.graphic[3] = 'h';
+#if 0
 	header.total_frames = movie.recorded_tail;
 
 	fwrite(&header, sizeof(header), 1, fp);
@@ -27,6 +28,8 @@ void saveToFile(FILE* fp, const MovieData& movie)
 		fwrite(&frame_size, sizeof(frame_size), 1, fp);
 		fwrite(frame.data(), frame_size, 1, fp);
 	}
+#endif
+	puts("–¢ŽÀ‘•‚Å‚·");
 
 	// for human
 	fputs("//END", fp);
@@ -67,9 +70,10 @@ bool loadFromFile(FILE* fp, MovieData& movie)
 		return false;
 	}
 
+#if 0
 	movie.recorded_tail = header.total_frames;
 	printf("Total %d frames\n", header.total_frames);
-	
+
 	movie.frames.clear();
 	movie.frames.resize(header.total_frames);
 	for (int i=0; i<header.total_frames; ++i)
@@ -81,6 +85,8 @@ bool loadFromFile(FILE* fp, MovieData& movie)
 		frame.resize(frame_size);
 		fread(frame.data(), frame_size, 1, fp);
 	}
+#endif
+	puts("–¢ŽÀ‘•‚Å‚·");
 
 	return true;
 }

@@ -26,6 +26,14 @@ using namespace mi;
 
 
 
+const int FRAMES_PER_SECOND = 30;
+const int MAX_TOTAL_SECOND  = 50;
+const int MAX_TOTAL_FRAMES  = MAX_TOTAL_SECOND * FRAMES_PER_SECOND;
+
+
+//#
+const int ATARI_INC = 20;
+
 
 class HitData
 {
@@ -86,20 +94,6 @@ local Calset cal_cam1, cal_cam2;
 
 local float eye_rh_base, eye_rv_base, eye_y_base;
 
-struct TimeProfile
-{
-	double draw_wall;
-	double draw_grid;
-
-	double read1_depth_dev1;
-	double read1_depth_dev2;
-	double read2_depth_dev1;
-	double read2_depth_dev2;
-
-	double draw_depth;
-};
-
-local TimeProfile time_profile;
 
 
 
@@ -245,7 +239,7 @@ StClient* StClient::ms_self = nullptr;
 typedef std::vector<openni::RGB888Pixel> RgbScreen;
 typedef std::map<int,RgbScreen> RgbScreenMovie;
 
-local size_t movie_index = 0;
+local int movie_index = 0;
 local openni::RGB888Pixel* moviex = nullptr;
 local freetype::font_data monospace;
 
@@ -540,7 +534,9 @@ void StClient::display2()
 
 	glRGBA heading(80,255,120);
 	glRGBA text(200,200,200);
-
+	glRGBA b(240,240,240);
+	glRGBA p(150,150,150);
+	
 	auto color = [](bool status){
 		status
 			? glRGBA(240,200,50).glColorUpdate()
@@ -586,6 +582,21 @@ void StClient::display2()
 	pr(monospace, 20, y+=H, "v =%+9.4f", eye.v);
 	nl();
 
+	{
+		const auto cam = curr_movie.cam1;
+		int y2 = y;
+		heading.glColorUpdate();
+		pr(monospace, 200, y2+=H, "RecCam A:");
+		text.glColorUpdate();
+		pr(monospace, 200, y2+=H, "pos x = %9.5f", cam.x);
+		pr(monospace, 200, y2+=H, "pos y = %9.5f", cam.y);
+		pr(monospace, 200, y2+=H, "pos z = %9.5f", cam.z);
+		pr(monospace, 200, y2+=H, "rot x = %9.5f", cam.rotx);
+		pr(monospace, 200, y2+=H, "rot y = %9.5f", cam.roty);
+		pr(monospace, 200, y2+=H, "rot z = %9.5f", cam.rotz);
+		pr(monospace, 200, y2+=H, "scale = %9.5f", cam.scale);
+	}
+
 	heading.glColorUpdate();
 	pr(monospace, 20, y+=H, "Camera A:");
 	text.glColorUpdate();
@@ -597,6 +608,21 @@ void StClient::display2()
 	pr(monospace, 20, y+=H, "rot z = %9.5f", cal_cam1.curr.rotz);
 	pr(monospace, 20, y+=H, "scale = %9.5f", cal_cam1.curr.scale);
 	nl();
+
+	{
+		const auto cam = curr_movie.cam2;
+		int y2 = y;
+		heading.glColorUpdate();
+		pr(monospace, 200, y2+=H, "RecCam B:");
+		text.glColorUpdate();
+		pr(monospace, 200, y2+=H, "pos x = %9.5f", cam.x);
+		pr(monospace, 200, y2+=H, "pos y = %9.5f", cam.y);
+		pr(monospace, 200, y2+=H, "pos z = %9.5f", cam.z);
+		pr(monospace, 200, y2+=H, "rot x = %9.5f", cam.rotx);
+		pr(monospace, 200, y2+=H, "rot y = %9.5f", cam.roty);
+		pr(monospace, 200, y2+=H, "rot z = %9.5f", cam.rotz);
+		pr(monospace, 200, y2+=H, "scale = %9.5f", cam.scale);
+	}
 
 	heading.glColorUpdate();
 	pr(monospace, 20, y+=H, "Camera B:");
@@ -629,32 +655,35 @@ void StClient::display2()
 			decomp_time,
 			draw_time);
 
-#if !WITHOUT_KINECT
-	freetype::print(monospace, 20, 200, "(n=%d,f=%d) raw(n=%d,f=%d) (TP:%d)",
-			vody.near_d,
-			vody.far_d,
-			vody.raw_near_d,
-			vody.raw_far_d,
-			vody.total_pixels);
+	// @profile
+	heading.glColorUpdate();
+	pr(monospace, 20, y+=H, "Profile:");
+	text.glColorUpdate();
+	b(); pr(monospace, 20, y+=H, "Frame         %7.3fms/frame", time_profile.frame);
 
-	freetype::print(monospace, 20, 220, "(%d,%d,%d,%d)",
-			vody.body.top,
-			vody.body.bottom,
-			vody.body.left,
-			vody.body.right);
+	b(); pr(monospace, 20, y+=H, " Environment  %6.2f", time_profile.environment.total);
+	p(); pr(monospace, 20, y+=H, "  grid        %6.2f", time_profile.environment.draw_grid);
+	p(); pr(monospace, 20, y+=H, "  wall        %6.2f", time_profile.environment.draw_wall);
+	p(); pr(monospace, 20, y+=H, "  read1       %6.2f", time_profile.environment.read1);
+	p(); pr(monospace, 20, y+=H, "  read2       %6.2f", time_profile.environment.read2);
 
-	freetype::print(monospace, 20, 240, "far(%d,%d,%d,%d)",
-			vody.far_box.top,
-			vody.far_box.bottom,
-			vody.far_box.left,
-			vody.far_box.right);
+	b(); pr(monospace, 20, y+=H, " Drawing      %6.2f", time_profile.drawing.total);
+	p(); pr(monospace, 20, y+=H, "  mix1        %6.2f", time_profile.drawing.mix1);
+	p(); pr(monospace, 20, y+=H, "  mix2        %6.2f", time_profile.drawing.mix2);
+	p(); pr(monospace, 20, y+=H, "  draw        %6.2f", time_profile.drawing.drawvoxels);
+	
+	b(); pr(monospace, 20, y+=H, " Atari        %6.2f", time_profile.atari);
+	
+	b(); pr(monospace, 20, y+=H, " Recording    %6.2f [%d]", time_profile.record.total, curr_movie.total_frames);
+	p(); pr(monospace, 20, y+=H, "  enc_stage1  %6.2f", time_profile.record.enc_stage1);
+	p(); pr(monospace, 20, y+=H, "  enc_stage2  %6.2f", time_profile.record.enc_stage2);
+	p(); pr(monospace, 20, y+=H, "  enc_stage3  %6.2f", time_profile.record.enc_stage3);
 
-	freetype::print(monospace, 20, 260, "near(%d,%d,%d,%d)",
-			vody.near_box.top,
-			vody.near_box.bottom,
-			vody.near_box.left,
-			vody.near_box.right);
-#endif//!WITHOUT_KINECT
+	b(); pr(monospace, 20, y+=H, " Playback     %6.2f [%d]", time_profile.playback.total, movie_index);
+	p(); pr(monospace, 20, y+=H, "  dec_stage1  %6.2f", time_profile.playback.dec_stage1);
+	p(); pr(monospace, 20, y+=H, "  dec_stage2  %6.2f", time_profile.playback.dec_stage2);
+	p(); pr(monospace, 20, y+=H, "  draw        %7.3f", time_profile.playback.draw);
+
 
 	glPopMatrix();
 }
@@ -754,39 +783,23 @@ void drawWall()
 	const float SZ = Z/2;
 	for (int i=-5; i<=5; ++i)
 	{
-		glTexCoord2f(0,0); glVertex3f(-SZ+Z*i, Z*1.5, Z);
-		glTexCoord2f(u,0); glVertex3f( SZ+Z*i, Z*1.5, Z); //左上
-		glTexCoord2f(u,v); glVertex3f( SZ+Z*i,  0.0f, Z); //左下
-		glTexCoord2f(0,v); glVertex3f(-SZ+Z*i,  0.0f, Z);
+		glTexCoord2f(0,0); glVertex3f(-SZ+Z*i, Z*1.5, -Z);
+		glTexCoord2f(u,0); glVertex3f( SZ+Z*i, Z*1.5, -Z); //左上
+		glTexCoord2f(u,v); glVertex3f( SZ+Z*i,  0.0f, -Z); //左下
+		glTexCoord2f(0,v); glVertex3f(-SZ+Z*i,  0.0f, -Z);
 	}
 	glEnd();
 	glPopMatrix();
 	gl::Texture(false);
 }
 
-struct Point3D
-{
-	float x,y,z;
-};
 
-typedef std::vector<Point3D> Dots;
-Dots dot_set;
-
-
-
-void DS_Init(Dots& dots)
-{
-	dots.clear();
-}
-
-
-
-void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& camparam)
+void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam)
 {
 	const mat4x4 trans = mat4x4::create(
-			camparam.rotx, camparam.roty, camparam.rotz,
-			camparam.x,    camparam.y,    camparam.z,
-			camparam.scale);
+			cam.rotx, cam.roty, cam.rotz,
+			cam.x,    cam.y,    cam.z,
+			cam.scale);
 
 	int index = 0;
 	for (int y=0; y<480; ++y)
@@ -795,7 +808,7 @@ void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& camparam)
 		{
 			int z = src.image[index++];
 
-			// ignore
+			// no depth -- ignore
 			if (z==0) continue;
 
 			Point3D p;
@@ -807,32 +820,49 @@ void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& camparam)
 			// -0.5 <= fy <= 0.5
 			//  0.0 <= fz <= 10.0  (10m)
 
+			// 四角錐にする
 			fx = fx * fz;
 			fy = fy * fz;
 
+			// 回転、拡縮、平行移動
 			vec4 point = trans * vec4(fx, fy, fz, 1.0f);
-
-			// 平行移動
 			p.x = point[0];
 			p.y = point[1];
 			p.z = point[2];
-			dots.push_back(p);
+			dots.push(p);
 		}
 	}
 }
 
-void drawBoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, bool half=false)
+enum DrawVoxelsStyle
 {
-	// @boxel @dot
-	glBegin(GL_POINTS);
+	DRAW_VOXELS_NORMAL = 0,
+	DRAW_VOXELS_HALF = 1,
+	DRAW_VOXELS_QUAD = 2,
+};
 
-	for (size_t i=0; i<dots.size(); ++i)
+void drawVoxels2(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style)
+{
+	// @voxel @dot
+	if (style & DRAW_VOXELS_QUAD)
 	{
-		if ((i%2==0))
-		{
-			continue;
-		}
+		gl::Texture(true);
+		glBindTexture(GL_TEXTURE_2D, global.dot_image);
+		glBegin(GL_QUADS);
+	}
+	else
+	{
+		gl::Texture(false);
+		glBegin(GL_POINTS);
+	}
 
+	for (int i=0; i<dots.size(); ++i)
+	{
+//#		if ((style & DRAW_VOXELS_HALF) && ((i%2)==0))
+//#			continue;
+		if (i%4!=0)
+			continue;
+		
 		const float x = dots[i].x;
 		const float y = dots[i].y;
 		const float z = dots[i].z;
@@ -845,7 +875,7 @@ void drawBoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, bool h
 		if (col<0.25f) col=0.25f;
 		if (col>0.90f) col=0.90f;
 		col = 1.00f - col;
-		const int col255 = (int)(col*255);
+		const int col255 = (int)(col*220);
 
 		if (in_x && in_y && in_z)
 		{
@@ -861,19 +891,180 @@ void drawBoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, bool h
 				outer_color.r,
 				outer_color.g,
 				outer_color.b,
-				col255>>3).glColorUpdate();
+				col255>>2).glColorUpdate();
 		}
 
-		glVertex3f(x,y,-z);
+		if (style & DRAW_VOXELS_QUAD)
+		{
+			const float K = 0.01;
+			glTexCoord2f(0,0); glVertex3f(x-K,y-K,-z);
+			glTexCoord2f(1,0); glVertex3f(x+K,y-K,-z);
+			glTexCoord2f(1,1); glVertex3f(x+K,y+K,-z);
+			glTexCoord2f(0,1); glVertex3f(x-K,y+K,-z);
+		}
+		else
+		{
+			glVertex3f(x,y,-z);
+		}
 	}
 
 	glEnd();
 }
 
+void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style=DRAW_VOXELS_NORMAL)
+{
+	drawVoxels2(dots, inner_color, outer_color, style);
+}
+
+
+
+void StClient::MoviePlayback()
+{
+	if (curr_movie.total_frames==0)
+	{
+		movie_mode = MOVIE_READY;
+		puts("Movie empty.");
+		return;
+	}
+
+	if (movie_index >= curr_movie.total_frames)
+	{
+#if 0
+		movie_mode = MOVIE_READY;
+		puts("Movie end.");
+		return;
+#else
+		// rewind!
+		puts("Rewind!");
+		movie_index = 0;
+#endif
+	}
+
+	auto& mov = curr_movie;
+	static Dots dots;
+	dots.init();
+#if 0
+	{
+		Timer tm(&time_profile.playback);
+		VoxelRecorder::playback(dots, mov.frames[movie_index++]);
+	}
+	{
+		Timer tm(&time_profile.draw_playback);
+		drawVoxels(dots, glRGBA(200,240,255), glRGBA(200,70,30));
+	}
+#else
+	// @playback
+	Depth10b6b::playback(dev1.raw_depth, dev2.raw_depth, mov.frames[movie_index++]);
+	MixDepth(dots, dev1.raw_depth, mov.cam1);
+	MixDepth(dots, dev2.raw_depth, mov.cam2);
+	drawVoxels(dots, glRGBA(0,240,255), glRGBA(50,50,50), DRAW_VOXELS_HALF);
+#endif
+}
+
+
+void StClient::DrawVoxels(Dots& dots)
+{
+	const glRGBA color_cam1(80,190,250);
+	const glRGBA color_cam2(250,190,80);
+	const glRGBA color_both(255,255,255);
+	const glRGBA color_other(120,120,120);
+	const glRGBA color_outer(120,130,200);
+	
+	CamParam cam1 = cal_cam1.curr;
+	CamParam cam2 = cal_cam2.curr;
+
+	if (active_camera==CAM_BOTH)
+	{
+		Timer tm(&time_profile.drawing.total);
+		{
+			Timer tm(&time_profile.drawing.mix1);
+			dots.init();
+			MixDepth(dots, dev1.raw_depth, cam1);
+		}
+		{
+			Timer tm(&time_profile.drawing.mix2);
+			MixDepth(dots, dev2.raw_depth, cam2);
+		}
+		{
+			Timer tm(&time_profile.drawing.drawvoxels);
+			drawVoxels(dots, color_both, color_outer);
+		}
+	}
+	else
+	{
+		if (active_camera==CAM_A)
+		{
+			dots.init();
+			MixDepth(dots, dev1.raw_depth, cam1);
+			drawVoxels(dots, color_cam1, color_outer);
+			dots.init();
+			MixDepth(dots, dev2.raw_depth, cam2);
+			drawVoxels(dots, color_other, color_other);
+		}
+		else
+		{
+			dots.init();
+			MixDepth(dots, dev1.raw_depth, cam1);
+			drawVoxels(dots, color_other, color_other);
+			dots.init();
+			MixDepth(dots, dev2.raw_depth, cam2);
+			drawVoxels(dots, color_cam2, color_outer);
+		}
+	}
+}
+
+void StClient::CreateAtari(const Dots& dots)
+{
+	Timer tm(&time_profile.atari);
+	hitdata.clear();
+	for (int i=0; i<dots.size(); i+=ATARI_INC)
+	{
+		// デプスはGreenのなかだけ
+		Point3D p = dots[i];
+		if (!(p.z>=0.0f && p.z<=2.0f))
+		{
+			// ignore: too far, too near
+			continue;
+		}
+
+		// (x,z)を、大きさ1の正方形におさめる（はみ出すこともある）
+		float fx = ((p.x+2.0)/4.0);
+		float fy = ((2.8-p.y)/2.8);
+
+		const int x = (int)(fx * HitData::CEL_W);
+		const int y = (int)(fy * HitData::CEL_H);
+
+		hitdata.inc(x, y);
+	}
+}
+
+
+void StClient::MovieRecord()
+{
+	if (curr_movie.total_frames >= MAX_TOTAL_FRAMES)
+	{
+		puts("time over! record stop.");
+		movie_mode = MOVIE_READY;
+	}
+	else
+	{
+		auto& mov = curr_movie;
+#if 0
+		VoxelRecorder::record(dot_set, mov.frames[mov.total_frames++]);
+#else
+		mov.cam1 = cal_cam1.curr;
+		mov.cam2 = cal_cam2.curr;
+		Depth10b6b::record(dev1.raw_depth, dev2.raw_depth, mov.frames[mov.total_frames++]);
+#endif
+	}
+}
 
 
 void StClient::display()
 {
+	mi::Timer tm(&time_profile.frame);
+
+
 	// フレーム開始時にUDPコマンドの処理をする
 	while (doCommand())
 	{
@@ -893,14 +1084,9 @@ void StClient::display()
 	// Kinectから情報をもらう
 	if (dev1.device.isValid())
 	{
-		{
-			mi::Timer tm(&time_profile.read1_depth_dev1);
-			dev1.CreateRawDepthImage_Read();
-		}
-		{
-			mi::Timer tm(&time_profile.read2_depth_dev1);
-			dev1.CreateRawDepthImage();
-		}
+		mi::Timer tm(&time_profile.environment.read1);
+		dev1.CreateRawDepthImage_Read();
+		dev1.CreateRawDepthImage();
 	}
 	else
 	{
@@ -920,14 +1106,9 @@ void StClient::display()
 
 	if (dev2.device.isValid())
 	{
-		{
-			mi::Timer tm(&time_profile.read1_depth_dev2);
-			dev2.CreateRawDepthImage_Read();
-		}
-		{
-			mi::Timer tm(&time_profile.read2_depth_dev2);
-			dev2.CreateRawDepthImage();
-		}
+		mi::Timer tm(&time_profile.environment.read2);
+		dev2.CreateRawDepthImage_Read();
+		dev2.CreateRawDepthImage();
 	}
 
 
@@ -958,202 +1139,62 @@ void StClient::display()
 	::glMatrixMode(GL_MODELVIEW);
 	::glLoadIdentity();
 
-	{mi::Timer tm(&time_profile.draw_wall);
-		//drawWall();
+	{mi::Timer tm(&time_profile.environment.draw_wall);
+		//#drawWall();
 	}
-	{mi::Timer tm(&time_profile.draw_grid);
+	{mi::Timer tm(&time_profile.environment.draw_grid);
 		drawFieldGrid(500);
 	}
 
-	glRGBA color_cam1(80,190,250);
-	glRGBA color_cam2(250,190,80);
-	glRGBA color_both(255,255,255);
-	glRGBA color_other(120,120,120);
-	glRGBA color_outer(120,130,200);
 
-	if (active_camera==CAM_BOTH)
+
+	if (movie_mode==MOVIE_PLAYBACK)
 	{
-		{
-			DS_Init(dot_set);
-			MixDepth(dot_set, dev1.raw_depth, cal_cam1.curr);
-			MixDepth(dot_set, dev2.raw_depth, cal_cam2.curr);
-			drawBoxels(dot_set, color_both, color_outer);
-		}
+		MoviePlayback();
 	}
-	else
+
 	{
-		if (active_camera==CAM_A)
-		{
-			DS_Init(dot_set);
-			MixDepth(dot_set, dev1.raw_depth, cal_cam1.curr);
-			drawBoxels(dot_set, color_cam1, color_outer);
-			DS_Init(dot_set);
-			MixDepth(dot_set, dev2.raw_depth, cal_cam2.curr);
-			drawBoxels(dot_set, color_other, color_other);
-		}
-		else
-		{
-			DS_Init(dot_set);
-			MixDepth(dot_set, dev1.raw_depth, cal_cam1.curr);
-			drawBoxels(dot_set, color_other, color_other);
-			DS_Init(dot_set);
-			MixDepth(dot_set, dev2.raw_depth, cal_cam2.curr);
-			drawBoxels(dot_set, color_cam2, color_outer);
-		}
+		static Dots dots;
+		DrawVoxels(dots);
+		CreateAtari(dots);
 	}
 
 
-	hitdata.clear();
-	for (size_t i=0; i<dot_set.size(); ++i)
-	{
-		// デプスはGreenのなかだけ
-		Point3D p = dot_set[i];
-		if (!(p.z>=0.0f && p.z<=2.0f))
-		{
-			// ignore: too far, too near
-			continue;
-		}
-
-		// (x,z)を、大きさ1の正方形におさめる（はみ出すこともある）
-		float fx = ((p.x+2.0)/4.0);
-		float fy = ((2.8-p.y)/2.8);
-
-		const int x = (int)(fx * HitData::CEL_W);
-		const int y = (int)(fy * HitData::CEL_H);
-
-		hitdata.inc(x, y);
-	}
-
-
-
-
-	switch (movie_mode)
-	{
-	case MOVIE_READY:
-		break;
-	case MOVIE_RECORD:
-		if (curr_movie.recorded_tail >= curr_movie.frames.size())
-		{
-			puts("time over! record stop.");
-			movie_mode = MOVIE_READY;
-		}
-		else
-		{
-#if 0
-			float* float_mem = new float[3*dot_set.size()];
-			int index = 0;
-			int boxel_count = 0;
-			for (size_t i=0; i<dot_set.size(); ++i)
-			{
-				const auto& d = dot_set[i];
-				if (d.x>=-2.5f && d.x<=+2.5f && d.y>=-0.5f && d.y<=3.0f && d.z>=0.0f && d.z<=4.0f)
-				{
-					float_mem[index+0] = d.x;
-					float_mem[index+1] = d.y;
-					float_mem[index+2] = d.z;
-					index += 3;
-					++boxel_count;
-				}
-			}
-
-			zlibpp::bytes& byte_stream = curr_movie.frames[curr_movie.recorded_tail++];
-			zlibpp::compress(
-				(byte*)float_mem,
-				sizeof(float)*3*dot_set.size(),
-				byte_stream, 0);
-			printf("frame %d, %d boxels, %d bytes (%.1f%%)\n",
-				curr_movie.recorded_tail,
-				boxel_count,
-				byte_stream.size(),
-				byte_stream.size() * 100.0 / (640*480*3*sizeof(float)));
-			delete[] float_mem;
-#endif
-			static uint16* int_mem = new uint16[2*3*640*480];
-			int index = 0;
-			int boxel_count = 0;
-			for (size_t i=0; i<dot_set.size(); ++i)
-			{
-				const auto& d = dot_set[i];
-				if (d.x>=-2.5f && d.x<=+2.5f && d.y>=-0.5f && d.y<=3.0f && d.z>=0.0f && d.z<=4.0f)
-				{
-					int_mem[index+0] = (uint16)((d.x+2.5f)*65535/5.0f);
-					int_mem[index+1] = (uint16)((d.y     )*65535/3.0f);
-					int_mem[index+2] = (uint16)((d.z     )*65535/4.0f);
-					index += 3;
-					++boxel_count;
-				}
-			}
-
-			zlibpp::bytes& byte_stream = curr_movie.frames[curr_movie.recorded_tail++];
-			zlibpp::compress(
-				(byte*)int_mem,
-				sizeof(uint16)*3*boxel_count,
-				byte_stream, 0);
-			printf("frame %d, %d boxels, %d bytes (%.1f%%)\n",
-				curr_movie.recorded_tail,
-				boxel_count,
-				byte_stream.size(),
-				byte_stream.size() * 100.0 / (640*480*3*sizeof(uint16)));
-//			delete[] int_mem;
-		}
-		break;
-	case MOVIE_PLAYBACK:
-		if (curr_movie.recorded_tail==0)
-		{
-			puts("Movie empty.");
-		}
-		else
-		{
-			zlibpp::bytes& byte_stream = curr_movie.frames[movie_index];
-			if (++movie_index >= curr_movie.recorded_tail)
-			{
-				movie_mode = MOVIE_READY;
-				puts("movie end.");
-			}
 
 #if 0
-			zlibpp::bytes outdata;
-			zlibpp::decompress(
-				byte_stream,
-				outdata);
-			size_t boxel_count = outdata.size()/sizeof(float)/3;
-			const float* float_mem = (const float*)outdata.data();
-			
-			Dots dots;
-			dots.resize(boxel_count);
-			for (size_t i=0; i<boxel_count; ++i)
-			{
-				dots[i].x = *float_mem++;
-				dots[i].y = *float_mem++;
-				dots[i].z = *float_mem++;
-			}
-
-			drawBoxels(dots, glRGBA(250,100,60), glRGBA(200,70,30));
-#else
-			zlibpp::bytes outdata;
-			zlibpp::decompress(
-				byte_stream,
-				outdata);
-			size_t boxel_count = outdata.size()/sizeof(uint16)/3;
-			const uint16* int_mem = (const uint16*)outdata.data();
-			
-			Dots dots;
-			dots.resize(boxel_count);
-			for (size_t i=0; i<boxel_count; ++i)
-			{
-				const uint16 x = *int_mem++;
-				const uint16 y = *int_mem++;
-				const uint16 z = *int_mem++;
-
-				dots[i].x = x/65535.0f * 5.0f - 2.5f;
-				dots[i].y = y/65535.0f * 3.0f;
-				dots[i].z = z/65535.0f * 4.0f;
-			}
-
-			drawBoxels(dots, glRGBA(250,100,60), glRGBA(200,70,30), true);
+	// 記録と即時再生のテスト
+	{
+		MovieData::Frame f;
+		VoxelRecorder::record(dot_set, f);
+		
+		Dots dots;
+		VoxelRecorder::playback(dots, f);
+		drawVoxels(dots, glRGBA(200,240,255), glRGBA(200,70,30),
+			DRAW_VOXELS_NORMAL);
+//			DRAW_VOXELS_HALF_AND_QUAD);
+	}
 #endif
-		}
-		break;
+
+
+#if 0
+	// 記録と即時再生のテスト
+	{
+		MovieData::Frame f;
+		Depth10b6b::record(dev1.raw_depth, dev2.raw_depth, f);
+#if 1
+		DS_Init(dot_set);
+		MixDepth(dot_set, dev1.raw_depth, cal_cam1.curr);
+		MixDepth(dot_set, dev2.raw_depth, cal_cam2.curr);
+		drawVoxels(dot_set, glRGBA(200,240,255), glRGBA(200,70,30),
+			DRAW_VOXELS_NORMAL);
+#endif
+	}
+#endif
+
+
+	if (movie_mode==MOVIE_RECORD)
+	{
+		MovieRecord();
 	}
 
 
@@ -1168,6 +1209,7 @@ void StClient::display()
 	gl::Texture(false);
 	gl::DepthTest(false);
 
+#if 0//#no flashing
 	if (flashing>0)
 	{
 		flashing -= 13;
@@ -1180,6 +1222,7 @@ void StClient::display()
 			glVertex2i(0,480);
 		glEnd();
 	}
+#endif
 
 
 	{
@@ -1190,7 +1233,7 @@ void StClient::display()
 			for (int x=0; x<HitData::CEL_W; ++x)
 			{
 				int hit = hitdata.get(x,y);
-				int p = minmax(hit/5, 0, 255);
+				int p = minmax(hit*ATARI_INC/5, 0, 255);
 				int q = 255-p;
 				glRGBA(
 					(240*p +  50*q)>>8,
@@ -1240,8 +1283,8 @@ void StClient::display()
 
 			int value = hitdata.get(ho.point.x, ho.point.y);
 		
-			// 10cm3に25ドット以上あったらヒットとする
-			if (value>=25)
+			// 10cm3にNドット以上あったらヒットとする
+			if (value>=5)
 			{
 				printf("HIT!! hit object %d, point (%d,%d)\n",
 					i,
@@ -1703,22 +1746,20 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	case SK_CTRL + KEY_F1:
 		if (movie_mode!=MOVIE_RECORD)
 		{
-			curr_movie.frames.clear();
-			curr_movie.frames.resize(MOVIE_MAX_FRAMES);
-			curr_movie.recorded_tail = 0;
+			curr_movie.clear();
 			movie_mode = MOVIE_RECORD;
 			movie_index = 0;
 		}
 		else
 		{
-			printf("recoding stop. %d frames recorded.\n", curr_movie.recorded_tail);
+			printf("recoding stop. %d frames recorded.\n", curr_movie.total_frames);
 
 			size_t total_bytes = 0;
-			for (size_t i=0; i<curr_movie.recorded_tail; ++i)
+			for (int i=0; i<curr_movie.total_frames; ++i)
 			{
-				total_bytes += curr_movie.frames[i].size();
+			//s	total_bytes += curr_movie.frames[i].getFrameBytes();
 			}
-			printf("total %u Kbytes.\n", total_bytes/1000);
+			printf("total %d Kbytes.\n", total_bytes/1000);
 			movie_mode = MOVIE_READY;
 			movie_index = 0;
 		}

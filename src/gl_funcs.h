@@ -40,6 +40,7 @@ struct glRGBA
 	}
 
 	void glColorUpdate() const;
+	void operator()() const { glColorUpdate(); }
 };
 
 struct vec

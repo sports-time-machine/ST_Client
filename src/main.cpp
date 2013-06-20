@@ -279,6 +279,8 @@ static void init_kinect(const char* uri, Kdev& k)
 #include "mi/Timer.h"
 #include "mi/Console.h"
 
+#include "file_io.h"
+
 
 int main(int argc, char** argv)
 {
