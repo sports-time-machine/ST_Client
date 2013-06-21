@@ -10,7 +10,7 @@
 #include <GL/glfw.h>
 #pragma comment(lib,"GLFW_x32.lib")
 
-#define USE_GLFW 0
+#define USE_GLFW 1
 #define local static
 #pragma warning(disable:4996) // unsafe function
 
@@ -75,7 +75,6 @@ struct Calset
 
 local HitData hitdata;
 local int flashing = 0;
-local int fll = 0;
 local Calset cal_cam1, cal_cam2;
 local float eye_rh_base, eye_rv_base, eye_y_base;
 static int old_x, old_y;
@@ -618,13 +617,12 @@ void StClient::display2()
 	nl();
 
 	pr(monospace, 20, y+=H,
-		"#%d Near(%dmm) Far(%dmm) [%s][%s] flashing=%d",
+		"#%d Near(%dmm) Far(%dmm) [%s][%s]",
 			config.client_number,
 			config.near_threshold,
 			config.far_threshold,
 			mode.borderline ? "border" : "no border",
-			mode.auto_clipping ? "auto clipping" : "no auto clip",
-			fll);
+			mode.auto_clipping ? "auto clipping" : "no auto clip");
 
 	// @fps
 	pr(monospace, 20, y+=H, "%d, %d, %.1ffps, %.2ffps, %d, %d",
@@ -1188,7 +1186,7 @@ void StClient::display()
 	if (flashing>0)
 	{
 		flashing -= 13;
-		fll = minmax(flashing,0,255);
+		const int fll = minmax(flashing,0,255);
 		glRGBA(255,255,255, fll).glColorUpdate();
 		glBegin(GL_QUADS);
 			glVertex2i(0,0);
@@ -1517,6 +1515,7 @@ void StClient::onMouseMove(int x, int y)
 
 	if (right)
 	{
+		printf("%d, %d\n", old_x, x);
 		move_eye = true;
 	}
 	else if (left)
@@ -1525,7 +1524,7 @@ void StClient::onMouseMove(int x, int y)
 		const float my = (y - old_y) * 0.01f * (shift ? 0.1f : 1.0f);
 		do_calibration(mx, my);
 		old_x = x;
-		old_y = y;	
+		old_y = y;
 	}
 
 	// キャリブレーションのときは視点移動ができない
@@ -1765,11 +1764,11 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		set_clipboard_text();
 		break;
 
-	case 'C':  toggle(mode.auto_clipping); break;
-	case 'k':  toggle(mode.sync_enabled);  break;
-	case 'm':  toggle(mode.mixed_enabled); break;
-	case 'M':  toggle(mode.mirroring); break;
-	case 'b':  toggle(mode.borderline);    break;
+	case 'C':  toggle(mode.auto_clipping);    break;
+	case 'k':  toggle(mode.sync_enabled);     break;
+	case 'm':  toggle(mode.mixed_enabled);    break;
+	case 'M':  toggle(mode.mirroring);        break;
+	case 'b':  toggle(mode.borderline);       break;
 	case 'B':  toggle(mode.simple_dot_body);  break;
 
 	case '$':
@@ -1787,11 +1786,92 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	}
 }
 
+static void init_open_gl_params()
+{
+	glEnable(GL_TEXTURE_2D);
+	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
+	gl::AlphaBlending(true);
+}
+
 bool StClient::initOpenGL(int argc, char **argv)
 {
 #if USE_GLFW
+	(void)argc;
+	(void)argv;
+
 	glfwInit();
-	glfwOpenWindow(0, 0, 0, 0, 0, 0, 0, 0, GLFW_WINDOW);
+	glfwOpenWindow(
+		INITIAL_WIN_SIZE_X,
+		INITIAL_WIN_SIZE_Y,
+		0, 0, 0,
+		0, 0, 0,
+		(config.initial_fullscreen ? GLFW_FULLSCREEN : GLFW_WINDOW));
+
+	{
+		std::string name;
+		name += "スポーツタイムマシン クライアント";
+		name += " (";
+		name += Core::getComputerName();
+		name += ")";
+		glfwSetWindowTitle(name.c_str());
+	}
+
+	init_open_gl_params();
+
+	int window_w = 0;
+	int window_h = 0;
+	glfwGetWindowSize(&window_w, &window_h);
+	glutReshape(window_w, window_h);
+
+	for (;;)
+	{
+		if (!glfwGetWindowParam(GLFW_OPENED))
+		{
+			break;
+		}
+
+		glutDisplay();
+
+		{
+			int w = 0;
+			int h = 0;
+			glfwGetWindowSize(&w, &h);
+			if (!(w==window_w && h==window_h))
+			{
+				window_w = w;
+				window_h = h;
+				glutReshape(window_w, window_h);
+			}
+		}
+
+		{
+			int x = 0;
+			int y = 0;
+			glfwGetMousePos(&x, &y);
+			
+			static bool old_left  = false;
+			static bool old_right = false;
+
+			const bool left  = (glfwGetMouseButton(GLFW_MOUSE_BUTTON_1)==GLFW_PRESS);
+			const bool right = (glfwGetMouseButton(GLFW_MOUSE_BUTTON_2)==GLFW_PRESS);
+			if (!(left==old_left && right==old_right))
+			{
+				old_left  = left;
+				old_right = right;
+				printf("mouse %d, %d\n", left, right);
+				onMouse(
+					(left  ? GLUT_LEFT_BUTTON : 0) +
+					(right ? GLUT_RIGHT_BUTTON : 0),
+					GLUT_DOWN,
+					x,y);
+			}
+			onMouseMove(x, y);
+		}
+
+		glfwSwapBuffers();
+	}
 #else
 	glutInit(&argc, argv);
 	glutInitWindowPosition(
@@ -1821,14 +1901,8 @@ bool StClient::initOpenGL(int argc, char **argv)
 	glutMouseFunc(glutMouse);
 	glutReshapeFunc(glutReshape);
 	glutMotionFunc(glutMouseMove);
-	glEnable(GL_TEXTURE_2D);
 
-	gl::ModelView();
-
-	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
-	gl::AlphaBlending(true);
+	init_open_gl_params();
 #endif
 
 	return true;
