@@ -2,6 +2,7 @@
 #include "Core.h"
 //#include "Audio.h"
 #include "Console.h"
+#include "Clipboard.h"
 #include "Image.h"
 #include "Libs.h"
 #include "Timer.h"

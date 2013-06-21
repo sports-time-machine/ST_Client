@@ -212,6 +212,7 @@ private:
 	void MovieRecord();
 	void DrawVoxels(Dots& dots);
 	void CreateAtari(const Dots& dots);
+	void set_clipboard_text();
 };
 
 

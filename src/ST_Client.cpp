@@ -26,6 +26,8 @@ using namespace mi;
 
 
 
+
+
 const int FRAMES_PER_SECOND = 30;
 const int MAX_TOTAL_SECOND  = 50;
 const int MAX_TOTAL_FRAMES  = MAX_TOTAL_SECOND * FRAMES_PER_SECOND;
@@ -858,8 +860,8 @@ void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVo
 
 	const int inc = 
 		(style & DRAW_VOXELS_HALF)
-			? minmax(config.movie_inc,  1, 64)
-			: minmax(config.person_inc, 1, 64);
+			? minmax(config.movie_inc,  16, 256)
+			: minmax(config.person_inc, 16, 256);
 	const int SIZE16 = dots.size() << 4;
 
 	for (int i16=0; i16<SIZE16; i16+=inc)
@@ -1611,6 +1613,38 @@ void StClient::onMouse(int button, int state, int x, int y)
 }
 
 
+void StClient::set_clipboard_text()
+{
+	std::string s;
+	
+	for (int i=0; i<2; ++i)
+	{
+		const auto& cam = (i==0) ? cal_cam1.curr : cal_cam2.curr;
+		char buffer[1024];
+		sprintf(buffer,
+			"global camera%d = [\n"
+			"	x:     %+6.3f,\n"
+			"	y:     %+6.3f,\n"
+			"	z:     %+6.3f,\n"
+			"	rotx:  %+6.3f,\n"
+			"	roty:  %+6.3f,\n"
+			"	rotz:  %+6.3f,\n"
+			"	scale: %+6.3f];\n",
+				i,
+				cam.x,
+				cam.y,
+				cam.z,
+				cam.rotx,
+				cam.roty,
+				cam.rotz,
+				cam.scale);
+		s += buffer;
+	}
+
+	mi::Clipboard::setText(s);
+}
+
+
 
 void StClient::onKey(int key, int /*x*/, int /*y*/)
 {
@@ -1656,7 +1690,7 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	switch (key)
 	{
 	default:
-		printf("[key %d]\n", key);
+		printf("[key %X %d]\n", key&0xF0000, key&0x0FFFF);
 		break;
 
 	case '1':
@@ -1773,6 +1807,10 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	
 	case KEY_F9:
 		load_config();
+		break;
+
+	case SK_CTRL+0x03:  // ^C
+		set_clipboard_text();
 		break;
 
 	case 'C':  toggle(mode.auto_clipping); break;

@@ -108,12 +108,19 @@ struct mat4x4
 				  0,   0, 0, 1) * trans;
 		}
 
-		// 平行移動とズーム
+		// ズーム
 		const float s = scale;
 		trans = mat4x4(
-			s, 0, 0, x,
-			0, s, 0, y,
-			0, 0, s, z,
+			s, 0, 0, 0,
+			0, s, 0, 0,
+			0, 0, s, 0,
+			0, 0, 0, 1) * trans;
+
+		// 平行移動
+		trans = mat4x4(
+			1, 0, 0, x,
+			0, 1, 0, y,
+			0, 0, 1, z,
 			0, 0, 0, 1) * trans;
 
 		return trans;
