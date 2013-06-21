@@ -11,6 +11,16 @@ void glRGBA::glColorUpdate() const
 	glColor4ub(r,g,b,a);
 }
 
+void glRGBA::glColorUpdate(int alpha) const 
+{
+	glColor4ub(r,g,b,(uint8)(a*alpha>>8));
+}
+
+void glRGBA::glColorUpdate(float alpha) const 
+{
+	glColor4ub(r,g,b,(uint8)(a*alpha));
+}
+
 void vec::glVertexUpdate()
 {
 	glVertex3f(x, y, z);

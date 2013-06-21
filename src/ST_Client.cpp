@@ -1,7 +1,3 @@
-#ifndef _CRT_SECURE_NO_DEPRECATE 
-	#define _CRT_SECURE_NO_DEPRECATE 1
-#endif
-
 #include "mi/mi.h"
 #include "FreeType.h"
 #include "gl_funcs.h"
@@ -19,21 +15,14 @@
 #pragma warning(disable:4996) // unsafe function
 
 
-using namespace vector_and_matrix;
 using namespace mgl;
-using namespace stclient;
 using namespace mi;
-
-
-
-
+using namespace stclient;
+using namespace vector_and_matrix;
 
 const int FRAMES_PER_SECOND = 30;
 const int MAX_TOTAL_SECOND  = 50;
 const int MAX_TOTAL_FRAMES  = MAX_TOTAL_SECOND * FRAMES_PER_SECOND;
-
-
-//#
 const int ATARI_INC = 20;
 
 
@@ -79,26 +68,16 @@ private:
 	int hit[CEL_W * CEL_H];
 };
 
-local HitData hitdata;
-
-
-int flashing = 0;
-int fll = 0;
-size_t hit_stage = 0;
-
-
 struct Calset
 {
 	CamParam curr, prev;
 };
 
+local HitData hitdata;
+local int flashing = 0;
+local int fll = 0;
 local Calset cal_cam1, cal_cam2;
-
 local float eye_rh_base, eye_rv_base, eye_y_base;
-
-
-
-
 static int old_x, old_y;
 
 
@@ -115,6 +94,7 @@ struct HitObject
 	bool enable;
 	Point point;
 	glRGBA color;
+	int hit_id;
 
 	HitObject():
 		enable(true)
@@ -252,6 +232,7 @@ void init_hit_objects()
 		HitObject ho;
 		ho.point = Point(27,16);
 		ho.color = glRGBA(250, 100, 150);
+		ho.hit_id = 1;
 		hit_objects.push_back(ho);
 	}
 
@@ -259,6 +240,7 @@ void init_hit_objects()
 		HitObject ho;
 		ho.point = Point(5,10);
 		ho.color = glRGBA(20, 100, 250);
+		ho.hit_id = 2;
 		hit_objects.push_back(ho);
 	}
 
@@ -266,6 +248,7 @@ void init_hit_objects()
 		HitObject ho;
 		ho.point = Point(5,20);
 		ho.color = glRGBA(250, 50, 50);
+		ho.hit_id = 3;
 		hit_objects.push_back(ho);
 	}
 
@@ -273,6 +256,7 @@ void init_hit_objects()
 		HitObject ho;
 		ho.point = Point(30,10);
 		ho.color = glRGBA(255, 200, 120);
+		ho.hit_id = 4;
 		hit_objects.push_back(ho);
 	}
 }
@@ -433,10 +417,7 @@ bool StClient::run()	//Does not return
 	return true;
 }
 
-void buildBitmap(
-		int tex,
-		RGBA_raw* bitmap,
-		int bw, int bh)
+void buildBitmap(int tex, RGBA_raw* bitmap, int bw, int bh)
 {
 	glBindTexture(GL_TEXTURE_2D, tex);
 	glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
@@ -445,9 +426,7 @@ void buildBitmap(
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bw, bh, 0, GL_RGBA, GL_UNSIGNED_BYTE, bitmap);
 }
 
-void drawBitmap(
-		int dx, int dy, int dw, int dh,
-		float u1, float v1, float u2, float v2)
+void drawBitmap(int dx, int dy, int dw, int dh, float u1, float v1, float u2, float v2)
 {
 	const int x1 = dx;
 	const int y1 = dy;
@@ -639,13 +618,12 @@ void StClient::display2()
 	nl();
 
 	pr(monospace, 20, y+=H,
-		"#%d Near(%dmm) Far(%dmm) [%s][%s] hit-stage=%d flashing=%d",
+		"#%d Near(%dmm) Far(%dmm) [%s][%s] flashing=%d",
 			config.client_number,
 			config.near_threshold,
 			config.far_threshold,
 			mode.borderline ? "border" : "no border",
 			mode.auto_clipping ? "auto clipping" : "no auto clip",
-			hit_stage,
 			fll);
 
 	// @fps
@@ -656,6 +634,7 @@ void StClient::display2()
 			fps_counter.getFps(),
 			decomp_time,
 			draw_time);
+	nl();
 
 	// @profile
 	heading.glColorUpdate();
@@ -684,7 +663,7 @@ void StClient::display2()
 	b(); pr(monospace, 20, y+=H, " Playback     %6.2f [%d]", time_profile.playback.total, movie_index);
 	p(); pr(monospace, 20, y+=H, "  dec_stage1  %6.2f", time_profile.playback.dec_stage1);
 	p(); pr(monospace, 20, y+=H, "  dec_stage2  %6.2f", time_profile.playback.dec_stage2);
-	p(); pr(monospace, 20, y+=H, "  draw        %7.3f", time_profile.playback.draw);
+	p(); pr(monospace, 20, y+=H, "  draw        %6.2f", time_profile.playback.draw);
 
 
 	glPopMatrix();
@@ -884,19 +863,11 @@ void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVo
 
 		if (in_x && in_y && in_z)
 		{
-			glRGBA(
-				inner_color.r,
-				inner_color.g,
-				inner_color.b,
-				col255).glColorUpdate();
+			inner_color.glColorUpdate(col255);
 		}
 		else
 		{
-			glRGBA(
-				outer_color.r,
-				outer_color.g,
-				outer_color.b,
-				col255>>2).glColorUpdate();
+			outer_color.glColorUpdate(col255>>2);
 		}
 
 		if (style & DRAW_VOXELS_QUAD)
@@ -1262,7 +1233,7 @@ void StClient::display()
 		for (size_t i=0; i<hit_objects.size(); ++i)
 		{
 			const HitObject& ho = hit_objects[i];
-			ho.color.glColorUpdate();
+			ho.color.glColorUpdate(ho.enable ? 1.0f : 0.33f);
 			const int S = 5;
 			const int V = S-1;
 			const int M = 10;
@@ -1279,7 +1250,7 @@ void StClient::display()
 	// “–‚½‚è”»’è
 	if (flashing<=0)
 	{
-		for (size_t i=hit_stage; i<=hit_stage; ++i)
+		for (size_t i=0; i<hit_objects.size(); ++i)
 		{
 			HitObject& ho = hit_objects[i];
 			if (!ho.enable)
@@ -1296,16 +1267,6 @@ void StClient::display()
 					ho.point.y);
 				flashing = 200;
 				ho.enable = false;
-				++hit_stage;
-				if (hit_stage>=hit_objects.size())
-				{
-					puts("CLEAR HIT STAGE");
-					hit_stage = 0;
-					for (size_t i=0; i<hit_objects.size(); ++i)
-					{
-						hit_objects[i].enable = true;
-					}
-				}
 				break;
 			}
 		}
@@ -1354,6 +1315,8 @@ void StClient::display()
 
 enum
 {
+	KEY_ESCAPE = 0x1B,
+	KEY_CTRL_C = 0x03,
 	KEY_F1 = 1001,
 	KEY_F2 = 1002,
 	KEY_F3 = 1003,
@@ -1681,11 +1644,16 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	// Shift+A     'A'
 	// F1          F1
 	// Shift+F1    F1 | SHIFT
-	if (!isalpha(key))
+	if (!isalpha(key) && !(key>=0x00 && key<=0x1F))
 	{
 		key += (shift ? SK_SHIFT : 0);
 		key += (ctrl  ? SK_CTRL  : 0);
 	}
+
+	auto eye_move = [&](float rad){
+		eye.x += movespeed * cosf(eye.rh - rad*PI/180);
+		eye.z += movespeed * sinf(eye.rh - rad*PI/180);
+	};
 
 	switch (key)
 	{
@@ -1730,26 +1698,10 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		config.far_threshold += shift ? 1 : 10;
 		break;
 
- 	case 'a':
- 	case 'A':
-		eye.x += movespeed * cosf(eye.rh - 90*PI/180);
-		eye.z += movespeed * sinf(eye.rh - 90*PI/180);
-		break;
- 	case 'd':
- 	case 'D':
-		eye.x += movespeed * cosf(eye.rh + 90*PI/180);
-		eye.z += movespeed * sinf(eye.rh + 90*PI/180);
-		break;
- 	case 's':
- 	case 'S':
-		eye.x += movespeed * cosf(eye.rh + 180*PI/180);
-		eye.z += movespeed * sinf(eye.rh + 180*PI/180);
-		break;
- 	case 'w':
- 	case 'W':
-		eye.x += movespeed * cosf(eye.rh + 0*PI/180);
-		eye.z += movespeed * sinf(eye.rh + 0*PI/180);
- 		break;
+ 	case 'a': case 'A': eye_move(270.0f); break;
+ 	case 'd': case 'D': eye_move( 90.0f); break;
+ 	case 's': case 'S': eye_move(180.0f); break;
+ 	case 'w': case 'W': eye_move(  0.0f); break;
 	case 'q':
 	case 'Q':
 		eye.y += -movespeed;
@@ -1767,7 +1719,7 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		eye.v -= movespeed;
 		break;
 
-	case 27:
+	case KEY_ESCAPE:
 		dev1.depth.stop();
 		dev1.color.stop();
 		dev1.depth.destroy();
@@ -1809,7 +1761,7 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		load_config();
 		break;
 
-	case SK_CTRL+0x03:  // ^C
+	case KEY_CTRL_C:
 		set_clipboard_text();
 		break;
 
