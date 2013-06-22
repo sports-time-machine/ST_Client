@@ -5,6 +5,7 @@
 
 struct GlobalConfig
 {
+	std::string background_image;
 	bool enable_kinect;
 	bool enable_color;
 	float wall_depth;

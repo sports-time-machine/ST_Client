@@ -166,12 +166,34 @@ void load_config()
 				alpha);
 		}
 	};
+	auto set_camera_param = [&](CamParam& cam, const char* varname){
+		PSL::variable var = psl.get(varname);
+		cam.x     = (float)var["x"];
+		cam.y     = (float)var["y"];
+		cam.z     = (float)var["z"];
+		cam.rotx  = (float)var["rotx"];
+		cam.roty  = (float)var["roty"];
+		cam.rotz  = (float)var["rotz"];
+		cam.scale = (float)var["scale"];
+	};
+	auto pslString = [&](const char* name)->const char*{
+		return PSL::variable(psl.get(name)).toString().c_str();
+	};
 
-	// Init flags
-	CONFIG_BOOL(global_config, enable_kinect);
-	CONFIG_BOOL(global_config, enable_color);
-	CONFIG_FLOAT(global_config, wall_depth);
+	//=== LOCAL SETTINGS ===
+	CONFIG_INT(config, person_inc);
+	CONFIG_INT(config, movie_inc);
+	set_camera_param(config.cam1, "camera1");
+	set_camera_param(config.cam2, "camera2");
+
+	//=== GLOBAL SETTINGS ===
 	auto& gc = global_config;
+	CONFIG_BOOL(gc, enable_kinect);
+	CONFIG_BOOL(gc, enable_color);
+	CONFIG_FLOAT(gc, wall_depth);
+	gc.background_image = pslString("background_image");
+
+	//=== COLORS ===
 	set_rgb("ground_color", gc.ground_color);
 	set_rgb("grid_color",   gc.grid_color);
 	set_rgb("person_color", gc.person_color);
@@ -183,29 +205,6 @@ void load_config()
 	set_rgb("text_dt_color",      gc.text.dt_color);
 	set_rgb("text_dd_color",      gc.text.dd_color);
 	CONFIG_FLOAT(global_config, person_dot_px);
-
-	CONFIG_INT(config, person_inc);
-	CONFIG_INT(config, movie_inc);
-
-	auto set_camera_param = [&](CamParam& cam, const char* varname){
-		PSL::variable var = psl.get(varname);
-		cam.x     = (float)var["x"];
-		cam.y     = (float)var["y"];
-		cam.z     = (float)var["z"];
-		cam.rotx  = (float)var["rotx"];
-		cam.roty  = (float)var["roty"];
-		cam.rotz  = (float)var["rotz"];
-		cam.scale = (float)var["scale"];
-	};
-
-	set_camera_param(config.cam1, "camera1");
-	set_camera_param(config.cam2, "camera2");
-
-	PSL::variable func = psl.get("func");
-
-	PSL::variable hello = func();
-	const char* s = hello;
-	printf("%s\n", s);
 
 #undef CONFIG_INT
 #undef CONFIG_BOOL

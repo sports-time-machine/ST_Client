@@ -97,6 +97,8 @@ void StClient::processKeyInput()
 		if (H) ++config.person_inc;
 		if (N) --config.movie_inc;
 		if (M) ++config.movie_inc;
+		config.person_inc = mi::minmax(config.person_inc, MIN_VOXEL_INC, MAX_VOXEL_INC);
+		config.movie_inc  = mi::minmax(config.movie_inc,  MIN_VOXEL_INC, MAX_VOXEL_INC);
 		return;
 	}
 
@@ -182,6 +184,7 @@ void StClient::processKeyInput()
 	
 	case VK_F9:
 		load_config();
+		reloadResources();
 		break;
 
 	case SK_CTRL | 'C':

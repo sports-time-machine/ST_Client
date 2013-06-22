@@ -21,53 +21,6 @@ using namespace vector_and_matrix;
 const int FRAMES_PER_SECOND = 30;
 const int MAX_TOTAL_SECOND  = 50;
 const int MAX_TOTAL_FRAMES  = MAX_TOTAL_SECOND * FRAMES_PER_SECOND;
-const int ATARI_INC = 20;
-
-
-class HitData
-{
-private:
-	static const int AREA_W = 400; // 400cm
-	static const int AREA_H = 300; // 300cm
-
-public:
-	static const int CEL_W  = AREA_W/10;
-	static const int CEL_H  = AREA_H/10;
-
-	static bool inner(int x, int y)
-	{
-		return (uint)x<CEL_W && (uint)y<CEL_H;
-	}
-
-	int get(int x, int y) const
-	{
-		if (!inner(x,y))
-		{
-			return 0;
-		}
-		return hit[x + y*CEL_W];
-	}
-
-	void inc(int x, int y)
-	{
-		if (inner(x,y))
-		{
-			++hit[x + y*CEL_W];
-		}
-	}
-
-	void clear()
-	{
-		memset(hit, 0, sizeof(hit));
-	}
-
-private:
-	// 10cm3 box
-	int hit[CEL_W * CEL_H];
-};
-
-local HitData hitdata;
-local int flashing = 0;
 
 
 
@@ -76,25 +29,6 @@ void Kdev::initRam()
 	glGenTextures(1, &this->vram_tex);
 	glGenTextures(1, &this->vram_floor);
 }
-
-
-struct HitObject
-{
-	bool enable;
-	Point point;
-	glRGBA color;
-	int hit_id;
-
-	HitObject():
-		enable(true)
-	{
-	}
-};
-
-local std::vector<HitObject> hit_objects;
-
-
-
 
 struct VodyInfo
 {
@@ -156,8 +90,10 @@ typedef std::map<int,RgbScreen> RgbScreenMovie;
 local openni::RGB888Pixel* moviex = nullptr;
 
 
-void init_hit_objects()
+void init_hit_objects(HitObjects& hit_objects)
 {
+	hit_objects.clear();
+
 	{
 		HitObject ho;
 		ho.point = Point(27,16);
@@ -211,7 +147,7 @@ StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 
 	mode.mirroring   = config.mirroring;
 
-	init_hit_objects();
+	init_hit_objects(this->hit_objects);
 }
 
 StClient::~StClient()
@@ -305,13 +241,16 @@ bool StClient::init(int argc, char **argv)
 		puts("Init font...done!");
 	}
 
-	// @init @image @png @jpg
-//	background_image.createFromImageA("C:/ST/Picture/Pretty-Blue-Heart-Design.jpg");
-//	global.background_image.createFromImageA("C:/ST/Picture/mountain-04.jpg");
-	global.background_image.createFromImageA("C:/ST/Picture/whity.jpg");
-	global.dot_image.createFromImageA("C:/ST/Picture/dot.png");
+	reloadResources();
 
 	return true;
+}
+
+void StClient::reloadResources()
+{
+	// @init @image @png @jpg
+	global.background_image.createFromImageA(global_config.background_image.c_str());
+	global.dot_image.createFromImageA("C:/ST/Picture/dot.png");
 }
 
 static void window_resized(int width, int height)
@@ -433,7 +372,7 @@ void ChangeCalParamKeys::init()
 
 
 
-void drawFieldGrid(int size_cm)
+void StClient::drawFieldGrid(int size_cm)
 {
 	glBegin(GL_LINES);
 	const float F = size_cm/100.0f;
@@ -507,7 +446,7 @@ void drawFieldGrid(int size_cm)
 }
 
 
-void drawWall()
+void StClient::drawWall()
 {
 	auto& img = global.background_image;
 
@@ -600,8 +539,8 @@ void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVo
 
 	const int inc = 
 		(style & DRAW_VOXELS_HALF)
-			? minmax(config.movie_inc,  16, 256)
-			: minmax(config.person_inc, 16, 256);
+			? mi::minmax(config.movie_inc,  MIN_VOXEL_INC, MAX_VOXEL_INC)
+			: mi::minmax(config.person_inc, MIN_VOXEL_INC, MAX_VOXEL_INC);
 	const int SIZE16 = dots.size() << 4;
 
 	for (int i16=0; i16<SIZE16; i16+=inc)
@@ -784,261 +723,6 @@ void StClient::MovieRecord()
 }
 
 
-void StClient::displayEnvironment()
-{
-	mi::Timer tm(&time_profile.environment.total);
-
-	// @fps
-	this->fps_counter.update();
-
-	// @display
-	glClearColor(
-		global_config.ground_color.r / 255.0f,
-		global_config.ground_color.g / 255.0f,
-		global_config.ground_color.b / 255.0f,
-		1.00f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	// Kinectから情報をもらう
-	if (dev1.device.isValid())
-	{
-		mi::Timer tm(&time_profile.environment.read1);
-		dev1.CreateRawDepthImage_Read();
-		dev1.CreateRawDepthImage();
-	}
-	else
-	{
-		// ダミーの情報 @random @noise
-		static int no = 0;
-		for (int i=0; i<640*480; ++i)
-		{
-			int v = 0;
-			if (((i*2930553>>3)^((i*39920>>4)+no))%3==0)
-			{
-				v = (i+no*3)%6500 + (i+no)%2000 + 500;
-			}
-			dev1.raw_depth.image[i] = v;
-		}
-		no += 6;
-	}
-
-	if (dev2.device.isValid())
-	{
-		mi::Timer tm(&time_profile.environment.read2);
-		dev2.CreateRawDepthImage_Read();
-		dev2.CreateRawDepthImage();
-	}
-}
-
-void StClient::display3dSectionPrepare()
-{
-	// PROJECTION
-	gl::Projection();
-	gl::LoadIdentity();
-
-	if (global.view.is_ortho)
-	{
-		// 2D視点です!!
-		const double w = global.view.ortho.width;
-		glOrtho(-w/2, +w/2, 0, (w*3/4), -3.0, +120.0);
-	}
-	else
-	{
-		// 3D視点です!!
-		gluPerspective(30.0f, 4.0f/3.0f, 1.0f, 100.0f);
-	}
-
-	eye.gluLookAt();
-
-	// MODEL
-	gl::Texture(false);
-	gl::DepthTest(true);
-	gl::ModelView();
-	gl::LoadIdentity();
-}
-
-void StClient::display3dSection()
-{
-	{mi::Timer tm(&time_profile.drawing.wall);
-		drawWall();
-	}
-	{mi::Timer tm(&time_profile.drawing.grid);
-		drawFieldGrid(500);
-	}
-
-
-#if 1
-	{
-		static Dots dots;
-		DrawVoxels(dots);
-		CreateAtari(dots);
-	}
-#endif
-
-	if (movie_mode==MOVIE_PLAYBACK)
-	{
-		MoviePlayback();
-	}
-
-
-
-#if 0
-	// 記録と即時再生のテスト
-	{
-		Dots dots;
-		dots.init();
-		MovieData::Frame f;
-		VoxelRecorder::record(dots, f);
-		
-		dots.init();
-		VoxelRecorder::playback(dots, f);
-		drawVoxels(dots, glRGBA(200,240,255), glRGBA(200,70,30),
-			DRAW_VOXELS_NORMAL);
-//			DRAW_VOXELS_HALF_AND_QUAD);
-	}
-#endif
-
-
-	// 記録と即時再生のテスト
-#if 0
-	{
-		MovieData::Frame f;
-		Depth10b6b::record(dev1.raw_depth, dev2.raw_depth, f);
-		Depth10b6b::playback(dev1.raw_depth, dev2.raw_depth, f);
-
-		{
-			CamParam cam = cal_cam1.curr;
-			cam.scale = 2.0f;
-
-
-			Dots dots;
-			dots.init();
-			dots.push(Point3D( 0, 0, 0));
-			dots.push(Point3D(-1, 0, 0));
-			dots.push(Point3D(-2, 0, 0));
-
-			MixDepth(dots, dev1.raw_depth, cam);
-			MixDepth(dots, dev2.raw_depth, cam);
-			//drawVoxels(dots, glRGBA(200,240,255), glRGBA(200,70,30));
-			drawVoxels(dots, glRGBA(255,255,255), glRGBA(200,70,30));
-		}
-	}
-#endif
-
-	if (movie_mode==MOVIE_RECORD)
-	{
-		MovieRecord();
-	}
-}
-
-void StClient::display2dSectionPrepare()
-{
-	gl::Projection();
-	gl::LoadIdentity();
-	glOrtho(0, 640, 480, 0, -1.0, 1.0);
-
-	gl::Texture(false);
-	gl::DepthTest(false);
-}
-
-void StClient::display2dSection()
-{
-#if 0//#no flashing
-	if (flashing>0)
-	{
-		flashing -= 13;
-		const int fll = minmax(flashing,0,255);
-		glRGBA(255,255,255, fll).glColorUpdate();
-		glBegin(GL_QUADS);
-			glVertex2i(0,0);
-			glVertex2i(640,0);
-			glVertex2i(640,480);
-			glVertex2i(0,480);
-		glEnd();
-	}
-#endif
-
-
-	{
-		// 当たり判定オブジェクト(hitdata)の描画
-		glBegin(GL_QUADS);
-		for (int y=0; y<HitData::CEL_H; ++y)
-		{
-			for (int x=0; x<HitData::CEL_W; ++x)
-			{
-				int hit = hitdata.get(x,y);
-				int p = minmax(hit*ATARI_INC/5, 0, 255);
-				int q = 255-p;
-				glRGBA(
-					(240*p +  50*q)>>8,
-					(220*p +  70*q)>>8,
-					( 60*p + 110*q)>>8,
-					180).glColorUpdate();
-				const int S = 5;
-				const int V = S-1;
-				const int M = 10;
-				const int dx = x*S + 640 - M - HitData::CEL_W*S;
-				const int dy = y*S +   0 + M;
-				glVertex2i(dx,   dy);
-				glVertex2i(dx+V, dy);
-				glVertex2i(dx+V, dy+V);
-				glVertex2i(dx,   dy+V);
-			}
-		}
-		glEnd();
-	}
-	{
-		glBegin(GL_QUADS);
-		for (size_t i=0; i<hit_objects.size(); ++i)
-		{
-			const HitObject& ho = hit_objects[i];
-			ho.color.glColorUpdate(ho.enable ? 1.0f : 0.33f);
-			const int S = 5;
-			const int V = S-1;
-			const int M = 10;
-			const int dx = ho.point.x*S + 640 - M - HitData::CEL_W*S;
-			const int dy = ho.point.y*S +   0 + M;
-			glVertex2i(dx-1, dy-1);
-			glVertex2i(dx+V, dy-1);
-			glVertex2i(dx+V, dy+V);
-			glVertex2i(dx-1, dy+V);
-		}
-		glEnd();
-	}
-
-	// 当たり判定
-	if (flashing<=0)
-	{
-		for (size_t i=0; i<hit_objects.size(); ++i)
-		{
-			HitObject& ho = hit_objects[i];
-			if (!ho.enable)
-				continue;
-
-			int value = hitdata.get(ho.point.x, ho.point.y);
-		
-			// 10cm3にNドット以上あったらヒットとする
-			if (value>=5)
-			{
-				printf("HIT!! hit object %d, point (%d,%d)\n",
-					i,
-					ho.point.x,
-					ho.point.y);
-				flashing = 200;
-				ho.enable = false;
-				break;
-			}
-		}
-	}
-
-
-	switch (global.client_status)
-	{
-	case STATUS_BLACK:        displayBlackScreen();   break;
-	case STATUS_PICTURE:      displayPictureScreen(); break;
-	}
-}
-
 
 void StClient::saveAgent(int slot)
 {
@@ -1108,7 +792,7 @@ void StClient::clearFloorDepth()
 }
 
 
-void change_cal_param(Calset& set, float mx, float my, const ChangeCalParamKeys& keys)
+static void change_cal_param(Calset& set, float mx, float my, const ChangeCalParamKeys& keys)
 {
 	auto& curr = set.curr;
 	auto& prev = set.prev;
@@ -1182,7 +866,6 @@ void change_cal_param(Calset& set, float mx, float my, const ChangeCalParamKeys&
 	set.prev = set.curr;
 }
 
-
 void StClient::do_calibration(float mx, float my)
 {
 	ChangeCalParamKeys keys;
@@ -1213,14 +896,14 @@ void StClient::set_clipboard_text()
 		const auto& cam = (i==0) ? cal_cam1.curr : cal_cam2.curr;
 		char buffer[1024];
 		sprintf(buffer,
-			"global camera%d = [\n"
-			"	x:     %+6.3f,\n"
-			"	y:     %+6.3f,\n"
-			"	z:     %+6.3f,\n"
-			"	rotx:  %+6.3f,\n"
-			"	roty:  %+6.3f,\n"
-			"	rotz:  %+6.3f,\n"
-			"	scale: %+6.3f];\n",
+			"global camera%d = ["
+			"x:%+6.3f,"
+			"y:%+6.3f,"
+			"z:%+6.3f,"
+			"rotx:%+6.3f,"
+			"roty:%+6.3f,"
+			"rotz:%+6.3f,"
+			"scale:%+6.3f];\n",
 				1+i,
 				cam.x,
 				cam.y,

@@ -19,6 +19,13 @@ const float PI = 3.141592653;
 #define MIN_NUM_CHUNKS(data_size, chunk_size)	((((data_size)-1) / (chunk_size) + 1))
 #define MIN_CHUNKS_SIZE(data_size, chunk_size)	(MIN_NUM_CHUNKS(data_size, chunk_size) * (chunk_size))
 
+enum VariousConstants
+{
+	MIN_VOXEL_INC = 16,
+	MAX_VOXEL_INC = 128,
+	ATARI_INC = 20,
+};
+
 
 const int UDP_SERVER_RECV = 38702;
 const int UDP_CLIENT_RECV = 38708;
@@ -79,6 +86,63 @@ struct RawDepthImage
 	}
 
 	void CalcDepthMinMax();
+};
+
+struct HitObject
+{
+	bool         enable;
+	mi::Point    point;
+	mgl::glRGBA  color;
+	int          hit_id;
+
+	HitObject():
+		enable(true)
+	{
+	}
+};
+
+typedef std::vector<HitObject> HitObjects;
+
+class HitData
+{
+private:
+	static const int AREA_W = 400; // 400cm
+	static const int AREA_H = 300; // 300cm
+
+public:
+	static const int CEL_W  = AREA_W/10;
+	static const int CEL_H  = AREA_H/10;
+
+	static bool inner(int x, int y)
+	{
+		return (uint)x<CEL_W && (uint)y<CEL_H;
+	}
+
+	int get(int x, int y) const
+	{
+		if (!inner(x,y))
+		{
+			return 0;
+		}
+		return hit[x + y*CEL_W];
+	}
+
+	void inc(int x, int y)
+	{
+		if (inner(x,y))
+		{
+			++hit[x + y*CEL_W];
+		}
+	}
+
+	void clear()
+	{
+		memset(hit, 0, sizeof(hit));
+	}
+
+private:
+	// 10cm3 box
+	int hit[CEL_W * CEL_H];
 };
 
 struct Kdev
@@ -184,14 +248,11 @@ struct Global
 
 	struct 
 	{
-		struct Ortho
+		struct View2D
 		{
 			double width;
-		} ortho;
-		struct Perspective
-		{
-		} perspective;
-		bool is_ortho;
+		} view2d;
+		bool is_2d_view;
 	} view;
 
 	Global()
@@ -319,10 +380,8 @@ private:
 
 	void CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage& raw_depth, const RawDepthImage& raw_floor);
 
-	mi::UdpReceiver udp_recv;
-	mi::UdpSender   udp_send;
-
-
+	mi::UdpReceiver       udp_recv;
+	mi::UdpSender         udp_send;
 	Eye                   eye;
 	ActiveCamera          active_camera;
 	freetype::font_data   monospace;
@@ -331,7 +390,9 @@ private:
 	mi::Fps               fps_counter;
 	int                   movie_index;
 	MovieMode             movie_mode;
-
+	HitData               hitdata;
+	HitObjects            hit_objects;
+	int                   flashing;
 
 	void saveAgent(int slot);
 	void loadAgent(int slot);
@@ -344,6 +405,9 @@ private:
 	void set_clipboard_text();
 
 	void clearFloorDepth();
+	void reloadResources();
+	void drawWall();
+	void drawFieldGrid(int size_cm);
 };
 
 }//namespace stclient
