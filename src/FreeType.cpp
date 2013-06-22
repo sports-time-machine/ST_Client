@@ -196,33 +196,35 @@ void font_data::clean() {
 /// A fairly straight forward function that pushes
 /// a projection matrix that will make object world 
 /// coordinates identical to window coordinates.
-inline int pushScreenCoordinateMatrix() {
+static inline int pushScreenCoordinateMatrix()
+{
 	glPushAttrib(GL_TRANSFORM_BIT);
-	GLint	viewport[4];
-	glGetIntegerv(GL_VIEWPORT, viewport);
-	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();
-	glLoadIdentity();
+		GLint viewport[4];
+		glGetIntegerv(GL_VIEWPORT, viewport);
 
-	glOrtho(viewport[0],viewport[2],viewport[1],viewport[3],-1,1);
-	
+		glMatrixMode(GL_PROJECTION);
+		glPushMatrix();
+		glLoadIdentity();
+
+		glOrtho(viewport[0],viewport[2],viewport[1],viewport[3],-1,1);
 	glPopAttrib();
 	return viewport[3] - viewport[1];
 }
 
 /// Pops the projection matrix without changing the current
 /// MatrixMode.
-inline void pop_projection_matrix() {
+static inline void pop_projection_matrix()
+{
 	glPushAttrib(GL_TRANSFORM_BIT);
-	glMatrixMode(GL_PROJECTION);
-	glPopMatrix();
+		glMatrixMode(GL_PROJECTION);
+		glPopMatrix();
 	glPopAttrib();
 }
 
 ///Much like Nehe's glPrint function, but modified to work
 ///with freetype fonts.
-void print(const font_data &ft_font, float x, float y, const char *fmt, ...)  {
-	
+void print(const font_data &ft_font, float x, float y, const char *fmt, ...) 
+{
 	// We want a coordinate system where things coresponding to window pixels.
 	const int window_height = pushScreenCoordinateMatrix();					
 	
@@ -276,33 +278,15 @@ void print(const font_data &ft_font, float x, float y, const char *fmt, ...)  {
 	float modelview_matrix[16];	
 	glGetFloatv(GL_MODELVIEW_MATRIX, modelview_matrix);
 
-	//This is where the text display actually happens.
-	//For each line of text we reset the modelview matrix
-	//so that the line's text will start in the correct position.
-	//Notice that we need to reset the matrix, rather than just translating
-	//down by h. This is because when each character is
-	//draw it modifies the current matrix so that the next character
-	//will be drawn immediatly after it.  
 	for (unsigned int i=0;i<lines.size();i++)
 	{
 		glPushMatrix();
-		glLoadIdentity();
-		glTranslatef(x,window_height-1-y-h*i,0);
-		glMultMatrixf(modelview_matrix);
-
-	//  The commented out raster position stuff can be useful if you need to
-	//  know the length of the text that you are creating.
-	//  If you decide to use it make sure to also uncomment the glBitmap command
-	//  in make_dlist().
-	//	glRasterPos2f(0,0);
-		glCallLists(lines[i].length(), GL_UNSIGNED_BYTE, lines[i].c_str());
-	//	float rpos[4];
-	//	glGetFloatv(GL_CURRENT_RASTER_POSITION ,rpos);
-	//	float len=x-rpos[0];
-
+			glLoadIdentity();
+			glTranslatef(x,window_height-1-y-h*i,0);
+			glMultMatrixf(modelview_matrix);
+			glCallLists(lines[i].length(), GL_UNSIGNED_BYTE, lines[i].c_str());
 		glPopMatrix();
 	}
-
 
 	glPopAttrib();		
 

@@ -150,8 +150,6 @@ void toggle(bool& ref)
 }
 
 
-StClient* StClient::ms_self = nullptr;
-
 typedef std::vector<openni::RGB888Pixel> RgbScreen;
 typedef std::map<int,RgbScreen> RgbScreenMovie;
 
@@ -198,13 +196,9 @@ void init_hit_objects()
 StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 	dev1(dev1_),
 	dev2(dev2_),
-	video_ram(nullptr),
-	video_ram2(nullptr),
 	active_camera(CAM_BOTH),
 	movie_mode(MOVIE_READY)
 {
-	ms_self = this;
-
 	eye.view_3d_left();
 
 	// コンフィグデータからのロード
@@ -222,12 +216,7 @@ StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 
 StClient::~StClient()
 {
-	delete[] video_ram;
-	delete[] video_ram2;
-
-	ms_self = nullptr;
 }
-
 
 
 bool StClient::init(int argc, char **argv)
@@ -305,10 +294,6 @@ bool StClient::init(int argc, char **argv)
 	glGenTextures(1, &vram_tex2);
 
 
-	video_ram     = new RGBA_raw[m_nTexMapX * m_nTexMapY];
-	video_ram2    = new RGBA_raw[m_nTexMapX * m_nTexMapY];
-
-
 	// Init routine @init
 	{
 		puts("Init font...");
@@ -322,7 +307,8 @@ bool StClient::init(int argc, char **argv)
 
 	// @init @image @png @jpg
 //	background_image.createFromImageA("C:/ST/Picture/Pretty-Blue-Heart-Design.jpg");
-	global.background_image.createFromImageA("C:/ST/Picture/mountain-04.jpg");
+//	global.background_image.createFromImageA("C:/ST/Picture/mountain-04.jpg");
+	global.background_image.createFromImageA("C:/ST/Picture/whity.jpg");
 	global.dot_image.createFromImageA("C:/ST/Picture/dot.png");
 
 	return true;
@@ -377,6 +363,7 @@ bool StClient::run()
 			this->display3dSection();
 			this->display2dSectionPrepare();
 			this->display2dSection();
+			this->display2();
 		}
 
 		glfwSwapBuffers();
@@ -469,11 +456,7 @@ void drawFieldGrid(int size_cm)
 		}
 		else
 		{
-			glRGBA(
-				global_config.grid_r,
-				global_config.grid_g,
-				global_config.grid_b,
-				0.40f).glColorUpdate();
+			global_config.grid_color(0.40f);
 		}
 
 		glVertex3f(-F, 0, f);
@@ -532,6 +515,7 @@ void drawWall()
 	const float Z = global_config.wall_depth;
 	gl::Texture(true);
 	glPushMatrix();
+	glRGBA::white();
 	gl::LoadIdentity();
 	glBindTexture(GL_TEXTURE_2D, img.getTexture());
 	const float u = img.getTextureWidth();
@@ -610,6 +594,7 @@ void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVo
 	else
 	{
 		gl::Texture(false);
+		glPointSize(global_config.person_dot_px);
 		glBegin(GL_POINTS);
 	}
 
@@ -695,7 +680,10 @@ void StClient::MoviePlayback()
 	Depth10b6b::playback(dev1.raw_depth, dev2.raw_depth, mov.frames[movie_index++]);
 	MixDepth(dots, dev1.raw_depth, mov.cam1);
 	MixDepth(dots, dev2.raw_depth, mov.cam2);
-	drawVoxels(dots, glRGBA(0,240,255), glRGBA(50,50,50), DRAW_VOXELS_HALF);
+	drawVoxels(dots,
+		global_config.movie1_color,	
+		glRGBA(50,50,50),
+		DRAW_VOXELS_HALF);
 }
 
 
@@ -703,7 +691,6 @@ void StClient::DrawVoxels(Dots& dots)
 {
 	const glRGBA color_cam1(80,190,250);
 	const glRGBA color_cam2(250,190,80);
-	const glRGBA color_both(255,255,255);
 	const glRGBA color_other(120,120,120);
 	const glRGBA color_outer(120,130,200);
 	
@@ -724,7 +711,7 @@ void StClient::DrawVoxels(Dots& dots)
 		}
 		{
 			Timer tm(&time_profile.drawing.drawvoxels);
-			drawVoxels(dots, color_both, color_outer);
+			drawVoxels(dots, global_config.person_color, color_outer);
 		}
 	}
 	else
@@ -806,10 +793,10 @@ void StClient::displayEnvironment()
 
 	// @display
 	glClearColor(
-		global_config.ground_r,
-		global_config.ground_g,
-		global_config.ground_b,
-		1.00);
+		global_config.ground_color.r / 255.0f,
+		global_config.ground_color.g / 255.0f,
+		global_config.ground_color.b / 255.0f,
+		1.00f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// Kinectから情報をもらう
@@ -845,8 +832,9 @@ void StClient::displayEnvironment()
 
 void StClient::display3dSectionPrepare()
 {
-	::glMatrixMode(GL_PROJECTION);
-	::glLoadIdentity();
+	// PROJECTION
+	gl::Projection();
+	gl::LoadIdentity();
 
 	if (global.view.is_ortho)
 	{
@@ -862,16 +850,17 @@ void StClient::display3dSectionPrepare()
 
 	eye.gluLookAt();
 
+	// MODEL
 	gl::Texture(false);
 	gl::DepthTest(true);
-	::glMatrixMode(GL_MODELVIEW);
-	::glLoadIdentity();
+	gl::ModelView();
+	gl::LoadIdentity();
 }
 
 void StClient::display3dSection()
 {
 	{mi::Timer tm(&time_profile.drawing.wall);
-		//#drawWall();
+		drawWall();
 	}
 	{mi::Timer tm(&time_profile.drawing.grid);
 		drawFieldGrid(500);
@@ -1048,9 +1037,6 @@ void StClient::display2dSection()
 	case STATUS_BLACK:        displayBlackScreen();   break;
 	case STATUS_PICTURE:      displayPictureScreen(); break;
 	}
-
-	glRGBA::white.glColorUpdate();
-	display2();
 }
 
 
@@ -1235,7 +1221,7 @@ void StClient::set_clipboard_text()
 			"	roty:  %+6.3f,\n"
 			"	rotz:  %+6.3f,\n"
 			"	scale: %+6.3f];\n",
-				i,
+				1+i,
 				cam.x,
 				cam.y,
 				cam.z,

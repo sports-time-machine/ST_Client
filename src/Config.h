@@ -8,12 +8,21 @@ struct GlobalConfig
 	bool enable_kinect;
 	bool enable_color;
 	float wall_depth;
-	float ground_r;
-	float ground_g;
-	float ground_b;
-	float grid_r;
-	float grid_g;
-	float grid_b;
+	mgl::glRGBA ground_color;
+	mgl::glRGBA grid_color;
+	mgl::glRGBA person_color;
+	mgl::glRGBA movie1_color;
+	mgl::glRGBA movie2_color;
+	mgl::glRGBA movie3_color;
+	float person_dot_px;
+
+	struct Text
+	{
+		mgl::glRGBA heading_color;
+		mgl::glRGBA normal_color;
+		mgl::glRGBA dt_color;
+		mgl::glRGBA dd_color;
+	} text;
 
 	GlobalConfig();
 };

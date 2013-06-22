@@ -32,12 +32,13 @@ GlobalConfig::GlobalConfig()
 	enable_kinect = true;
 	enable_color  = false;
 	wall_depth = 3.0f;
-	ground_r = 0.33f;
-	ground_g = 0.15f;
-	ground_b = 0.08f;
-	grid_r = 0.80f;
-	grid_g = 0.60f;
-	grid_b = 0.50f;
+	ground_color.set(80, 40, 20);
+	grid_color.set(200, 150, 130);
+	person_color.set(60,60,60, 200);
+	movie1_color.set(120,50,50,200);
+	movie2_color.set(50,120,50,200);
+	movie3_color.set(50,50,120,200);
+	person_dot_px = 1.5f;
 }
 
 
@@ -64,6 +65,25 @@ void ErrorDialog(const char* title)
 	const char* text = openni::OpenNI::getExtendedError();
 	Core::dialog(title, text);
 }
+
+static bool var_exist(PSL::variable& var)
+{
+	using namespace PSL;
+	if (var.length()!=0)              return true;  //array
+	if (var.memberLength()!=0)        return true;  //hash
+	if (var.type()==variable::INT)    return true;
+	if (var.type()==variable::FLOAT)  return true;
+	if (var.type()==variable::HEX)    return true;
+	if (var.type()==variable::STRING) return true;
+	return false;
+}
+
+static bool var_exist(PSL::PSLVM& vm, const char* name)
+{
+	PSL::variable var = vm.get(name);
+	return var_exist(var);
+}
+
 
 void load_config()
 {
@@ -102,11 +122,9 @@ void load_config()
 
 	psl.run();
 
-	auto int_exists = [&](const char* name)->bool{
-		return PSL::variable(psl.get(name)).type()==PSL::variable::INT;
-	};
+	using namespace PSL;
 
-#define CONFIG_LET2(DEST,NAME,C,FUNC)   if(int_exists(#NAME)){ DEST=(C)PSL::variable(psl.get(#NAME)).FUNC(); }
+#define CONFIG_LET2(DEST,NAME,C,FUNC)   if(var_exist(psl,#NAME)){ DEST=(C)PSL::variable(psl.get(#NAME)).FUNC(); }
 #define CONFIG_LET(DEST,NAME,C,FUNC)   CONFIG_LET2(DEST.NAME, NAME, C, FUNC)
 #define CONFIG_INT(DEST,NAME)          CONFIG_LET(DEST,NAME,int,toInt)
 #define CONFIG_BOOL(DEST,NAME)         CONFIG_LET(DEST,NAME,bool,toBool)
@@ -135,16 +153,36 @@ void load_config()
 	config.metrics.top_mm    = (int)(1000 * top_meter);
 	config.metrics.ground_px = ground_px;
 
+	auto set_rgb = [&](const char* name, mgl::glRGBA& dest){
+		PSL::variable src = psl.get(name);
+		if (var_exist(src))
+		{
+			int alpha = src["a"].toInt();
+			if (alpha==0) alpha=255;
+			dest.set(
+				src["r"].toInt(),
+				src["g"].toInt(),
+				src["b"].toInt(),
+				alpha);
+		}
+	};
+
 	// Init flags
 	CONFIG_BOOL(global_config, enable_kinect);
 	CONFIG_BOOL(global_config, enable_color);
 	CONFIG_FLOAT(global_config, wall_depth);
-	CONFIG_FLOAT(global_config, ground_r);
-	CONFIG_FLOAT(global_config, ground_g);
-	CONFIG_FLOAT(global_config, ground_b);
-	CONFIG_FLOAT(global_config, grid_r);
-	CONFIG_FLOAT(global_config, grid_g);
-	CONFIG_FLOAT(global_config, grid_b);
+	auto& gc = global_config;
+	set_rgb("ground_color", gc.ground_color);
+	set_rgb("grid_color",   gc.grid_color);
+	set_rgb("person_color", gc.person_color);
+	set_rgb("movie1_color", gc.movie1_color);
+	set_rgb("movie2_color", gc.movie2_color);
+	set_rgb("movie3_color", gc.movie3_color);
+	set_rgb("text_heading_color", gc.text.heading_color);
+	set_rgb("text_normal_color",  gc.text.normal_color);
+	set_rgb("text_dt_color",      gc.text.dt_color);
+	set_rgb("text_dd_color",      gc.text.dd_color);
+	CONFIG_FLOAT(global_config, person_dot_px);
 
 	CONFIG_INT(config, person_inc);
 	CONFIG_INT(config, movie_inc);

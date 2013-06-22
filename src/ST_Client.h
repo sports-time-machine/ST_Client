@@ -306,16 +306,12 @@ private:
 
 	void BuildDepthImage(uint8* dest);
 
-	static StClient* ms_self;
-
 	void do_calibration(float mx, float my);
 
 
 	unsigned int		m_nTexMapX;
 	unsigned int		m_nTexMapY;
 
-	mi::RGBA_raw* video_ram;
-	mi::RGBA_raw* video_ram2;
 	uint vram_tex2;
 
 	int			m_width;

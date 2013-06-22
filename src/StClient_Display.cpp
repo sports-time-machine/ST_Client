@@ -5,14 +5,8 @@ using namespace mgl;
 
 void StClient::display2()
 {
-	static float cnt = 0;
 	static int frames = 0;
 	++frames;
-	cnt += 0.01;
-	glPushMatrix();
-	glLoadIdentity();
-
-	glRGBA::white.glColorUpdate();
 
 	const int H=15;
 	int y = 10;
@@ -20,35 +14,32 @@ void StClient::display2()
 	auto nl = [&](){ y+=H/2; };
 	auto pr = freetype::print;
 
-	glRGBA heading(80,255,120);
-	glRGBA text(200,200,200);
-	glRGBA b(240,240,240);
-	glRGBA p(150,150,150);
+	const glRGBA heading = global_config.text.heading_color;
+	const glRGBA text = global_config.text.normal_color;
+	const glRGBA b = global_config.text.dt_color;
+	const glRGBA p = global_config.text.dd_color;
 	
 	auto color = [](bool status){
-		status
-			? glRGBA(240,200,50).glColorUpdate()
-			: glRGBA(200,200,200).glColorUpdate();
+		(status
+			? global_config.text.dt_color
+			: global_config.text.dd_color)();
 	};
-
-
 	
 	{
 		ChangeCalParamKeys keys;
 		keys.init();
-		heading.glColorUpdate();
+		heading();
 		pr(monospace, 320, y,
 			(keys.rot_xy) ? "<XY-rotation>" :
 			(keys.rot_z)  ? "<Z-rotation>" :
 			(keys.scale)  ? "<Scaling>" : "");
 	}
 
-
 	{
 		int y2 = y;
-		heading.glColorUpdate();
+		heading();
 		pr(monospace, 200, y2+=H, "EYE");
-		text.glColorUpdate();
+		text();
 		pr(monospace, 200, y2+=H, "x =%+9.4f [adsw]", eye.x);
 		pr(monospace, 200, y2+=H, "y =%+9.4f [q/e]", eye.y);
 		pr(monospace, 200, y2+=H, "z =%+9.4f [adsw]", eye.z);
@@ -59,9 +50,9 @@ void StClient::display2()
 		pr(monospace, 200, y2+=H, "M-inc = %3d [n/m]", config.movie_inc);
 	}
 
-	heading.glColorUpdate();
+	heading();
 	pr(monospace, 20, y+=H, "View Mode");
-	text.glColorUpdate();
+	text();
 	{
 		const auto vm = global.view_mode;
 		color(vm==VM_2D_LEFT);  pr(monospace, 20, y+=H, "[F1] 2D left");
@@ -79,9 +70,9 @@ void StClient::display2()
 	{
 		const auto cam = curr_movie.cam1;
 		int y2 = y;
-		heading.glColorUpdate();
+		heading();
 		pr(monospace, 200, y2+=H, "RecCam A:");
-		text.glColorUpdate();
+		text();
 		pr(monospace, 200, y2+=H, "pos x = %9.5f", cam.x);
 		pr(monospace, 200, y2+=H, "pos y = %9.5f", cam.y);
 		pr(monospace, 200, y2+=H, "pos z = %9.5f", cam.z);
@@ -91,9 +82,9 @@ void StClient::display2()
 		pr(monospace, 200, y2+=H, "scale = %9.5f", cam.scale);
 	}
 
-	heading.glColorUpdate();
+	heading();
 	pr(monospace, 20, y+=H, "Camera A:");
-	text.glColorUpdate();
+	text();
 	pr(monospace, 20, y+=H, "pos x = %9.5f", cal_cam1.curr.x);
 	pr(monospace, 20, y+=H, "pos y = %9.5f", cal_cam1.curr.y);
 	pr(monospace, 20, y+=H, "pos z = %9.5f", cal_cam1.curr.z);
@@ -106,9 +97,9 @@ void StClient::display2()
 	{
 		const auto cam = curr_movie.cam2;
 		int y2 = y;
-		heading.glColorUpdate();
+		heading();
 		pr(monospace, 200, y2+=H, "RecCam B:");
-		text.glColorUpdate();
+		text();
 		pr(monospace, 200, y2+=H, "pos x = %9.5f", cam.x);
 		pr(monospace, 200, y2+=H, "pos y = %9.5f", cam.y);
 		pr(monospace, 200, y2+=H, "pos z = %9.5f", cam.z);
@@ -118,9 +109,9 @@ void StClient::display2()
 		pr(monospace, 200, y2+=H, "scale = %9.5f", cam.scale);
 	}
 
-	heading.glColorUpdate();
+	heading();
 	pr(monospace, 20, y+=H, "Camera B:");
-	text.glColorUpdate();
+	text();
 	pr(monospace, 20, y+=H, "pos x = %9.5f", cal_cam2.curr.x);
 	pr(monospace, 20, y+=H, "pos y = %9.5f", cal_cam2.curr.y);
 	pr(monospace, 20, y+=H, "pos z = %9.5f", cal_cam2.curr.z);
@@ -145,9 +136,9 @@ void StClient::display2()
 	nl();
 
 	// @profile
-	heading.glColorUpdate();
+	heading();
 	pr(monospace, 20, y+=H, "Profile:");
-	text.glColorUpdate();
+	text();
 	b(); pr(monospace, 20, y+=H, "Frame         %7.3fms/frame", time_profile.frame);
 
 	b(); pr(monospace, 20, y+=H, " Environment  %6.2f", time_profile.environment.total);
@@ -172,8 +163,4 @@ void StClient::display2()
 	p(); pr(monospace, 20, y+=H, "  dec_stage1  %6.2f", time_profile.playback.dec_stage1);
 	p(); pr(monospace, 20, y+=H, "  dec_stage2  %6.2f", time_profile.playback.dec_stage2);
 	p(); pr(monospace, 20, y+=H, "  draw        %6.2f", time_profile.playback.draw);
-
-
-	glPopMatrix();
 }
-
