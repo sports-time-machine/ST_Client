@@ -24,6 +24,7 @@ enum VariousConstants
 	MIN_VOXEL_INC = 16,
 	MAX_VOXEL_INC = 128,
 	ATARI_INC = 20,
+	SNAPSHOT_LIFE_FRAMES = 100,
 };
 
 
@@ -157,6 +158,7 @@ struct Kdev
 	RawDepthImage raw_depth;
 	RawDepthImage raw_floor;
 	RawDepthImage raw_cooked;
+	RawDepthImage raw_snapshot;
 
 	uint vram_tex;
 	uint vram_floor;
@@ -165,7 +167,11 @@ struct Kdev
 
 	void CreateRawDepthImage_Read();
 	void CreateRawDepthImage();
-	void saveFloorDepth();
+
+	void clearFloorDepth();
+	void updateFloorDepth();
+
+	void CreateCookedImage();
 };
 
 struct Mode
@@ -327,17 +333,12 @@ public:
 	StClient(Kdev& dev1, Kdev& dev2);
 	virtual ~StClient();
 
-	bool init(int argc, char **argv);
+	bool init();
 	bool run();
 
 private:
-	void display();
-	void displayEnvironment();
-	void display3dSectionPrepare();
-	void display3dSection();
-	void display2dSectionPrepare();
-	void display2dSection();
-
+	StClient(const StClient&);           // disable
+	StClient& operator=(StClient&);      // disable
 
 	enum MouseButton
 	{
@@ -345,41 +346,8 @@ private:
 		MOUSE_RIGHT = 2,
 	};
 
-	void processKeyInput();
-	void processMouseInput();
-	void processMouseInput_aux();
-
-	bool initOpenGL(int argc, char **argv);
-
-	Kdev& dev1;
-	Kdev& dev2;
-
-private:
-	void displayBlackScreen();
-	void displayPictureScreen();
-
-	bool doCommand();
-	bool doCommand2(const std::string& line);
-
-private:
-	StClient(const StClient&);           // disable
-	StClient& operator=(StClient&);      // disable
-
-	void BuildDepthImage(uint8* dest);
-
-	void do_calibration(float mx, float my);
-
-
-	unsigned int		m_nTexMapX;
-	unsigned int		m_nTexMapY;
-
-	uint vram_tex2;
-
-	int			m_width;
-	int			m_height;
-
-	void CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage& raw_depth, const RawDepthImage& raw_floor);
-
+	Kdev&                 dev1;
+	Kdev&                 dev2;
 	mi::UdpReceiver       udp_recv;
 	mi::UdpSender         udp_send;
 	Eye                   eye;
@@ -393,6 +361,28 @@ private:
 	HitData               hitdata;
 	HitObjects            hit_objects;
 	int                   flashing;
+	int                   snapshot_life;
+
+	bool initGraphics();
+
+	void display();
+	void displayEnvironment();
+	void display3dSectionPrepare();
+	void display3dSection();
+	void display2dSectionPrepare();
+	void display2dSection();
+	void processKeyInput();
+	void processMouseInput();
+	void processMouseInput_aux();
+
+	void displayBlackScreen();
+	void displayPictureScreen();
+
+	bool doCommand();
+	bool doCommand2(const std::string& line);
+
+	void BuildDepthImage(uint8* dest);
+	void do_calibration(float mx, float my);
 
 	void saveAgent(int slot);
 	void loadAgent(int slot);
@@ -404,7 +394,6 @@ private:
 	void CreateAtari(const Dots& dots);
 	void set_clipboard_text();
 
-	void clearFloorDepth();
 	void reloadResources();
 	void drawWall();
 	void drawFieldGrid(int size_cm);

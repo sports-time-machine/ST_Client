@@ -330,7 +330,7 @@ static void init_kinect(const char* uri, Kdev& k)
 #include "file_io.h"
 
 
-int main(int argc, char** argv)
+int main()
 {
 //	global_config.enable_kinect = false;
 
@@ -361,7 +361,7 @@ int main(int argc, char** argv)
 	}
 
 	StClient st_client(dev1, dev2);
-	if (st_client.init(argc, argv)==false)
+	if (st_client.init()==false)
 	{
 		if (global_config.enable_kinect)
 		{

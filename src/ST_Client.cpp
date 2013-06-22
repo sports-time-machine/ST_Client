@@ -24,11 +24,10 @@ const int MAX_TOTAL_FRAMES  = MAX_TOTAL_SECOND * FRAMES_PER_SECOND;
 
 
 
-void Kdev::initRam()
-{
-	glGenTextures(1, &this->vram_tex);
-	glGenTextures(1, &this->vram_floor);
-}
+
+
+
+
 
 struct VodyInfo
 {
@@ -133,7 +132,8 @@ StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 	dev1(dev1_),
 	dev2(dev2_),
 	active_camera(CAM_BOTH),
-	movie_mode(MOVIE_READY)
+	movie_mode(MOVIE_READY),
+	snapshot_life(0)
 {
 	eye.view_3d_left();
 
@@ -155,80 +155,29 @@ StClient::~StClient()
 }
 
 
-bool StClient::init(int argc, char **argv)
+bool StClient::init()
 {
 	if (global_config.enable_kinect)
 	{
 		openni::VideoMode depthVideoMode;
 		openni::VideoMode colorVideoMode;
 
-		if (dev1.depth.isValid() && dev1.color.isValid())
-		{
-			depthVideoMode = dev1.depth.getVideoMode();
-			colorVideoMode = dev1.color.getVideoMode();
-
-			const int depthWidth  = depthVideoMode.getResolutionX();
-			const int depthHeight = depthVideoMode.getResolutionY();
-			const int colorWidth  = colorVideoMode.getResolutionX();
-			const int colorHeight = colorVideoMode.getResolutionY();
-			fprintf(stderr,
-				"Kinect resolution: depth(%dx%d), color(%dx%d)\n",
-				depthWidth, depthHeight,
-				colorWidth, colorHeight);
-
-			if (depthWidth==colorWidth && depthHeight==colorHeight)
-			{
-				m_width = depthWidth;
-				m_height = depthHeight;
-			}
-			else
-			{
-				printf("Error - expect color and depth to be in same resolution: D: %dx%d, C: %dx%d\n",
-					depthWidth, depthHeight,
-					colorWidth, colorHeight);
-				return false;
-			}
-		}
-		else if (dev1.depth.isValid())
-		{
-			depthVideoMode = dev1.depth.getVideoMode();
-			m_width  = depthVideoMode.getResolutionX();
-			m_height = depthVideoMode.getResolutionY();
-		}
-		else if (dev1.color.isValid())
-		{
-			colorVideoMode = dev1.color.getVideoMode();
-			m_width  = colorVideoMode.getResolutionX();
-			m_height = colorVideoMode.getResolutionY();
-		}
-		else
-		{
-			printf("Error - expects at least one of the streams to be valid...\n");
-			return openni::STATUS_ERROR;
-		}
-	}
-	else
-	{
-		m_width = 0;
-		m_height = 0;
+		depthVideoMode = dev1.depth.getVideoMode();
+		colorVideoMode = dev1.color.getVideoMode();
+		const int depth_w = depthVideoMode.getResolutionX();
+		const int depth_h = depthVideoMode.getResolutionY();
+		const int color_w = colorVideoMode.getResolutionX();
+		const int color_h = colorVideoMode.getResolutionY();
+		printf("Kinect Input: depth[%dx%d], color[%dx%d]\n", depth_w, depth_h, color_w, color_h);
 	}
 
-	// Texture map init
-	printf("%d x %d\n", m_width, m_height);
-	m_nTexMapX = MIN_CHUNKS_SIZE(m_width, TEXTURE_SIZE);
-	m_nTexMapY = MIN_CHUNKS_SIZE(m_height, TEXTURE_SIZE);
-
-	if (!initOpenGL(argc, argv))
+	if (!initGraphics())
 	{
 		return false;
 	}
 
 	dev1.initRam();
 	dev2.initRam();
-
-
-	glGenTextures(1, &vram_tex2);
-
 
 	// Init routine @init
 	{
@@ -636,17 +585,40 @@ void StClient::DrawVoxels(Dots& dots)
 	CamParam cam1 = cal_cam1.curr;
 	CamParam cam2 = cal_cam2.curr;
 
+	RawDepthImage& image1 = dev1.raw_cooked;
+	RawDepthImage& image2 = dev2.raw_cooked;
+
+	dev1.CreateCookedImage();
+	dev2.CreateCookedImage();
+
+	if (this->snapshot_life>0)
+	{
+		--snapshot_life;
+
+		if (snapshot_life>0)
+		{
+			dots.init();
+			MixDepth(dots, dev1.raw_snapshot, cam1);
+			MixDepth(dots, dev2.raw_snapshot, cam2);
+
+			glRGBA color = global_config.snapshot_color;
+			color.a = color.a * snapshot_life / SNAPSHOT_LIFE_FRAMES;
+			drawVoxels(dots, color, color_outer);
+		}
+	}
+
+
 	if (active_camera==CAM_BOTH)
 	{
 		Timer tm(&time_profile.drawing.total);
 		{
 			Timer tm(&time_profile.drawing.mix1);
 			dots.init();
-			MixDepth(dots, dev1.raw_depth, cam1);
+			MixDepth(dots, image1, cam1);
 		}
 		{
 			Timer tm(&time_profile.drawing.mix2);
-			MixDepth(dots, dev2.raw_depth, cam2);
+			MixDepth(dots, image2, cam2);
 		}
 		{
 			Timer tm(&time_profile.drawing.drawvoxels);
@@ -658,19 +630,19 @@ void StClient::DrawVoxels(Dots& dots)
 		if (active_camera==CAM_A)
 		{
 			dots.init();
-			MixDepth(dots, dev1.raw_depth, cam1);
+			MixDepth(dots, image1, cam1);
 			drawVoxels(dots, color_cam1, color_outer);
 			dots.init();
-			MixDepth(dots, dev2.raw_depth, cam2);
+			MixDepth(dots, image2, cam2);
 			drawVoxels(dots, color_other, color_other);
 		}
 		else
 		{
 			dots.init();
-			MixDepth(dots, dev1.raw_depth, cam1);
+			MixDepth(dots, image1, cam1);
 			drawVoxels(dots, color_other, color_other);
 			dots.init();
-			MixDepth(dots, dev2.raw_depth, cam2);
+			MixDepth(dots, image2, cam2);
 			drawVoxels(dots, color_cam2, color_outer);
 		}
 	}
@@ -770,24 +742,58 @@ void StClient::loadAgent(int slot)
 	}
 }
 
-void Kdev::saveFloorDepth()
-{
-	// Copy depth to floor
-	memcpy(
-		raw_floor.image.data(),
-		raw_depth.image.data(),
-		640*480*sizeof(uint16));
-	
-	raw_floor.max_value = raw_depth.max_value;
-	raw_floor.min_value = raw_depth.min_value;
-	raw_floor.range     = raw_depth.range;
-}
 
-void StClient::clearFloorDepth()
+static void CreateDummyDepth(RawDepthImage& depth)
 {
+	static int no = 0;
 	for (int i=0; i<640*480; ++i)
 	{
-		floor_depth[i] = 0;
+		int v = 0;
+		if (((i*2930553>>3)^((i*39920>>4)+no))%3==0)
+		{
+			v = (i+no*3)%6500 + (i+no)%2000 + 500;
+		}
+		depth.image[i] = v;
+	}
+	no += 6;
+}
+
+//====================================================================
+// VRAMのクリアやKinectからのデプス取得など環境に関する雑多なことを行う
+//====================================================================
+void StClient::displayEnvironment()
+{
+	mi::Timer tm(&time_profile.environment.total);
+
+	// @fps
+	this->fps_counter.update();
+
+	// @display
+	glClearColor(
+		global_config.ground_color.r / 255.0f,
+		global_config.ground_color.g / 255.0f,
+		global_config.ground_color.b / 255.0f,
+		1.00f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	// Kinectから情報をもらう
+	if (dev1.device.isValid())
+	{
+		mi::Timer tm(&time_profile.environment.read1);
+		dev1.CreateRawDepthImage_Read();
+		dev1.CreateRawDepthImage();
+	}
+	else
+	{
+		// ダミーの情報 @random @noise
+		CreateDummyDepth(dev1.raw_depth);
+	}
+
+	if (dev2.device.isValid())
+	{
+		mi::Timer tm(&time_profile.environment.read2);
+		dev2.CreateRawDepthImage_Read();
+		dev2.CreateRawDepthImage();
 	}
 }
 
@@ -919,7 +925,6 @@ void StClient::set_clipboard_text()
 }
 
 
-
 static void init_open_gl_params()
 {
 	glEnable(GL_TEXTURE_2D);
@@ -929,18 +934,27 @@ static void init_open_gl_params()
 	gl::AlphaBlending(true);
 }
 
-bool StClient::initOpenGL(int argc, char **argv)
+bool StClient::initGraphics()
 {
-	(void)argc;
-	(void)argv;
+	auto open_window = [&]()->int{
+		return glfwOpenWindow(
+			INITIAL_WIN_SIZE_X,
+			INITIAL_WIN_SIZE_Y,
+			0, 0, 0,
+			0, 0, 0,
+			(config.initial_fullscreen ? GLFW_FULLSCREEN : GLFW_WINDOW));
+	};
 
-	glfwInit();
-	glfwOpenWindow(
-		INITIAL_WIN_SIZE_X,
-		INITIAL_WIN_SIZE_Y,
-		0, 0, 0,
-		0, 0, 0,
-		(config.initial_fullscreen ? GLFW_FULLSCREEN : GLFW_WINDOW));
+	if (glfwInit()==GL_FALSE)
+	{
+		return false;
+	}
+
+	if (open_window()==GL_FALSE)
+	{
+		return false;
+	}
+
 	glfwEnable(GLFW_MOUSE_CURSOR);
 
 	{

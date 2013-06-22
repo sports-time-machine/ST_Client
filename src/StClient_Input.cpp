@@ -4,6 +4,8 @@
 using namespace mgl;
 using namespace stclient;
 
+bool narashi = false;
+
 void StClient::processKeyInput()
 {
 	static bool press[256] = {};
@@ -28,6 +30,8 @@ void StClient::processKeyInput()
 			prev[i] = down[i];
 		}
 	}
+
+	narashi = down['P'];
 
 
 
@@ -99,6 +103,22 @@ void StClient::processKeyInput()
 		if (M) ++config.movie_inc;
 		config.person_inc = mi::minmax(config.person_inc, MIN_VOXEL_INC, MAX_VOXEL_INC);
 		config.movie_inc  = mi::minmax(config.movie_inc,  MIN_VOXEL_INC, MAX_VOXEL_INC);
+		return;
+	}
+
+
+	if (down[VK_SPACE])
+	{
+		this->snapshot_life = SNAPSHOT_LIFE_FRAMES;
+		dev1.raw_snapshot = dev1.raw_cooked;
+		dev2.raw_snapshot = dev2.raw_cooked;
+		return;
+	}
+
+	if (down[VK_TAB])
+	{
+		dev1.updateFloorDepth();
+		dev2.updateFloorDepth();
 		return;
 	}
 
@@ -196,13 +216,10 @@ void StClient::processKeyInput()
 	case 'M':  toggle(mode.mirroring);        break;
 	case 'b':  toggle(mode.borderline);       break;
 
-	case ':':
-		clearFloorDepth();
+	case VK_BACK:
+		dev1.clearFloorDepth();
 		break;
-	case 'X':
-		dev1.saveFloorDepth();
-		break;
-	case 13:
+	case VK_RETURN:
 		gl::ToggleFullScreen();
 		break;
 	}
@@ -260,7 +277,6 @@ void StClient::processMouseInput_aux()
 			cal_cam2.prev = cal_cam2.curr;
 		}
 
-		printf("%d, %d\n", mouse.diff.x, mouse.diff.y);
 		const float mx = (mouse.diff.x) * 0.01f * (shift ? 0.1f : 1.0f);
 		const float my = (mouse.diff.y) * 0.01f * (shift ? 0.1f : 1.0f);
 		do_calibration(mx, my);

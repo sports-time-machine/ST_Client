@@ -5,55 +5,6 @@ using namespace mgl;
 using namespace mi;
 
 
-//====================================================================
-// VRAMのクリアやKinectからのデプス取得など環境に関する雑多なことを行う
-//====================================================================
-void StClient::displayEnvironment()
-{
-	mi::Timer tm(&time_profile.environment.total);
-
-	// @fps
-	this->fps_counter.update();
-
-	// @display
-	glClearColor(
-		global_config.ground_color.r / 255.0f,
-		global_config.ground_color.g / 255.0f,
-		global_config.ground_color.b / 255.0f,
-		1.00f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	// Kinectから情報をもらう
-	if (dev1.device.isValid())
-	{
-		mi::Timer tm(&time_profile.environment.read1);
-		dev1.CreateRawDepthImage_Read();
-		dev1.CreateRawDepthImage();
-	}
-	else
-	{
-		// ダミーの情報 @random @noise
-		static int no = 0;
-		for (int i=0; i<640*480; ++i)
-		{
-			int v = 0;
-			if (((i*2930553>>3)^((i*39920>>4)+no))%3==0)
-			{
-				v = (i+no*3)%6500 + (i+no)%2000 + 500;
-			}
-			dev1.raw_depth.image[i] = v;
-		}
-		no += 6;
-	}
-
-	if (dev2.device.isValid())
-	{
-		mi::Timer tm(&time_profile.environment.read2);
-		dev2.CreateRawDepthImage_Read();
-		dev2.CreateRawDepthImage();
-	}
-}
-
 //========================
 // 3D描画するための下準備
 //========================
@@ -286,9 +237,9 @@ void StClient::display2()
 	auto pr = freetype::print;
 
 	const glRGBA heading = global_config.text.heading_color;
-	const glRGBA text = global_config.text.normal_color;
-	const glRGBA b = global_config.text.dt_color;
-	const glRGBA p = global_config.text.dd_color;
+	const glRGBA text    = global_config.text.normal_color;
+	const glRGBA b       = global_config.text.dt_color;
+	const glRGBA p       = global_config.text.dd_color;
 	
 	auto color = [](bool status){
 		(status

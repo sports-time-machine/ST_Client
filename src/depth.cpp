@@ -6,7 +6,7 @@
 using namespace stclient;
 
 
-const int far_clipping = 5000;
+const uint16 FAR_DEPTH = 10000;
 
 //========================================
 // KinectからDepthデータをそのまま読み取る
@@ -50,10 +50,10 @@ void Kdev::CreateRawDepthImage()
 		for (int x=0; x<640; ++x)
 		{
 			uint16 v = *src;
-			if (v > far_clipping)
+			if (v==0)
 			{
-				// too far
-				v = 0;
+				// invalid data => far
+				v = FAR_DEPTH;
 			}
 			*dest++ = v;
 			src += src_inc;
@@ -68,7 +68,7 @@ void Kdev::CreateRawDepthImage()
 //  - 床イメージは距離の「最大値」であるので、その「手前」だけを有効な画素とする。
 //    つまり床イメージDepthよりも「少ない」Depthだけが有効である。
 //=============================================================================
-void StClient::CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage& raw_depth, const RawDepthImage& raw_floor)
+void Kdev::CreateCookedImage()
 {
 	// Part 1: Mix depth and floor
 	for (int i=0; i<640*480; ++i)
@@ -76,8 +76,14 @@ void StClient::CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage
 		const int src   = raw_depth.image[i];
 		const int floor = raw_floor.image[i];
 
-		if (src < floor-20 || floor==0)
+		if (floor==0)
 		{
+			// Floor無効
+			raw_cooked.image[i] = (uint16)src;
+		}
+		else if (src < floor || floor==FAR_DEPTH)
+		{
+			// Floorより手前、もしくはFloorが無効
 			if (src>=config.far_cropping)
 			{
 				raw_cooked.image[i] = 0;
@@ -89,40 +95,10 @@ void StClient::CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage
 		}
 		else
 		{
+			// Floorより奥
 			raw_cooked.image[i] = 0;
 		}
 	}
-#if 0
-
-	// Part 2: 
-	// ......    ......    ......
-	// .IIIII    .12321    ..232.
-	// ...I.. -> ...2.. -> ...2..
-	// ..IIII    ..2321    ..232.
-	// ..I...    ..1...    ......
-	auto get = [&](int x, int y)->bool{
-		if ((uint)x>=640 || (uint)y>=480)
-		{
-			return false;
-		}
-		return raw_cooked[x + y*640]!=0;
-	};
-
-	for (int y=0; y<480; ++y)
-	{
-		for (int x=0; x<640; ++x)
-		{
-			int count =
-				(get(x-1,y)!=false)+
-				(get(x+1,y)!=false)+
-				(get(x,y-1)!=false)+
-				(get(x,y+1)!=false);
-			if (count
-//			raw_
-		}
-	}
-	raw_cooked.CalcDepthMinMax();
-#endif
 }
 
 void RawDepthImage::CalcDepthMinMax()
@@ -146,5 +122,42 @@ void RawDepthImage::CalcDepthMinMax()
 		this->max_value = 3000;
 		this->min_value = 500;
 		this->range = this->max_value - this->min_value;
+	}
+}
+
+void Kdev::initRam()
+{
+	glGenTextures(1, &this->vram_tex);
+	glGenTextures(1, &this->vram_floor);
+}
+
+//==================================
+// FloorDepthのクリア
+//==================================
+void Kdev::clearFloorDepth()
+{
+	for (int i=0; i<640*480; ++i)
+	{
+		raw_floor.image[i] = 0;
+	}
+}
+
+//==================================
+// FloorDepthの更新
+//----------------------------------
+//  - depthが小さいほど「近い」ため、
+//    0でなくより小さい値を採用する
+//==================================
+void Kdev::updateFloorDepth()
+{
+	// Copy depth to floor
+	for (int i=0; i<640*480; ++i)
+	{
+		const uint16 depth = raw_depth.image[i];
+
+		if (raw_floor.image[i]==0 || raw_floor.image[i]>depth)
+		{
+			raw_floor.image[i] = depth - 50;
+		}
 	}
 }
