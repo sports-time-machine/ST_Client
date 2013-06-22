@@ -1,6 +1,4 @@
 #include "mi/mi.h"
-#include "FreeType.h"
-#include "gl_funcs.h"
 #include "file_io.h"
 #include "Config.h"
 #include <map>
@@ -13,10 +11,6 @@
 
 #define local static
 #pragma warning(disable:4996) // unsafe function
-
-#pragma comment(lib,"opengl32.lib")
-#pragma comment(lib,"glu32.lib")
-#pragma comment(lib,"winmm.lib")   // timeGetTime
 
 
 using namespace mgl;
@@ -72,15 +66,8 @@ private:
 	int hit[CEL_W * CEL_H];
 };
 
-struct Calset
-{
-	CamParam curr, prev;
-};
-
 local HitData hitdata;
 local int flashing = 0;
-local Calset cal_cam1, cal_cam2;
-local float eye_rh_base, eye_rv_base, eye_y_base;
 
 
 
@@ -128,61 +115,8 @@ local VodyInfo vody;
 
 
 
-class miFps
-{
-public:
-	miFps();
-
-	void update();
-	float getFps() const;
-
-private:
-	static const int SIZE = 180;
-	uint _frame_tick[SIZE];
-	int _frame_index;
-};
 
 
-miFps::miFps()
-{
-	_frame_index = 0;
-}
-
-void miFps::update()
-{
-	_frame_index = (_frame_index+1) % SIZE;
-	_frame_tick[_frame_index] = timeGetTime();
-}
-
-float miFps::getFps() const
-{
-	const int tail_index = (_frame_index - 1 + SIZE) % SIZE;
-	const int tail = _frame_tick[tail_index];
-	const int head = _frame_tick[_frame_index];
-	if (tail==0)
-	{
-		return 0;
-	}
-	else
-	{
-		return 1000.0f / (head-tail);
-	}
-}
-
-
-local miFps fps_counter;
-
-
-
-
-enum MovieMode
-{
-	MOVIE_READY,
-	MOVIE_RECORD,
-	MOVIE_PLAYBACK,
-};
-
-local MovieMode movie_mode = MOVIE_READY;
 
 const int INITIAL_WIN_SIZE_X = 1024;
 const int INITIAL_WIN_SIZE_Y = 768;
@@ -221,9 +155,7 @@ StClient* StClient::ms_self = nullptr;
 typedef std::vector<openni::RGB888Pixel> RgbScreen;
 typedef std::map<int,RgbScreen> RgbScreenMovie;
 
-local int movie_index = 0;
 local openni::RGB888Pixel* moviex = nullptr;
-local freetype::font_data monospace;
 
 
 void init_hit_objects()
@@ -268,7 +200,8 @@ StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 	dev2(dev2_),
 	video_ram(nullptr),
 	video_ram2(nullptr),
-	active_camera(CAM_BOTH)
+	active_camera(CAM_BOTH),
+	movie_mode(MOVIE_READY)
 {
 	ms_self = this;
 
@@ -479,19 +412,10 @@ void drawBitmap(int dx, int dy, int dw, int dh, float u1, float v1, float u2, fl
 }
 
 
-local int decomp_time = 0;
-local int draw_time = 0;
 local uint8 floor_depth[640*480];
 local uint8 depth_cook[640*480];
 local int floor_depth_count = 0;
 local uint16 floor_depth2[640*480];
-
-
-
-
-
-
-static MovieData curr_movie;
 
 
 void StClient::displayBlackScreen()
@@ -507,207 +431,19 @@ void StClient::displayPictureScreen()
 }
 
 
-struct ChangeCalParamKeys
+
+void ChangeCalParamKeys::init()
 {
-	bool rot_xy, rot_z, scale, ctrl;
+	BYTE kbd[256];
+	GetKeyboardState(kbd);
 
-	void init()
-	{
-		BYTE kbd[256];
-		GetKeyboardState(kbd);
-
-		this->ctrl   = (kbd[VK_CONTROL] & 0x80)!=0;
-		this->rot_xy = (kbd['T'] & 0x80)!=0;
-		this->rot_z  = (kbd['Y'] & 0x80)!=0;
-		this->scale  = (kbd['U'] & 0x80)!=0;
-	}
-};
-
-
-void StClient::display2()
-{
-	static uint time_begin;
-	if (time_begin==0)
-	{
-		time_begin = timeGetTime();
-	}
-
-	static float cnt = 0;
-	static int frames = 0;
-	++frames;
-	cnt += 0.01;
-	glPushMatrix();
-	glLoadIdentity();
-	int time_diff = (timeGetTime() - time_begin);
-
-	glRGBA::white.glColorUpdate();
-
-	const int H=15;
-	int y = 10;
-
-	auto nl = [&](){ y+=H/2; };
-	auto pr = freetype::print;
-
-	glRGBA heading(80,255,120);
-	glRGBA text(200,200,200);
-	glRGBA b(240,240,240);
-	glRGBA p(150,150,150);
-	
-	auto color = [](bool status){
-		status
-			? glRGBA(240,200,50).glColorUpdate()
-			: glRGBA(200,200,200).glColorUpdate();
-	};
-
-
-	
-	{
-		ChangeCalParamKeys keys;
-		keys.init();
-		heading.glColorUpdate();
-		pr(monospace, 320, y,
-			(keys.rot_xy) ? "<XY-rotation>" :
-			(keys.rot_z)  ? "<Z-rotation>" :
-			(keys.scale)  ? "<Scaling>" : "");
-	}
-
-
-	{
-		int y2 = y;
-		heading.glColorUpdate();
-		pr(monospace, 200, y2+=H, "EYE");
-		text.glColorUpdate();
-		pr(monospace, 200, y2+=H, "x =%+9.4f [adsw]", eye.x);
-		pr(monospace, 200, y2+=H, "y =%+9.4f [q/e]", eye.y);
-		pr(monospace, 200, y2+=H, "z =%+9.4f [adsw]", eye.z);
-		pr(monospace, 200, y2+=H, "rh=%+9.4f(rad)", eye.rh);
-		pr(monospace, 200, y2+=H, "v =%+9.4f [q/e]", eye.v);
-		y2+=H;
-		pr(monospace, 200, y2+=H, "P-inc = %3d [g/h]", config.person_inc);
-		pr(monospace, 200, y2+=H, "M-inc = %3d [n/m]", config.movie_inc);
-	}
-
-	heading.glColorUpdate();
-	pr(monospace, 20, y+=H, "View Mode");
-	text.glColorUpdate();
-	{
-		const auto vm = global.view_mode;
-		color(vm==VM_2D_LEFT);  pr(monospace, 20, y+=H, "[F1] 2D left");
-		color(vm==VM_2D_TOP);   pr(monospace, 20, y+=H, "[F2] 2D top");
-		color(vm==VM_2D_FRONT); pr(monospace, 20, y+=H, "[F3] 2D front");
-		color(false);           pr(monospace, 20, y+=H, "[F4] ----");
-		color(vm==VM_2D_RUN);   pr(monospace, 20, y+=H, "[F5] 2D run");
-		color(vm==VM_3D_LEFT);  pr(monospace, 20, y+=H, "[F6] 3D left");
-		color(vm==VM_3D_RIGHT); pr(monospace, 20, y+=H, "[F7] 3D right");
-		color(vm==VM_3D_FRONT); pr(monospace, 20, y+=H, "[F8] 3D front");
-	}
-
-	nl();
-
-	{
-		const auto cam = curr_movie.cam1;
-		int y2 = y;
-		heading.glColorUpdate();
-		pr(monospace, 200, y2+=H, "RecCam A:");
-		text.glColorUpdate();
-		pr(monospace, 200, y2+=H, "pos x = %9.5f", cam.x);
-		pr(monospace, 200, y2+=H, "pos y = %9.5f", cam.y);
-		pr(monospace, 200, y2+=H, "pos z = %9.5f", cam.z);
-		pr(monospace, 200, y2+=H, "rot x = %9.5f", cam.rotx);
-		pr(monospace, 200, y2+=H, "rot y = %9.5f", cam.roty);
-		pr(monospace, 200, y2+=H, "rot z = %9.5f", cam.rotz);
-		pr(monospace, 200, y2+=H, "scale = %9.5f", cam.scale);
-	}
-
-	heading.glColorUpdate();
-	pr(monospace, 20, y+=H, "Camera A:");
-	text.glColorUpdate();
-	pr(monospace, 20, y+=H, "pos x = %9.5f", cal_cam1.curr.x);
-	pr(monospace, 20, y+=H, "pos y = %9.5f", cal_cam1.curr.y);
-	pr(monospace, 20, y+=H, "pos z = %9.5f", cal_cam1.curr.z);
-	pr(monospace, 20, y+=H, "rot x = %9.5f", cal_cam1.curr.rotx);
-	pr(monospace, 20, y+=H, "rot y = %9.5f", cal_cam1.curr.roty);
-	pr(monospace, 20, y+=H, "rot z = %9.5f", cal_cam1.curr.rotz);
-	pr(monospace, 20, y+=H, "scale = %9.5f", cal_cam1.curr.scale);
-	nl();
-
-	{
-		const auto cam = curr_movie.cam2;
-		int y2 = y;
-		heading.glColorUpdate();
-		pr(monospace, 200, y2+=H, "RecCam B:");
-		text.glColorUpdate();
-		pr(monospace, 200, y2+=H, "pos x = %9.5f", cam.x);
-		pr(monospace, 200, y2+=H, "pos y = %9.5f", cam.y);
-		pr(monospace, 200, y2+=H, "pos z = %9.5f", cam.z);
-		pr(monospace, 200, y2+=H, "rot x = %9.5f", cam.rotx);
-		pr(monospace, 200, y2+=H, "rot y = %9.5f", cam.roty);
-		pr(monospace, 200, y2+=H, "rot z = %9.5f", cam.rotz);
-		pr(monospace, 200, y2+=H, "scale = %9.5f", cam.scale);
-	}
-
-	heading.glColorUpdate();
-	pr(monospace, 20, y+=H, "Camera B:");
-	text.glColorUpdate();
-	pr(monospace, 20, y+=H, "pos x = %9.5f", cal_cam2.curr.x);
-	pr(monospace, 20, y+=H, "pos y = %9.5f", cal_cam2.curr.y);
-	pr(monospace, 20, y+=H, "pos z = %9.5f", cal_cam2.curr.z);
-	pr(monospace, 20, y+=H, "rot x = %9.5f", cal_cam2.curr.rotx);
-	pr(monospace, 20, y+=H, "rot y = %9.5f", cal_cam2.curr.roty);
-	pr(monospace, 20, y+=H, "rot z = %9.5f", cal_cam2.curr.rotz);
-	pr(monospace, 20, y+=H, "scale = %9.5f", cal_cam2.curr.scale);
-	nl();
-
-	pr(monospace, 20, y+=H,
-		"#%d Near(%dmm) Far(%dmm) [%s][%s]",
-			config.client_number,
-			config.near_threshold,
-			config.far_threshold,
-			mode.borderline ? "border" : "no border",
-			mode.auto_clipping ? "auto clipping" : "no auto clip");
-
-	// @fps
-	pr(monospace, 20, y+=H, "%d, %d, %.1ffps, %.2ffps, %d, %d",
-			frames,
-			time_diff,
-			1000.0f * frames/time_diff,
-			fps_counter.getFps(),
-			decomp_time,
-			draw_time);
-	nl();
-
-	// @profile
-	heading.glColorUpdate();
-	pr(monospace, 20, y+=H, "Profile:");
-	text.glColorUpdate();
-	b(); pr(monospace, 20, y+=H, "Frame         %7.3fms/frame", time_profile.frame);
-
-	b(); pr(monospace, 20, y+=H, " Environment  %6.2f", time_profile.environment.total);
-	p(); pr(monospace, 20, y+=H, "  read1       %6.2f", time_profile.environment.read1);
-	p(); pr(monospace, 20, y+=H, "  read2       %6.2f", time_profile.environment.read2);
-
-	b(); pr(monospace, 20, y+=H, " Drawing      %6.2f", time_profile.drawing.total);
-	p(); pr(monospace, 20, y+=H, "  grid        %6.2f", time_profile.drawing.grid);
-	p(); pr(monospace, 20, y+=H, "  wall        %6.2f", time_profile.drawing.wall);
-	p(); pr(monospace, 20, y+=H, "  mix1        %6.2f", time_profile.drawing.mix1);
-	p(); pr(monospace, 20, y+=H, "  mix2        %6.2f", time_profile.drawing.mix2);
-	p(); pr(monospace, 20, y+=H, "  draw        %6.2f", time_profile.drawing.drawvoxels);
-	
-	b(); pr(monospace, 20, y+=H, " Atari        %6.2f", time_profile.atari);
-	
-	b(); pr(monospace, 20, y+=H, " Recording    %6.2f [%d]", time_profile.record.total, curr_movie.total_frames);
-	p(); pr(monospace, 20, y+=H, "  enc_stage1  %6.2f", time_profile.record.enc_stage1);
-	p(); pr(monospace, 20, y+=H, "  enc_stage2  %6.2f", time_profile.record.enc_stage2);
-	p(); pr(monospace, 20, y+=H, "  enc_stage3  %6.2f", time_profile.record.enc_stage3);
-
-	b(); pr(monospace, 20, y+=H, " Playback     %6.2f [%d]", time_profile.playback.total, movie_index);
-	p(); pr(monospace, 20, y+=H, "  dec_stage1  %6.2f", time_profile.playback.dec_stage1);
-	p(); pr(monospace, 20, y+=H, "  dec_stage2  %6.2f", time_profile.playback.dec_stage2);
-	p(); pr(monospace, 20, y+=H, "  draw        %6.2f", time_profile.playback.draw);
-
-
-	glPopMatrix();
+	this->ctrl   = (kbd[VK_CONTROL] & 0x80)!=0;
+	this->rot_xy = (kbd['T'] & 0x80)!=0;
+	this->rot_z  = (kbd['Y'] & 0x80)!=0;
+	this->scale  = (kbd['U'] & 0x80)!=0;
 }
+
+
 
 
 void drawFieldGrid(int size_cm)
@@ -1066,7 +802,7 @@ void StClient::displayEnvironment()
 	mi::Timer tm(&time_profile.environment.total);
 
 	// @fps
-	fps_counter.update();
+	this->fps_counter.update();
 
 	// @display
 	glClearColor(
@@ -1318,7 +1054,7 @@ void StClient::display2dSection()
 }
 
 
-void saveAgent(int slot)
+void StClient::saveAgent(int slot)
 {
 	printf("Save to file slot %d...", slot);
 
@@ -1338,7 +1074,7 @@ void saveAgent(int slot)
 	}	
 }
 
-void loadAgent(int slot)
+void StClient::loadAgent(int slot)
 {
 	printf("Load from file slot %d...", slot);
 	char buf[100];
@@ -1377,7 +1113,7 @@ void Kdev::saveFloorDepth()
 	raw_floor.range     = raw_depth.range;
 }
 
-void clearFloorDepth()
+void StClient::clearFloorDepth()
 {
 	for (int i=0; i<640*480; ++i)
 	{
@@ -1480,120 +1216,6 @@ void StClient::do_calibration(float mx, float my)
 	}
 }
 
-struct MousePos
-{
-	struct Pos
-	{
-		int x,y;
-	};
-	Pos pos,old,diff;
-
-	struct Button
-	{
-		bool down,press,prev;
-	};
-	Button left,right;
-} mouse;
-
-void StClient::processMouseInput_aux()
-{
-	if (mouse.right.press)
-	{
-		puts("RIGHT PRESS");
-		eye_rh_base = eye.rh;
-		eye_rv_base = eye.v;
-		eye_y_base  = eye.y;
-
-		// 現在値を保存しておく
-		cal_cam1.prev = cal_cam1.curr;
-		cal_cam2.prev = cal_cam2.curr;		
-	}
-	BYTE kbd[256];
-	GetKeyboardState(kbd);
-
-	const bool shift = (kbd[VK_SHIFT  ] & 0x80)!=0;
-
-	bool move_eye = false;
-
-	if (mouse.right.down)
-	{
-		move_eye = true;
-	}
-	else if (mouse.left.down)
-	{
-		// First
-		if (mouse.left.press)
-		{
-			cal_cam1.prev = cal_cam1.curr;
-			cal_cam2.prev = cal_cam2.curr;
-		}
-
-		printf("%d, %d\n", mouse.diff.x, mouse.diff.y);
-		const float mx = (mouse.diff.x) * 0.01f * (shift ? 0.1f : 1.0f);
-		const float my = (mouse.diff.y) * 0.01f * (shift ? 0.1f : 1.0f);
-		do_calibration(mx, my);
-	}
-
-	// キャリブレーションのときは視点移動ができない
-	switch (global.view_mode)
-	{
-	case VM_2D_TOP:
-	case VM_2D_LEFT:
-	case VM_2D_FRONT:
-		//move_eye = false;
-		break;
-	case VM_2D_RUN:
-		// ゲーム画面等倍時はOK
-		break;
-	}
-
-	if (move_eye)
-	{
-		const float x_move = mouse.diff.x * 0.0010;
-		const float y_move = mouse.diff.y * 0.0050;
-		eye.rh -= x_move;
-		eye. v += y_move;
-		
-		if (!shift)
-		{
-			eye. y = eye_y_base  - y_move;
-		}
-	}
-}
-
-void StClient::processMouseInput()
-{
-	// Update button
-	{
-		mouse.left.prev  = mouse.left.down;
-		mouse.right.prev = mouse.right.down;
-
-		mouse.left.down   = (glfwGetMouseButton(GLFW_MOUSE_BUTTON_1)==GLFW_PRESS);
-		mouse.right.down  = (glfwGetMouseButton(GLFW_MOUSE_BUTTON_2)==GLFW_PRESS);
-		mouse.left.press  = (mouse.left.down  && !mouse.left.prev);
-		mouse.right.press = (mouse.right.down && !mouse.right.prev);
-	}
-
-	// Update position
-	{
-		// update old mouse pos
-		mouse.old = mouse.pos;
-
-		// Convert screen position to internal position
-		int x = 0;
-		int y = 0;
-		glfwGetMousePos(&x, &y);
-		mouse.pos.x = x * 640 / global.window_w;
-		mouse.pos.y = y * 480 / global.window_h;
-
-		// Diff
-		mouse.diff.x = mouse.pos.x - mouse.old.x;
-		mouse.diff.y = mouse.pos.y - mouse.old.y;
-	}
-
-	// main
-	processMouseInput_aux();
-}
 
 
 void StClient::set_clipboard_text()
@@ -1629,217 +1251,6 @@ void StClient::set_clipboard_text()
 
 
 
-void StClient::processKeyInput()
-{
-	bool press[256] = {};
-	bool down[256] = {};
-	int key = 0;
-
-	{
-		const int KEYS = 256;
-		static BYTE prev_kbd[KEYS] = {};
-		BYTE curr_kbd[KEYS] = {};
-		GetKeyboardState(curr_kbd);
-		for (int i=0; i<KEYS; ++i)
-		{
-			down[i] = ((curr_kbd[i] & 0x80)!=0);
-
-			if (!prev_kbd[i] && curr_kbd[i])
-			{
-				press[i] = true;
-				key = i;
-			}
-
-			prev_kbd[i] = curr_kbd[i];
-		}
-	}
-
-
-
-	const bool shift     = down[VK_SHIFT];
-	const bool ctrl      = down[VK_CONTROL];
-	const bool key_left  = down[VK_LEFT ];
-	const bool key_right = down[VK_RIGHT];
-	const bool key_up    = down[VK_UP   ];
-	const bool key_down  = down[VK_DOWN ];
-	const float movespeed = shift ? 0.01 : 0.1;
-
-	// ADSW move, QE, PageUp/Down
-	const bool A = down['A'];
-	const bool D = down['D'];
-	const bool S = down['S'];
-	const bool W = down['W'];
-	const bool Q = down['Q'];
-	const bool E = down['E'];
-	const bool PU = down[VK_NEXT];
-	const bool PD = down[VK_PRIOR];
-	if (A || D || S || W || Q || E || PD || PU)
-	{
-		auto eye_move = [&](float rad){
-			eye.x += movespeed * cosf(eye.rh - rad*PI/180);
-			eye.z += movespeed * sinf(eye.rh - rad*PI/180);
-		};
-		auto move_yv = [&](float sign){
-			eye.y += sign * movespeed;
-			eye.v -= sign * movespeed;
-		};
-		auto move_y = [&](float sign){
-			eye.y += sign * movespeed;
-		};
-
-		if (A) eye_move( 90.0f);
-		if (D) eye_move(270.0f);
-		if (S) eye_move(180.0f);
-		if (W) eye_move(  0.0f);
-		if (Q) move_yv(-1.0f);
-		if (E) move_yv(+1.0f);
-		if (PD) move_y(+1.0f);
-		if (PU) move_y(-1.0f);
-		return;
-	}
-
-	// Cursor move
-	if (key_left || key_right || key_up || key_down)
-	{
-		const float U = shift ? 0.001 : 0.01;
-		const float mx =
-				(key_left  ? -U : 0.0f) +
-				(key_right ? +U : 0.0f);
-		const float my =
-				(key_up   ? -U : 0.0f) +
-				(key_down ? +U : 0.0f);
-		do_calibration(mx, my);
-		return;
-	}
-
-	const bool G = down['G'];
-	const bool H = down['H'];
-	const bool N = down['N'];
-	const bool M = down['M'];
-	if (G || H || N || M)
-	{
-		if (G) --config.person_inc;
-		if (H) ++config.person_inc;
-		if (N) --config.movie_inc;
-		if (M) ++config.movie_inc;
-		return;
-	}
-
-
-
-	enum { SK_SHIFT=0x10000 };
-	enum { SK_CTRL =0x20000 };
-
-
-	// A           'a'
-	// Shift+A     'A'
-	// F1          F1
-	// Shift+F1    F1 | SHIFT
-	if (!isalpha(key) && !(key>=0x00 && key<=0x1F))
-	{
-		key += (shift ? SK_SHIFT : 0);
-		key += (ctrl  ? SK_CTRL  : 0);
-	}
-
-	switch (key)
-	{
-	case 0:
-		break;
-
-	default:
-		printf("[key %X %d]\n", key&0xF0000, key&0x0FFFF);
-		break;
-
-	case '1':
-		active_camera = CAM_A;
-		break;
-	case '2':
-		active_camera = CAM_B;
-		break;
-	case '3':
-		active_camera = CAM_BOTH;
-		break;
-
-	case VK_F1: eye.view_2d_left();  break;
-	case VK_F2: eye.view_2d_top();   break;
-	case VK_F3: eye.view_2d_front(); break;
-	case VK_F4: break;
-	
-	case VK_F5: eye.view_2d_run();   break;
-	case VK_F6: eye.view_3d_left();  break;
-	case VK_F7: eye.view_3d_right(); break;
-	case VK_F8: eye.view_3d_front(); break;
-
-	case VK_HOME:
-		config.far_threshold -= shift ? 1 : 10;
-		break;
-	case VK_END:
-		config.far_threshold += shift ? 1 : 10;
-		break;
-
-	case VK_ESCAPE:
-		dev1.depth.stop();
-		dev1.color.stop();
-		dev1.depth.destroy();
-		dev1.color.destroy();
-		dev1.device.close();
-		openni::OpenNI::shutdown();
-		exit(1);
-	case 'z':
-		global.client_status = STATUS_DEPTH;
-		break;
-	case SK_CTRL + VK_F1:
-		if (movie_mode!=MOVIE_RECORD)
-		{
-			curr_movie.clear();
-			movie_mode = MOVIE_RECORD;
-			movie_index = 0;
-		}
-		else
-		{
-			printf("recoding stop. %d frames recorded.\n", curr_movie.total_frames);
-
-			size_t total_bytes = 0;
-			for (int i=0; i<curr_movie.total_frames; ++i)
-			{
-			//s	total_bytes += curr_movie.frames[i].getFrameBytes();
-			}
-			printf("total %d Kbytes.\n", total_bytes/1000);
-			movie_mode = MOVIE_READY;
-			movie_index = 0;
-		}
-		break;
-	case SK_CTRL + VK_F2:
-		printf("playback movie.\n");
-		movie_mode = MOVIE_PLAYBACK;
-		movie_index = 0;
-		break;
-	
-	case VK_F9:
-		load_config();
-		break;
-
-	case SK_CTRL | 'C':
-		set_clipboard_text();
-		break;
-
-	case 'C':  toggle(mode.auto_clipping);    break;
-	case 'm':  toggle(mode.mixed_enabled);    break;
-	case 'M':  toggle(mode.mirroring);        break;
-	case 'b':  toggle(mode.borderline);       break;
-
-	case ':':
-		clearFloorDepth();
-		break;
-	case 'X':
-		dev1.saveFloorDepth();
-		break;
-	case 13:
-		gl::ToggleFullScreen();
-		break;
-	}
-}
-
 static void init_open_gl_params()
 {
 	glEnable(GL_TEXTURE_2D);
@@ -1861,6 +1272,7 @@ bool StClient::initOpenGL(int argc, char **argv)
 		0, 0, 0,
 		0, 0, 0,
 		(config.initial_fullscreen ? GLFW_FULLSCREEN : GLFW_WINDOW));
+	glfwEnable(GLFW_MOUSE_CURSOR);
 
 	{
 		std::string name;

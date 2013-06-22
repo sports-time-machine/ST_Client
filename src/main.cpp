@@ -18,6 +18,8 @@
 #else
 #pragma comment(lib,"OpenNI2_x32.lib")
 #endif
+#pragma comment(lib,"opengl32.lib")
+#pragma comment(lib,"glu32.lib")
 
 
 using namespace mi;

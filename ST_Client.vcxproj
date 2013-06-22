@@ -31,6 +31,7 @@
     <ClCompile Include="src\mi\Clipboard.cpp" />
     <ClCompile Include="src\mi\Console.cpp" />
     <ClCompile Include="src\mi\Core.cpp" />
+    <ClCompile Include="src\mi\Fps.cpp" />
     <ClCompile Include="src\mi\Image.cpp" />
     <ClCompile Include="src\mi\Libs.cpp" />
     <ClCompile Include="src\mi\Timer.cpp" />
@@ -39,6 +40,8 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="src\StClient_Display.cpp" />
+    <ClCompile Include="src\StClient_Input.cpp" />
     <ClCompile Include="src\ST_Client.cpp" />
     <ClCompile Include="src\ST_Client_Udp.cpp" />
     <ClCompile Include="src\VoxelRecorder.cpp" />
@@ -54,6 +57,7 @@
     <ClInclude Include="src\mi\Clipboard.h" />
     <ClInclude Include="src\mi\Console.h" />
     <ClInclude Include="src\mi\Core.h" />
+    <ClInclude Include="src\mi\Fps.h" />
     <ClInclude Include="src\mi\Image.h" />
     <ClInclude Include="src\mi\Libs.h" />
     <ClInclude Include="src\mi\mi.h" />
@@ -63,6 +67,10 @@
     <ClInclude Include="src\ST_Client.h" />
     <ClInclude Include="src\vec4.h" />
     <ClInclude Include="src\zlibpp.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\..\..\..\ST\Config.psl" />
+    <None Include="..\..\..\..\..\..\ST\STMx64.psl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{BDA3BF24-550A-4BF9-83E5-7B56134EED40}</ProjectGuid>

@@ -1,11 +1,12 @@
 #pragma once
 #include <OpenNI.h>
-#include "mi/Core.h"
-#include "mi/Udp.h"
-#include "mi/Image.h"
+#include "mi/mi.h"
+#include "FreeType.h"
 #include "Config.h"
 #include "vec4.h"
 #include "file_io.h"
+#include "gl_funcs.h"
+#pragma warning(disable:4244) //conversion
 
 
 namespace stclient{
@@ -22,6 +23,14 @@ const float PI = 3.141592653;
 const int UDP_SERVER_RECV = 38702;
 const int UDP_CLIENT_RECV = 38708;
 
+
+
+enum MovieMode
+{
+	MOVIE_READY,
+	MOVIE_RECORD,
+	MOVIE_PLAYBACK,
+};
 
 // WINNT.H
 #undef STATUS_TIMEOUT
@@ -137,82 +146,16 @@ struct Eye
 };
 
 
-class StClient
+struct ChangeCalParamKeys
 {
-public:
-	StClient(Kdev& dev1, Kdev& dev2);
-	virtual ~StClient();
+	bool rot_xy, rot_z, scale, ctrl;
 
-	bool init(int argc, char **argv);
-	bool run();
+	void init();
+};
 
-private:
-	void display();
-	void displayEnvironment();
-	void display3dSectionPrepare();
-	void display3dSection();
-	void display2dSectionPrepare();
-	void display2dSection();
-
-
-	enum MouseButton
-	{
-		MOUSE_LEFT  = 1,
-		MOUSE_RIGHT = 2,
-	};
-
-	void processKeyInput();
-	void processMouseInput();
-	void processMouseInput_aux();
-
-	bool initOpenGL(int argc, char **argv);
-
-	Kdev& dev1;
-	Kdev& dev2;
-
-private:
-	void displayBlackScreen();
-	void displayPictureScreen();
-
-	bool doCommand();
-	bool doCommand2(const std::string& line);
-
-private:
-	StClient(const StClient&);           // disable
-	StClient& operator=(StClient&);      // disable
-
-	void BuildDepthImage(uint8* dest);
-
-	static StClient* ms_self;
-
-	void do_calibration(float mx, float my);
-
-
-	unsigned int		m_nTexMapX;
-	unsigned int		m_nTexMapY;
-
-	mi::RGBA_raw* video_ram;
-	mi::RGBA_raw* video_ram2;
-	uint vram_tex2;
-
-	int			m_width;
-	int			m_height;
-
-	void CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage& raw_depth, const RawDepthImage& raw_floor);
-
-	mi::UdpReceiver udp_recv;
-	mi::UdpSender   udp_send;
-
-
-	Eye     eye;
-	ActiveCamera active_camera;
-
-	void display2();
-	void MoviePlayback();
-	void MovieRecord();
-	void DrawVoxels(Dots& dots);
-	void CreateAtari(const Dots& dots);
-	void set_clipboard_text();
+struct Calset
+{
+	CamParam curr, prev;
 };
 
 
@@ -317,6 +260,95 @@ namespace VoxelRecorder{
 	void playback(Dots& dots, const MovieData::Frame& frame);
 }//namespace VoxelRecorder
 
+class StClient
+{
+public:
+	StClient(Kdev& dev1, Kdev& dev2);
+	virtual ~StClient();
+
+	bool init(int argc, char **argv);
+	bool run();
+
+private:
+	void display();
+	void displayEnvironment();
+	void display3dSectionPrepare();
+	void display3dSection();
+	void display2dSectionPrepare();
+	void display2dSection();
+
+
+	enum MouseButton
+	{
+		MOUSE_LEFT  = 1,
+		MOUSE_RIGHT = 2,
+	};
+
+	void processKeyInput();
+	void processMouseInput();
+	void processMouseInput_aux();
+
+	bool initOpenGL(int argc, char **argv);
+
+	Kdev& dev1;
+	Kdev& dev2;
+
+private:
+	void displayBlackScreen();
+	void displayPictureScreen();
+
+	bool doCommand();
+	bool doCommand2(const std::string& line);
+
+private:
+	StClient(const StClient&);           // disable
+	StClient& operator=(StClient&);      // disable
+
+	void BuildDepthImage(uint8* dest);
+
+	static StClient* ms_self;
+
+	void do_calibration(float mx, float my);
+
+
+	unsigned int		m_nTexMapX;
+	unsigned int		m_nTexMapY;
+
+	mi::RGBA_raw* video_ram;
+	mi::RGBA_raw* video_ram2;
+	uint vram_tex2;
+
+	int			m_width;
+	int			m_height;
+
+	void CreateCoockedDepth(RawDepthImage& raw_cooked, const RawDepthImage& raw_depth, const RawDepthImage& raw_floor);
+
+	mi::UdpReceiver udp_recv;
+	mi::UdpSender   udp_send;
+
+
+	Eye                   eye;
+	ActiveCamera          active_camera;
+	freetype::font_data   monospace;
+	MovieData             curr_movie;
+	Calset                cal_cam1, cal_cam2;
+	mi::Fps               fps_counter;
+	int                   movie_index;
+	MovieMode             movie_mode;
+
+
+	void saveAgent(int slot);
+	void loadAgent(int slot);
+
+	void display2();
+	void MoviePlayback();
+	void MovieRecord();
+	void DrawVoxels(Dots& dots);
+	void CreateAtari(const Dots& dots);
+	void set_clipboard_text();
+
+	void clearFloorDepth();
+};
 
 }//namespace stclient
 

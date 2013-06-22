@@ -1,6 +1,7 @@
 #include "Core.h"
 #include <Windows.h>
 #pragma comment(lib, "User32.lib")
+#pragma comment(lib, "winmm.lib")
 
 using namespace mi;
 
