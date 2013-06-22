@@ -97,19 +97,15 @@ struct Kdev
 
 struct Mode
 {
-	bool simple_dot_body;
 	bool auto_clipping;
 	bool show_hit_boxes;
-	bool sync_enabled;
-	bool mixed_enabled;
+	bool mixed_enabled;//#?
 	bool mirroring;
-	bool borderline;
-	bool view4test;
+	bool borderline;//#?
 
 	Mode()
 	{
 		auto_clipping = true;
-		simple_dot_body = true;
 	}
 };
 
@@ -147,16 +143,27 @@ public:
 	StClient(Kdev& dev1, Kdev& dev2);
 	virtual ~StClient();
 
-	virtual bool init(int argc, char **argv);
-	virtual bool run();	//Does not return
+	bool init(int argc, char **argv);
+	bool run();
 
-protected:
-	virtual void display();
-	virtual void displayPostDraw(){};	// Overload to draw over the screen image
+private:
+	void display();
+	void displayEnvironment();
+	void display3dSectionPrepare();
+	void display3dSection();
+	void display2dSectionPrepare();
+	void display2dSection();
 
-	virtual void onKey(int key, int x, int y);
-	virtual void onMouse(int button, int state, int x, int y);
-	virtual void onMouseMove(int x, int y);
+
+	enum MouseButton
+	{
+		MOUSE_LEFT  = 1,
+		MOUSE_RIGHT = 2,
+	};
+
+	void processKeyInput();
+	void processMouseInput();
+	void processMouseInput_aux();
 
 	bool initOpenGL(int argc, char **argv);
 
@@ -177,13 +184,6 @@ private:
 	void BuildDepthImage(uint8* dest);
 
 	static StClient* ms_self;
-	static void glutIdle();
-	static void glutDisplay();
-	static void glutKeyboard(unsigned char key, int x, int y);
-	static void glutKeyboardSpecial(int key, int x, int y);
-	static void glutMouse(int button, int state, int x, int y);
-	static void glutMouseMove(int x, int y);
-	static void glutReshape(int width, int height);
 
 	void do_calibration(float mx, float my);
 
@@ -265,8 +265,6 @@ struct TimeProfile
 	struct Environment
 	{
 		double total;
-		double draw_wall;
-		double draw_grid;
 		double read1;
 		double read2;
 	} environment;
@@ -274,6 +272,8 @@ struct TimeProfile
 	struct Drawing
 	{
 		double total;
+		double wall;
+		double grid;
 		double mix1;
 		double mix2;
 		double drawvoxels;

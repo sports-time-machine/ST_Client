@@ -2,7 +2,6 @@
 #include "mi/Core.h"
 #include <windows.h>		//(the GL headers need it)
 #include <GL/gl.h>
-#include <GL/glut.h>
 
 
 namespace mgl{
@@ -28,7 +27,7 @@ struct glRGBA
 
 	glRGBA(float r, float g, float b, float a=1.0)
 	{
-		set(r*255,g*255,b*255,a*255);
+		set((int)(r*255), (int)(g*255), (int)(b*255), (int)(a*255));
 	}
 
 	void set(int r, int g, int b, int a=255)

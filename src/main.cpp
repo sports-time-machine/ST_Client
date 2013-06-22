@@ -104,11 +104,11 @@ void load_config()
 		return PSL::variable(psl.get(name)).type()==PSL::variable::INT;
 	};
 
-#define CONFIG_LET2(DEST,NAME,FUNC)   if(int_exists(#NAME)){ DEST=PSL::variable(psl.get(#NAME)).FUNC(); }
-#define CONFIG_LET(DEST,NAME,FUNC)   CONFIG_LET2(DEST.NAME, NAME, FUNC)
-#define CONFIG_INT(DEST,NAME)        CONFIG_LET(DEST,NAME,toInt)
-#define CONFIG_BOOL(DEST,NAME)       CONFIG_LET(DEST,NAME,toBool)
-#define CONFIG_FLOAT(DEST,NAME)      CONFIG_LET(DEST,NAME,toDouble)
+#define CONFIG_LET2(DEST,NAME,C,FUNC)   if(int_exists(#NAME)){ DEST=(C)PSL::variable(psl.get(#NAME)).FUNC(); }
+#define CONFIG_LET(DEST,NAME,C,FUNC)   CONFIG_LET2(DEST.NAME, NAME, C, FUNC)
+#define CONFIG_INT(DEST,NAME)          CONFIG_LET(DEST,NAME,int,toInt)
+#define CONFIG_BOOL(DEST,NAME)         CONFIG_LET(DEST,NAME,bool,toBool)
+#define CONFIG_FLOAT(DEST,NAME)        CONFIG_LET(DEST,NAME,float,toDouble)
 	CONFIG_INT(config, far_threshold);
 	CONFIG_INT(config, near_threshold);
 	CONFIG_INT(config, far_cropping);
@@ -124,10 +124,10 @@ void load_config()
 	double right_meter = 0.0f;
 	double top_meter   = 0.0f;
 	int    ground_px   = 0;
-	CONFIG_LET2(left_meter,  metrics_left_meter,  toDouble);
-	CONFIG_LET2(right_meter, metrics_right_meter, toDouble);
-	CONFIG_LET2(top_meter,   metrics_topt_meter,  toDouble);
-	CONFIG_LET2(ground_px,   metrics_ground_px,   toInt);
+	CONFIG_LET2(left_meter,  metrics_left_meter,  float, toDouble);
+	CONFIG_LET2(right_meter, metrics_right_meter, float, toDouble);
+	CONFIG_LET2(top_meter,   metrics_topt_meter,  float, toDouble);
+	CONFIG_LET2(ground_px,   metrics_ground_px,   int,   toInt);
 	config.metrics.left_mm   = (int)(1000 * left_meter);
 	config.metrics.right_mm  = (int)(1000 * right_meter);
 	config.metrics.top_mm    = (int)(1000 * top_meter);
@@ -149,17 +149,23 @@ void load_config()
 
 	auto set_camera_param = [&](CamParam& cam, const char* varname){
 		PSL::variable var = psl.get(varname);
-		cam.x     = var["x"].toDouble();
-		cam.y     = var["y"].toDouble();
-		cam.z     = var["z"].toDouble();
-		cam.rotx  = var["rotx"].toDouble();
-		cam.roty  = var["roty"].toDouble();
-		cam.rotz  = var["rotz"].toDouble();
-		cam.scale = var["scale"].toDouble();
+		cam.x     = (float)var["x"];
+		cam.y     = (float)var["y"];
+		cam.z     = (float)var["z"];
+		cam.rotx  = (float)var["rotx"];
+		cam.roty  = (float)var["roty"];
+		cam.rotz  = (float)var["rotz"];
+		cam.scale = (float)var["scale"];
 	};
 
 	set_camera_param(config.cam1, "camera1");
 	set_camera_param(config.cam2, "camera2");
+
+	PSL::variable func = psl.get("func");
+
+	PSL::variable hello = func();
+	const char* s = hello;
+	printf("%s\n", s);
 
 #undef CONFIG_INT
 #undef CONFIG_BOOL

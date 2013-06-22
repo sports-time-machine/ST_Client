@@ -1,4 +1,5 @@
 #include "gl_funcs.h"
+#include <gl/glu.h>
 
 using namespace mgl;
 
@@ -128,11 +129,11 @@ void gl::ToggleFullScreen()
 	bool& is_fullscreen = data().fullscreen;
 	if (is_fullscreen)
 	{
-		glutReshapeWindow(640,480);
+//#		glutReshapeWindow(640,480);
 	}
 	else
 	{
-		glutFullScreen();
+//#		glutFullScreen();
 	}
 	is_fullscreen = !is_fullscreen;
 }

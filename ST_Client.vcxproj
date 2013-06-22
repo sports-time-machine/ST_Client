@@ -40,7 +40,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="src\ST_Client.cpp" />
-    <ClCompile Include="src\ST_Client_GLUT.cpp" />
     <ClCompile Include="src\ST_Client_Udp.cpp" />
     <ClCompile Include="src\VoxelRecorder.cpp" />
     <ClCompile Include="src\zlibpp.cpp" />

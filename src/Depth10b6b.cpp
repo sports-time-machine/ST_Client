@@ -119,7 +119,7 @@ void Depth10b6b::playback(RawDepthImage& dest1, RawDepthImage& dest2, const Movi
 
 				for (int i=0; i<run; ++i)
 				{
-					dest.image[dest_index++] = depth;
+					dest.image[dest_index++] = (uint16)depth;
 					if (dest_index >= 640*480)
 					{
 						break;

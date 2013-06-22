@@ -9,10 +9,14 @@
 #include "ST_Client.h"
 #include <GL/glfw.h>
 #pragma comment(lib,"GLFW_x32.lib")
+#pragma warning(disable:4244) // conversion
 
-#define USE_GLFW 1
 #define local static
 #pragma warning(disable:4996) // unsafe function
+
+#pragma comment(lib,"opengl32.lib")
+#pragma comment(lib,"glu32.lib")
+#pragma comment(lib,"winmm.lib")   // timeGetTime
 
 
 using namespace mgl;
@@ -77,7 +81,6 @@ local HitData hitdata;
 local int flashing = 0;
 local Calset cal_cam1, cal_cam2;
 local float eye_rh_base, eye_rv_base, eye_y_base;
-static int old_x, old_y;
 
 
 
@@ -206,11 +209,9 @@ void toggle(bool& ref)
 
 	ref = !ref;
 	puts("-----------------------------");
-	log(mode.sync_enabled,     'k', "sync");
 	log(mode.mixed_enabled,    'm', "mixed");
 	log(mode.mirroring,        '?', "mirroring");
 	log(mode.borderline,       'b', "borderline");
-	log(mode.view4test,        '$', "view4test");
 	puts("-----------------------------");
 }
 
@@ -394,25 +395,60 @@ bool StClient::init(int argc, char **argv)
 	return true;
 }
 
-bool StClient::run()	//Does not return
+static void window_resized(int width, int height)
 {
-#if USE_GLFW
+	global.window_w = width;
+	global.window_h = height;
+	glViewport(0, 0, width, height);
+}
+
+bool StClient::run()
+{
+	int window_w = 0;
+	int window_h = 0;
+	glfwGetWindowSize(&window_w, &window_h);
+	window_resized(window_w, window_h);
+
 	for (;;)
 	{
+		mi::Timer mi(&time_profile.frame);
+
 		if (!glfwGetWindowParam(GLFW_OPENED))
 		{
 			break;
 		}
 
-		display();
+		// フレーム開始時にUDPコマンドの処理をする
+		while (doCommand())
+		{
+		}
 
+		{
+			int w = 0;
+			int h = 0;
+			glfwGetWindowSize(&w, &h);
+			if (!(w==window_w && h==window_h))
+			{
+				window_w = w;
+				window_h = h;
+				window_resized(window_w, window_h);
+			}
+		}
+
+		this->processKeyInput();
+		this->processMouseInput();
+
+		{
+			this->displayEnvironment();
+			this->display3dSectionPrepare();
+			this->display3dSection();
+			this->display2dSectionPrepare();
+			this->display2dSection();
+		}
 
 		glfwSwapBuffers();
 	}
 	glfwTerminate();
-#else
-	glutMainLoop();
-#endif
 	return true;
 }
 
@@ -536,6 +572,21 @@ void StClient::display2()
 	}
 
 
+	{
+		int y2 = y;
+		heading.glColorUpdate();
+		pr(monospace, 200, y2+=H, "EYE");
+		text.glColorUpdate();
+		pr(monospace, 200, y2+=H, "x =%+9.4f [adsw]", eye.x);
+		pr(monospace, 200, y2+=H, "y =%+9.4f [q/e]", eye.y);
+		pr(monospace, 200, y2+=H, "z =%+9.4f [adsw]", eye.z);
+		pr(monospace, 200, y2+=H, "rh=%+9.4f(rad)", eye.rh);
+		pr(monospace, 200, y2+=H, "v =%+9.4f [q/e]", eye.v);
+		y2+=H;
+		pr(monospace, 200, y2+=H, "P-inc = %3d [g/h]", config.person_inc);
+		pr(monospace, 200, y2+=H, "M-inc = %3d [n/m]", config.movie_inc);
+	}
+
 	heading.glColorUpdate();
 	pr(monospace, 20, y+=H, "View Mode");
 	text.glColorUpdate();
@@ -550,16 +601,7 @@ void StClient::display2()
 		color(vm==VM_3D_RIGHT); pr(monospace, 20, y+=H, "[F7] 3D right");
 		color(vm==VM_3D_FRONT); pr(monospace, 20, y+=H, "[F8] 3D front");
 	}
-	nl();
 
-	heading.glColorUpdate();
-	pr(monospace, 20, y+=H, "EYE");
-	text.glColorUpdate();
-	pr(monospace, 20, y+=H, "x =%+9.4f", eye.x);
-	pr(monospace, 20, y+=H, "y =%+9.4f [q/e]", eye.y);
-	pr(monospace, 20, y+=H, "z =%+9.4f", eye.z);
-	pr(monospace, 20, y+=H, "rh=%+9.4f(rad)", eye.rh);
-	pr(monospace, 20, y+=H, "v =%+9.4f", eye.v);
 	nl();
 
 	{
@@ -641,12 +683,12 @@ void StClient::display2()
 	b(); pr(monospace, 20, y+=H, "Frame         %7.3fms/frame", time_profile.frame);
 
 	b(); pr(monospace, 20, y+=H, " Environment  %6.2f", time_profile.environment.total);
-	p(); pr(monospace, 20, y+=H, "  grid        %6.2f", time_profile.environment.draw_grid);
-	p(); pr(monospace, 20, y+=H, "  wall        %6.2f", time_profile.environment.draw_wall);
 	p(); pr(monospace, 20, y+=H, "  read1       %6.2f", time_profile.environment.read1);
 	p(); pr(monospace, 20, y+=H, "  read2       %6.2f", time_profile.environment.read2);
 
 	b(); pr(monospace, 20, y+=H, " Drawing      %6.2f", time_profile.drawing.total);
+	p(); pr(monospace, 20, y+=H, "  grid        %6.2f", time_profile.drawing.grid);
+	p(); pr(monospace, 20, y+=H, "  wall        %6.2f", time_profile.drawing.wall);
 	p(); pr(monospace, 20, y+=H, "  mix1        %6.2f", time_profile.drawing.mix1);
 	p(); pr(monospace, 20, y+=H, "  mix2        %6.2f", time_profile.drawing.mix2);
 	p(); pr(monospace, 20, y+=H, "  draw        %6.2f", time_profile.drawing.drawvoxels);
@@ -1019,15 +1061,9 @@ void StClient::MovieRecord()
 }
 
 
-void StClient::display()
+void StClient::displayEnvironment()
 {
-	mi::Timer tm(&time_profile.frame);
-
-
-	// フレーム開始時にUDPコマンドの処理をする
-	while (doCommand())
-	{
-	}
+	mi::Timer tm(&time_profile.environment.total);
 
 	// @fps
 	fps_counter.update();
@@ -1069,14 +1105,12 @@ void StClient::display()
 		dev2.CreateRawDepthImage_Read();
 		dev2.CreateRawDepthImage();
 	}
+}
 
-
-	//============
-	// 3D Section
-	//============
+void StClient::display3dSectionPrepare()
+{
 	::glMatrixMode(GL_PROJECTION);
 	::glLoadIdentity();
-
 
 	if (global.view.is_ortho)
 	{
@@ -1090,18 +1124,20 @@ void StClient::display()
 		gluPerspective(30.0f, 4.0f/3.0f, 1.0f, 100.0f);
 	}
 
-
 	eye.gluLookAt();
 
 	gl::Texture(false);
 	gl::DepthTest(true);
 	::glMatrixMode(GL_MODELVIEW);
 	::glLoadIdentity();
+}
 
-	{mi::Timer tm(&time_profile.environment.draw_wall);
+void StClient::display3dSection()
+{
+	{mi::Timer tm(&time_profile.drawing.wall);
 		//#drawWall();
 	}
-	{mi::Timer tm(&time_profile.environment.draw_grid);
+	{mi::Timer tm(&time_profile.drawing.grid);
 		drawFieldGrid(500);
 	}
 
@@ -1164,24 +1200,24 @@ void StClient::display()
 	}
 #endif
 
-
 	if (movie_mode==MOVIE_RECORD)
 	{
 		MovieRecord();
 	}
+}
 
-
-	//============
-	// 2D Section
-	//============
+void StClient::display2dSectionPrepare()
+{
 	gl::Projection();
 	gl::LoadIdentity();
 	glOrtho(0, 640, 480, 0, -1.0, 1.0);
 
-
 	gl::Texture(false);
 	gl::DepthTest(false);
+}
 
+void StClient::display2dSection()
+{
 #if 0//#no flashing
 	if (flashing>0)
 	{
@@ -1279,63 +1315,8 @@ void StClient::display()
 
 	glRGBA::white.glColorUpdate();
 	display2();
-
-#if 0
-	glRGBA(255,255,255,100).glColorUpdate();
-	gl::Line2D(Point2i(0,240), Point2i(640,240));
-	gl::Line2D(Point2i(320,0), Point2i(320,480));
-
-	if (!mode.view4test)
-	{
-		gl::Line2D(Point2i(0, 40), Point2i(640, 40));
-		gl::Line2D(Point2i(0,440), Point2i(640,440));
-	}
-
-	if (mode.calibration)
-	{
-		displayCalibrationInfo();
-	}
-
-	glBegin(GL_POINTS);
-	glRGBA(255,255,255).glColorUpdate();
-		glVertex2d(old_x, old_y);
-	glEnd();
-#endif
-
-
-
-
-#if !USE_GLFW
-	glutSwapBuffers();
-#endif
 }
 
-
-enum
-{
-	KEY_ESCAPE = 0x1B,
-	KEY_CTRL_C = 0x03,
-	KEY_F1 = 1001,
-	KEY_F2 = 1002,
-	KEY_F3 = 1003,
-	KEY_F4 = 1004,
-	KEY_F5 = 1005,
-	KEY_F6 = 1006,
-	KEY_F7 = 1007,
-	KEY_F8 = 1008,
-	KEY_F9 = 1009,
-	KEY_F10 = 1010,
-	KEY_F11 = 1011,
-	KEY_F12 = 1012,
-	KEY_LEFT = 1100,
-	KEY_UP = 1101,
-	KEY_RIGHT = 1102,
-	KEY_DOWN = 1103,
-	KEY_PAGEUP = 1104,
-	KEY_PAGEDOWN = 1105,
-	KEY_HOME = 1106,
-	KEY_END = 1107,
-};
 
 void saveAgent(int slot)
 {
@@ -1499,32 +1480,58 @@ void StClient::do_calibration(float mx, float my)
 	}
 }
 
-void StClient::onMouseMove(int x, int y)
+struct MousePos
 {
+	struct Pos
+	{
+		int x,y;
+	};
+	Pos pos,old,diff;
+
+	struct Button
+	{
+		bool down,press,prev;
+	};
+	Button left,right;
+} mouse;
+
+void StClient::processMouseInput_aux()
+{
+	if (mouse.right.press)
+	{
+		puts("RIGHT PRESS");
+		eye_rh_base = eye.rh;
+		eye_rv_base = eye.v;
+		eye_y_base  = eye.y;
+
+		// 現在値を保存しておく
+		cal_cam1.prev = cal_cam1.curr;
+		cal_cam2.prev = cal_cam2.curr;		
+	}
 	BYTE kbd[256];
 	GetKeyboardState(kbd);
 
-	const bool left  = (kbd[VK_LBUTTON] & 0x80)!=0;
-	const bool right = (kbd[VK_RBUTTON] & 0x80)!=0;
 	const bool shift = (kbd[VK_SHIFT  ] & 0x80)!=0;
-
-	x = x * 640 / global.window_w;
-	y = y * 480 / global.window_h;
 
 	bool move_eye = false;
 
-	if (right)
+	if (mouse.right.down)
 	{
-		printf("%d, %d\n", old_x, x);
 		move_eye = true;
 	}
-	else if (left)
+	else if (mouse.left.down)
 	{
-		const float mx = (x - old_x) * 0.01f * (shift ? 0.1f : 1.0f);
-		const float my = (y - old_y) * 0.01f * (shift ? 0.1f : 1.0f);
+		// First
+		if (mouse.left.press)
+		{
+			cal_cam1.prev = cal_cam1.curr;
+			cal_cam2.prev = cal_cam2.curr;
+		}
+
+		printf("%d, %d\n", mouse.diff.x, mouse.diff.y);
+		const float mx = (mouse.diff.x) * 0.01f * (shift ? 0.1f : 1.0f);
+		const float my = (mouse.diff.y) * 0.01f * (shift ? 0.1f : 1.0f);
 		do_calibration(mx, my);
-		old_x = x;
-		old_y = y;
 	}
 
 	// キャリブレーションのときは視点移動ができない
@@ -1542,10 +1549,10 @@ void StClient::onMouseMove(int x, int y)
 
 	if (move_eye)
 	{
-		const float x_move = (x - old_x)*0.0010;
-		const float y_move = (y - old_y)*0.0100;
-		eye.rh = eye_rh_base - x_move;
-		eye. v = eye_rv_base + y_move;
+		const float x_move = mouse.diff.x * 0.0010;
+		const float y_move = mouse.diff.y * 0.0050;
+		eye.rh -= x_move;
+		eye. v += y_move;
 		
 		if (!shift)
 		{
@@ -1554,24 +1561,38 @@ void StClient::onMouseMove(int x, int y)
 	}
 }
 
-void StClient::onMouse(int button, int state, int x, int y)
+void StClient::processMouseInput()
 {
-	if ((button==GLUT_LEFT_BUTTON || button==GLUT_RIGHT_BUTTON) && state==GLUT_DOWN)
+	// Update button
 	{
-		// Convert screen position to internal position
-		x = x * 640 / global.window_w;
-		y = y * 480 / global.window_h;
+		mouse.left.prev  = mouse.left.down;
+		mouse.right.prev = mouse.right.down;
 
-		old_x = x;
-		old_y = y;
-		eye_rh_base = eye.rh;
-		eye_rv_base = eye.v;
-		eye_y_base  = eye.y;
-
-		// 現在値を保存しておく
-		cal_cam1.prev = cal_cam1.curr;
-		cal_cam2.prev = cal_cam2.curr;		
+		mouse.left.down   = (glfwGetMouseButton(GLFW_MOUSE_BUTTON_1)==GLFW_PRESS);
+		mouse.right.down  = (glfwGetMouseButton(GLFW_MOUSE_BUTTON_2)==GLFW_PRESS);
+		mouse.left.press  = (mouse.left.down  && !mouse.left.prev);
+		mouse.right.press = (mouse.right.down && !mouse.right.prev);
 	}
+
+	// Update position
+	{
+		// update old mouse pos
+		mouse.old = mouse.pos;
+
+		// Convert screen position to internal position
+		int x = 0;
+		int y = 0;
+		glfwGetMousePos(&x, &y);
+		mouse.pos.x = x * 640 / global.window_w;
+		mouse.pos.y = y * 480 / global.window_h;
+
+		// Diff
+		mouse.diff.x = mouse.pos.x - mouse.old.x;
+		mouse.diff.y = mouse.pos.y - mouse.old.y;
+	}
+
+	// main
+	processMouseInput_aux();
 }
 
 
@@ -1608,18 +1629,76 @@ void StClient::set_clipboard_text()
 
 
 
-void StClient::onKey(int key, int /*x*/, int /*y*/)
+void StClient::processKeyInput()
 {
-	BYTE kbd[256] = {};
-	GetKeyboardState(kbd);
+	bool press[256] = {};
+	bool down[256] = {};
+	int key = 0;
 
-	const bool shift = (kbd[VK_SHIFT] & 0x80)!=0;
-	const bool ctrl  = (kbd[VK_CONTROL] & 0x80)!=0;
-	const bool key_left  = ((kbd[VK_LEFT ] & 0x80)!=0);
-	const bool key_right = ((kbd[VK_RIGHT] & 0x80)!=0);
-	const bool key_up    = ((kbd[VK_UP   ] & 0x80)!=0);
-	const bool key_down  = ((kbd[VK_DOWN ] & 0x80)!=0);
-	
+	{
+		const int KEYS = 256;
+		static BYTE prev_kbd[KEYS] = {};
+		BYTE curr_kbd[KEYS] = {};
+		GetKeyboardState(curr_kbd);
+		for (int i=0; i<KEYS; ++i)
+		{
+			down[i] = ((curr_kbd[i] & 0x80)!=0);
+
+			if (!prev_kbd[i] && curr_kbd[i])
+			{
+				press[i] = true;
+				key = i;
+			}
+
+			prev_kbd[i] = curr_kbd[i];
+		}
+	}
+
+
+
+	const bool shift     = down[VK_SHIFT];
+	const bool ctrl      = down[VK_CONTROL];
+	const bool key_left  = down[VK_LEFT ];
+	const bool key_right = down[VK_RIGHT];
+	const bool key_up    = down[VK_UP   ];
+	const bool key_down  = down[VK_DOWN ];
+	const float movespeed = shift ? 0.01 : 0.1;
+
+	// ADSW move, QE, PageUp/Down
+	const bool A = down['A'];
+	const bool D = down['D'];
+	const bool S = down['S'];
+	const bool W = down['W'];
+	const bool Q = down['Q'];
+	const bool E = down['E'];
+	const bool PU = down[VK_NEXT];
+	const bool PD = down[VK_PRIOR];
+	if (A || D || S || W || Q || E || PD || PU)
+	{
+		auto eye_move = [&](float rad){
+			eye.x += movespeed * cosf(eye.rh - rad*PI/180);
+			eye.z += movespeed * sinf(eye.rh - rad*PI/180);
+		};
+		auto move_yv = [&](float sign){
+			eye.y += sign * movespeed;
+			eye.v -= sign * movespeed;
+		};
+		auto move_y = [&](float sign){
+			eye.y += sign * movespeed;
+		};
+
+		if (A) eye_move( 90.0f);
+		if (D) eye_move(270.0f);
+		if (S) eye_move(180.0f);
+		if (W) eye_move(  0.0f);
+		if (Q) move_yv(-1.0f);
+		if (E) move_yv(+1.0f);
+		if (PD) move_y(+1.0f);
+		if (PU) move_y(-1.0f);
+		return;
+	}
+
+	// Cursor move
 	if (key_left || key_right || key_up || key_down)
 	{
 		const float U = shift ? 0.001 : 0.01;
@@ -1633,11 +1712,24 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		return;
 	}
 
+	const bool G = down['G'];
+	const bool H = down['H'];
+	const bool N = down['N'];
+	const bool M = down['M'];
+	if (G || H || N || M)
+	{
+		if (G) --config.person_inc;
+		if (H) ++config.person_inc;
+		if (N) --config.movie_inc;
+		if (M) ++config.movie_inc;
+		return;
+	}
 
-	const float movespeed = shift ? 0.01 : 0.1;
+
 
 	enum { SK_SHIFT=0x10000 };
 	enum { SK_CTRL =0x20000 };
+
 
 	// A           'a'
 	// Shift+A     'A'
@@ -1649,13 +1741,11 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		key += (ctrl  ? SK_CTRL  : 0);
 	}
 
-	auto eye_move = [&](float rad){
-		eye.x += movespeed * cosf(eye.rh - rad*PI/180);
-		eye.z += movespeed * sinf(eye.rh - rad*PI/180);
-	};
-
 	switch (key)
 	{
+	case 0:
+		break;
+
 	default:
 		printf("[key %X %d]\n", key&0xF0000, key&0x0FFFF);
 		break;
@@ -1670,55 +1760,24 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 		active_camera = CAM_BOTH;
 		break;
 
-	case 't':
-	case 'y':
-	case 'u':
-	case KEY_LEFT:
-	case KEY_RIGHT:
-	case KEY_UP:
-	case KEY_DOWN:
-		// キャリブレーション用に使用
-		break;
-
-	case KEY_F1: eye.view_2d_left();  break;
-	case KEY_F2: eye.view_2d_top();   break;
-	case KEY_F3: eye.view_2d_front(); break;
-	case KEY_F4: break;
+	case VK_F1: eye.view_2d_left();  break;
+	case VK_F2: eye.view_2d_top();   break;
+	case VK_F3: eye.view_2d_front(); break;
+	case VK_F4: break;
 	
-	case KEY_F5: eye.view_2d_run();   break;
-	case KEY_F6: eye.view_3d_left();  break;
-	case KEY_F7: eye.view_3d_right(); break;
-	case KEY_F8: eye.view_3d_front(); break;
+	case VK_F5: eye.view_2d_run();   break;
+	case VK_F6: eye.view_3d_left();  break;
+	case VK_F7: eye.view_3d_right(); break;
+	case VK_F8: eye.view_3d_front(); break;
 
-	case KEY_HOME:
+	case VK_HOME:
 		config.far_threshold -= shift ? 1 : 10;
 		break;
-	case KEY_END:
+	case VK_END:
 		config.far_threshold += shift ? 1 : 10;
 		break;
 
- 	case 'a': case 'A': eye_move(270.0f); break;
- 	case 'd': case 'D': eye_move( 90.0f); break;
- 	case 's': case 'S': eye_move(180.0f); break;
- 	case 'w': case 'W': eye_move(  0.0f); break;
-	case 'q':
-	case 'Q':
-		eye.y += -movespeed;
-		break;
-	case 'e':
-	case 'E':
-		eye.y += movespeed;
-		break;
-	case KEY_PAGEDOWN:
-		eye.y -= movespeed;
-		eye.v += movespeed;
-		break;
-	case KEY_PAGEUP:
-		eye.y += movespeed;
-		eye.v -= movespeed;
-		break;
-
-	case KEY_ESCAPE:
+	case VK_ESCAPE:
 		dev1.depth.stop();
 		dev1.color.stop();
 		dev1.depth.destroy();
@@ -1729,7 +1788,7 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 	case 'z':
 		global.client_status = STATUS_DEPTH;
 		break;
-	case SK_CTRL + KEY_F1:
+	case SK_CTRL + VK_F1:
 		if (movie_mode!=MOVIE_RECORD)
 		{
 			curr_movie.clear();
@@ -1750,31 +1809,26 @@ void StClient::onKey(int key, int /*x*/, int /*y*/)
 			movie_index = 0;
 		}
 		break;
-	case SK_CTRL + KEY_F2:
+	case SK_CTRL + VK_F2:
 		printf("playback movie.\n");
 		movie_mode = MOVIE_PLAYBACK;
 		movie_index = 0;
 		break;
 	
-	case KEY_F9:
+	case VK_F9:
 		load_config();
 		break;
 
-	case KEY_CTRL_C:
+	case SK_CTRL | 'C':
 		set_clipboard_text();
 		break;
 
 	case 'C':  toggle(mode.auto_clipping);    break;
-	case 'k':  toggle(mode.sync_enabled);     break;
 	case 'm':  toggle(mode.mixed_enabled);    break;
 	case 'M':  toggle(mode.mirroring);        break;
 	case 'b':  toggle(mode.borderline);       break;
-	case 'B':  toggle(mode.simple_dot_body);  break;
 
-	case '$':
-		toggle(mode.view4test);
-		break;
-	case 'T':
+	case ':':
 		clearFloorDepth();
 		break;
 	case 'X':
@@ -1797,7 +1851,6 @@ static void init_open_gl_params()
 
 bool StClient::initOpenGL(int argc, char **argv)
 {
-#if USE_GLFW
 	(void)argc;
 	(void)argv;
 
@@ -1819,91 +1872,5 @@ bool StClient::initOpenGL(int argc, char **argv)
 	}
 
 	init_open_gl_params();
-
-	int window_w = 0;
-	int window_h = 0;
-	glfwGetWindowSize(&window_w, &window_h);
-	glutReshape(window_w, window_h);
-
-	for (;;)
-	{
-		if (!glfwGetWindowParam(GLFW_OPENED))
-		{
-			break;
-		}
-
-		glutDisplay();
-
-		{
-			int w = 0;
-			int h = 0;
-			glfwGetWindowSize(&w, &h);
-			if (!(w==window_w && h==window_h))
-			{
-				window_w = w;
-				window_h = h;
-				glutReshape(window_w, window_h);
-			}
-		}
-
-		{
-			int x = 0;
-			int y = 0;
-			glfwGetMousePos(&x, &y);
-			
-			static bool old_left  = false;
-			static bool old_right = false;
-
-			const bool left  = (glfwGetMouseButton(GLFW_MOUSE_BUTTON_1)==GLFW_PRESS);
-			const bool right = (glfwGetMouseButton(GLFW_MOUSE_BUTTON_2)==GLFW_PRESS);
-			if (!(left==old_left && right==old_right))
-			{
-				old_left  = left;
-				old_right = right;
-				printf("mouse %d, %d\n", left, right);
-				onMouse(
-					(left  ? GLUT_LEFT_BUTTON : 0) +
-					(right ? GLUT_RIGHT_BUTTON : 0),
-					GLUT_DOWN,
-					x,y);
-			}
-			onMouseMove(x, y);
-		}
-
-		glfwSwapBuffers();
-	}
-#else
-	glutInit(&argc, argv);
-	glutInitWindowPosition(
-		config.initial_window_x,
-		config.initial_window_y);
-	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
-	glutInitWindowSize(INITIAL_WIN_SIZE_X, INITIAL_WIN_SIZE_Y);
-
-	{
-		std::string name;
-		name += "スポーツタイムマシン クライアント";
-		name += " (";
-		name += Core::getComputerName();
-		name += ")";
-		glutCreateWindow(name.c_str());
-	}
-
-	if (config.initial_fullscreen)
-	{
-		gl::ToggleFullScreen();
-	}
-
-	glutIdleFunc(glutIdle);
-	glutDisplayFunc(glutDisplay);
-	glutKeyboardFunc(glutKeyboard);
-	glutSpecialFunc(glutKeyboardSpecial);
-	glutMouseFunc(glutMouse);
-	glutReshapeFunc(glutReshape);
-	glutMotionFunc(glutMouseMove);
-
-	init_open_gl_params();
-#endif
-
 	return true;
 }

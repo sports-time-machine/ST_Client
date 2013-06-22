@@ -80,9 +80,9 @@ static VoxelToCube voxel_to_cube(const Dots& dot_set, Cube& cube)
 		const auto& d = dot_set[i];
 		if (d.x>=CUBE_LEFT && d.x<=CUBE_RIGHT && d.y>=CUBE_BOTTOM && d.y<=CUBE_TOP && d.z>=CUBE_NEAR && d.z<=CUBE_FAR)
 		{
-			const int x = (d.x-CUBE_LEFT  ) * W / CUBE_WIDTH;
-			const int y = (d.y-CUBE_BOTTOM) * H / CUBE_HEIGHT;
-			const int z = (d.z-CUBE_NEAR  ) * D / CUBE_DEPTH;
+			const int x = (int)((d.x-CUBE_LEFT  ) * W / CUBE_WIDTH);
+			const int y = (int)((d.y-CUBE_BOTTOM) * H / CUBE_HEIGHT);
+			const int z = (int)((d.z-CUBE_NEAR  ) * D / CUBE_DEPTH);
 			if ((uint)x<W && (uint)y<H && (uint)z<D)
 			{
 				int addr = x + (y*W);
@@ -91,7 +91,7 @@ static VoxelToCube voxel_to_cube(const Dots& dot_set, Cube& cube)
 				auto& ref = cube.plane[z].bit[addr>>3];
 				if (!(ref & bit))
 				{
-					ref = bit;
+					ref = (uint8)bit;
 					++res.inner_voxels;
 				}
 				else
@@ -164,18 +164,18 @@ static void cube_to_store(const Cube& cube, const uint8** store_dest, int* store
 				// triple byte length
 				*store++ = 0x80 |  (zero_length       & 0x7F);
 				*store++ = 0x80 | ((zero_length >> 7) & 0x7F);
-				*store++ =         (zero_length >> 14);
+				*store++ = (uint8) (zero_length >> 14);
 			}
 			else if (zero_length>=128)
 			{
 				// double byte length
 				*store++ = 0x80 | (zero_length & 0x7F);
-				*store++ =         zero_length  >>  7;
+				*store++ = (uint8)(zero_length  >>  7);
 			}
 			else
 			{
 				// single byte length
-				*store++ = zero_length;
+				*store++ = (uint8)zero_length;
 			}
 			*store++ = non_zero;
 		}

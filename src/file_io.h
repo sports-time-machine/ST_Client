@@ -55,15 +55,6 @@ struct Dots
 };
 
 
-struct FileHeader
-{
-	unsigned __int8
-		signature[4],  // "stm "
-		compress[4],   // "zip "
-		graphic[4];    // "dpth"
-	int total_frames;
-};
-
 struct CamParam
 {
 	float x,y,z,rotx,roty,rotz,scale;
@@ -73,6 +64,15 @@ struct CamParam
 		x=y=z=rotx=roty=rotz=0.0f;
 		scale=1.0f;
 	}
+};
+
+struct FileHeader
+{
+	unsigned __int8
+		signature[4],  // "stm "
+		compress[4],   // "zip "
+		graphic[4];    // "dpth"
+	int total_frames;
 };
 
 struct MovieData
