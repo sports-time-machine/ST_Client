@@ -107,7 +107,9 @@ void StClient::processKeyInput()
 	}
 
 
-	if (down[VK_SPACE])
+	static int frame_count;
+	++frame_count;
+	if (frame_count%global_config.auto_snapshot_interval==0)
 	{
 		this->snapshot_life = SNAPSHOT_LIFE_FRAMES;
 		dev1.raw_snapshot = dev1.raw_cooked;
@@ -158,10 +160,8 @@ void StClient::processKeyInput()
 	case VK_F8: eye.view_3d_front(); break;
 
 	case VK_HOME:
-		config.far_threshold -= shift ? 1 : 10;
 		break;
 	case VK_END:
-		config.far_threshold += shift ? 1 : 10;
 		break;
 
 	case VK_ESCAPE:

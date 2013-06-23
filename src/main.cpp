@@ -31,13 +31,18 @@ GlobalConfig::GlobalConfig()
 {
 	enable_kinect = true;
 	enable_color  = false;
-	wall_depth = 3.0f;
-	ground_color.set(80, 40, 20);
-	grid_color.set(200, 150, 130);
-	person_color.set(60,60,60, 200);
-	movie1_color.set(120,50,50,200);
-	movie2_color.set(50,120,50,200);
-	movie3_color.set(50,50,120,200);
+	wall_depth    = 3.0f;
+	color.ground .set( 80, 40, 20);
+	color.grid   .set(200,150,130);
+	color.person .set( 60, 60, 60,200);
+	color.movie1 .set(120, 50, 50,200);
+	color.movie2 .set( 50,120, 50,200);
+	color.movie3 .set( 50, 50,120,200);
+	color.text_h1.set(200,200,200);
+	color.text_p .set(200,200,200);
+	color.text_em.set(200,200,200);
+	color.text_dt.set(200,200,200);
+	color.text_dd.set(200,200,200);
 	person_dot_px = 1.5f;
 }
 
@@ -45,8 +50,6 @@ GlobalConfig::GlobalConfig()
 Config::Config()
 {
 	client_number = -1;
-	near_threshold = 500;
-	far_threshold = 5000;
 	initial_window_x = 50;
 	initial_window_y = 50;
 	initial_fullscreen = false;
@@ -129,9 +132,6 @@ void load_config()
 #define CONFIG_INT(DEST,NAME)          CONFIG_LET(DEST,NAME,int,toInt)
 #define CONFIG_BOOL(DEST,NAME)         CONFIG_LET(DEST,NAME,bool,toBool)
 #define CONFIG_FLOAT(DEST,NAME)        CONFIG_LET(DEST,NAME,float,toDouble)
-	CONFIG_INT(config, far_threshold);
-	CONFIG_INT(config, near_threshold);
-	CONFIG_INT(config, far_cropping);
 	CONFIG_INT(config, client_number);
 	CONFIG_INT(config, initial_window_x);
 	CONFIG_INT(config, initial_window_y);
@@ -153,18 +153,16 @@ void load_config()
 	config.metrics.top_mm    = (int)(1000 * top_meter);
 	config.metrics.ground_px = ground_px;
 
-	auto set_rgb = [&](const char* name, mgl::glRGBA& dest){
-		PSL::variable src = psl.get(name);
-		if (var_exist(src))
-		{
-			int alpha = src["a"].toInt();
-			if (alpha==0) alpha=255;
-			dest.set(
-				src["r"].toInt(),
-				src["g"].toInt(),
-				src["b"].toInt(),
-				alpha);
-		}
+	auto set_rgb = [&](PSL::variable src, mgl::glRGBA& dest){
+		if (!var_exist(src))
+			return;
+		int alpha = src["a"].toInt();
+		if (alpha==0) alpha=255;
+		dest.set(
+			src["r"].toInt(),
+			src["g"].toInt(),
+			src["b"].toInt(),
+			alpha);		
 	};
 	auto set_camera_param = [&](CamParam& cam, const char* varname){
 		PSL::variable var = psl.get(varname);
@@ -194,17 +192,23 @@ void load_config()
 	gc.background_image = pslString("background_image");
 
 	//=== COLORS ===
-	set_rgb("ground_color", gc.ground_color);
-	set_rgb("grid_color",   gc.grid_color);
-	set_rgb("person_color", gc.person_color);
-	set_rgb("movie1_color", gc.movie1_color);
-	set_rgb("movie2_color", gc.movie2_color);
-	set_rgb("movie3_color", gc.movie3_color);
-	set_rgb("text_heading_color", gc.text.heading_color);
-	set_rgb("text_normal_color",  gc.text.normal_color);
-	set_rgb("text_dt_color",      gc.text.dt_color);
-	set_rgb("text_dd_color",      gc.text.dd_color);
+	{
+		variable colors = psl.get("colors");
+		set_rgb(colors["ground"],   gc.color.ground);
+		set_rgb(colors["grid"],     gc.color.grid);
+		set_rgb(colors["person"],   gc.color.person);
+		set_rgb(colors["movie1"],   gc.color.movie1);
+		set_rgb(colors["movie2"],   gc.color.movie2);
+		set_rgb(colors["movie3"],   gc.color.movie3);
+		set_rgb(colors["text_h1"],  gc.color.text_h1);
+		set_rgb(colors["text_p"],   gc.color.text_p);
+		set_rgb(colors["text_em"],  gc.color.text_em);
+		set_rgb(colors["text_dt"],  gc.color.text_dt);
+		set_rgb(colors["text_dd"],  gc.color.text_dd);
+		set_rgb(colors["snapshot"], gc.color.snapshot);
+	}
 	CONFIG_FLOAT(global_config, person_dot_px);
+	CONFIG_INT(global_config, auto_snapshot_interval);
 
 #undef CONFIG_INT
 #undef CONFIG_BOOL

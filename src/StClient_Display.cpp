@@ -109,6 +109,14 @@ void StClient::display3dSection()
 	{
 		MovieRecord();
 	}
+
+
+	glRGBA(255,0,0)();
+	gl::DrawSphere(
+		global.person_center_x,
+		global.person_center_y,
+		0.0f,
+		0.25f);
 }
 
 //========================
@@ -231,26 +239,33 @@ void StClient::display2()
 	++frames;
 
 	const int H=15;
+	int x = 0;
 	int y = 10;
 
 	auto nl = [&](){ y+=H/2; };
 	auto pr = freetype::print;
 
-	const glRGBA heading = global_config.text.heading_color;
-	const glRGBA text    = global_config.text.normal_color;
-	const glRGBA b       = global_config.text.dt_color;
-	const glRGBA p       = global_config.text.dd_color;
-	
+	const glRGBA h1_  = global_config.color.text_h1;
+	const glRGBA text = global_config.color.text_p;
+	const glRGBA em   = global_config.color.text_em;
+	const glRGBA dt   = global_config.color.text_dt;
+	const glRGBA dd   = global_config.color.text_dd;
+
 	auto color = [](bool status){
 		(status
-			? global_config.text.dt_color
-			: global_config.text.dd_color)();
+			? global_config.color.text_em
+			: global_config.color.text_p)();
 	};
-	
+	auto h1 = [&](const char* s){
+		global_config.color.text_h1();
+		freetype::print(monospace, x, y+=H, s);
+		text();	
+	};
+
 	{
 		ChangeCalParamKeys keys;
 		keys.init();
-		heading();
+		em();
 		pr(monospace, 320, y,
 			(keys.rot_xy) ? "<XY-rotation>" :
 			(keys.rot_z)  ? "<Z-rotation>" :
@@ -258,98 +273,99 @@ void StClient::display2()
 	}
 
 	{
-		int y2 = y;
-		heading();
-		pr(monospace, 200, y2+=H, "EYE");
-		text();
-		pr(monospace, 200, y2+=H, "x =%+9.4f [adsw]", eye.x);
-		pr(monospace, 200, y2+=H, "y =%+9.4f [q/e]", eye.y);
-		pr(monospace, 200, y2+=H, "z =%+9.4f [adsw]", eye.z);
-		pr(monospace, 200, y2+=H, "rh=%+9.4f(rad)", eye.rh);
-		pr(monospace, 200, y2+=H, "v =%+9.4f [q/e]", eye.v);
-		y2+=H;
-		pr(monospace, 200, y2+=H, "P-inc = %3d [g/h]", config.person_inc);
-		pr(monospace, 200, y2+=H, "M-inc = %3d [n/m]", config.movie_inc);
+		const int saved = y;
+		x = 200;
+		h1("EYE");
+		pr(monospace, x, y+=H, "x =%+9.4f [adsw]", eye.x);
+		pr(monospace, x, y+=H, "y =%+9.4f [q/e]", eye.y);
+		pr(monospace, x, y+=H, "z =%+9.4f [adsw]", eye.z);
+		pr(monospace, x, y+=H, "rh=%+9.4f(rad)", eye.rh);
+		pr(monospace, x, y+=H, "v =%+9.4f [q/e]", eye.v);
+		y+=H;
+		pr(monospace, x, y+=H, "P-inc = %3d [g/h]", config.person_inc);
+		pr(monospace, x, y+=H, "M-inc = %3d [n/m]", config.movie_inc);
+		y = saved;
 	}
 
-	heading();
-	pr(monospace, 20, y+=H, "View Mode");
-	text();
 	{
+		x = 20;
+		h1("View Mode");
 		const auto vm = global.view_mode;
-		color(vm==VM_2D_LEFT);  pr(monospace, 20, y+=H, "[F1] 2D left");
-		color(vm==VM_2D_TOP);   pr(monospace, 20, y+=H, "[F2] 2D top");
-		color(vm==VM_2D_FRONT); pr(monospace, 20, y+=H, "[F3] 2D front");
-		color(false);           pr(monospace, 20, y+=H, "[F4] ----");
-		color(vm==VM_2D_RUN);   pr(monospace, 20, y+=H, "[F5] 2D run");
-		color(vm==VM_3D_LEFT);  pr(monospace, 20, y+=H, "[F6] 3D left");
-		color(vm==VM_3D_RIGHT); pr(monospace, 20, y+=H, "[F7] 3D right");
-		color(vm==VM_3D_FRONT); pr(monospace, 20, y+=H, "[F8] 3D front");
+		color(vm==VM_2D_LEFT);  pr(monospace, x, y+=H, "[F1] 2D left");
+		color(vm==VM_2D_TOP);   pr(monospace, x, y+=H, "[F2] 2D top");
+		color(vm==VM_2D_FRONT); pr(monospace, x, y+=H, "[F3] 2D front");
+		color(false);           pr(monospace, x, y+=H, "[F4] ----");
+		color(vm==VM_2D_RUN);   pr(monospace, x, y+=H, "[F5] 2D run");
+		color(vm==VM_3D_LEFT);  pr(monospace, x, y+=H, "[F6] 3D left");
+		color(vm==VM_3D_RIGHT); pr(monospace, x, y+=H, "[F7] 3D right");
+		color(vm==VM_3D_FRONT); pr(monospace, x, y+=H, "[F8] 3D front");
 	}
 
 	nl();
 
 	{
+		const int saved = y;
+		x = 200;
 		const auto cam = curr_movie.cam1;
-		int y2 = y;
-		heading();
-		pr(monospace, 200, y2+=H, "RecCam A:");
-		text();
-		pr(monospace, 200, y2+=H, "pos x = %9.5f", cam.x);
-		pr(monospace, 200, y2+=H, "pos y = %9.5f", cam.y);
-		pr(monospace, 200, y2+=H, "pos z = %9.5f", cam.z);
-		pr(monospace, 200, y2+=H, "rot x = %9.5f", cam.rotx);
-		pr(monospace, 200, y2+=H, "rot y = %9.5f", cam.roty);
-		pr(monospace, 200, y2+=H, "rot z = %9.5f", cam.rotz);
-		pr(monospace, 200, y2+=H, "scale = %9.5f", cam.scale);
+		h1("RecCam A:");
+		pr(monospace, x, y+=H, "pos x = %9.5f", cam.x);
+		pr(monospace, x, y+=H, "pos y = %9.5f", cam.y);
+		pr(monospace, x, y+=H, "pos z = %9.5f", cam.z);
+		pr(monospace, x, y+=H, "rot x = %9.5f", cam.rotx);
+		pr(monospace, x, y+=H, "rot y = %9.5f", cam.roty);
+		pr(monospace, x, y+=H, "rot z = %9.5f", cam.rotz);
+		pr(monospace, x, y+=H, "scale = %9.5f", cam.scale);
+		y = saved;
 	}
-
-	heading();
-	pr(monospace, 20, y+=H, "Camera A:");
-	text();
-	pr(monospace, 20, y+=H, "pos x = %9.5f", cal_cam1.curr.x);
-	pr(monospace, 20, y+=H, "pos y = %9.5f", cal_cam1.curr.y);
-	pr(monospace, 20, y+=H, "pos z = %9.5f", cal_cam1.curr.z);
-	pr(monospace, 20, y+=H, "rot x = %9.5f", cal_cam1.curr.rotx);
-	pr(monospace, 20, y+=H, "rot y = %9.5f", cal_cam1.curr.roty);
-	pr(monospace, 20, y+=H, "rot z = %9.5f", cal_cam1.curr.rotz);
-	pr(monospace, 20, y+=H, "scale = %9.5f", cal_cam1.curr.scale);
-	nl();
 
 	{
-		const auto cam = curr_movie.cam2;
-		int y2 = y;
-		heading();
-		pr(monospace, 200, y2+=H, "RecCam B:");
-		text();
-		pr(monospace, 200, y2+=H, "pos x = %9.5f", cam.x);
-		pr(monospace, 200, y2+=H, "pos y = %9.5f", cam.y);
-		pr(monospace, 200, y2+=H, "pos z = %9.5f", cam.z);
-		pr(monospace, 200, y2+=H, "rot x = %9.5f", cam.rotx);
-		pr(monospace, 200, y2+=H, "rot y = %9.5f", cam.roty);
-		pr(monospace, 200, y2+=H, "rot z = %9.5f", cam.rotz);
-		pr(monospace, 200, y2+=H, "scale = %9.5f", cam.scale);
+		x = 20;
+		h1("Camera A:");
+		pr(monospace, x, y+=H, "pos x = %9.5f", cal_cam1.curr.x);
+		pr(monospace, x, y+=H, "pos y = %9.5f", cal_cam1.curr.y);
+		pr(monospace, x, y+=H, "pos z = %9.5f", cal_cam1.curr.z);
+		pr(monospace, x, y+=H, "rot x = %9.5f", cal_cam1.curr.rotx);
+		pr(monospace, x, y+=H, "rot y = %9.5f", cal_cam1.curr.roty);
+		pr(monospace, x, y+=H, "rot z = %9.5f", cal_cam1.curr.rotz);
+		pr(monospace, x, y+=H, "scale = %9.5f", cal_cam1.curr.scale);
+		nl();
 	}
 
-	heading();
-	pr(monospace, 20, y+=H, "Camera B:");
-	text();
-	pr(monospace, 20, y+=H, "pos x = %9.5f", cal_cam2.curr.x);
-	pr(monospace, 20, y+=H, "pos y = %9.5f", cal_cam2.curr.y);
-	pr(monospace, 20, y+=H, "pos z = %9.5f", cal_cam2.curr.z);
-	pr(monospace, 20, y+=H, "rot x = %9.5f", cal_cam2.curr.rotx);
-	pr(monospace, 20, y+=H, "rot y = %9.5f", cal_cam2.curr.roty);
-	pr(monospace, 20, y+=H, "rot z = %9.5f", cal_cam2.curr.rotz);
-	pr(monospace, 20, y+=H, "scale = %9.5f", cal_cam2.curr.scale);
-	nl();
+	{
+		const int saved = y;
+		x = 200;
+		const auto cam = curr_movie.cam2;
+		h1("RecCam B:");
+		pr(monospace, x, y+=H, "pos x = %9.5f", cam.x);
+		pr(monospace, x, y+=H, "pos y = %9.5f", cam.y);
+		pr(monospace, x, y+=H, "pos z = %9.5f", cam.z);
+		pr(monospace, x, y+=H, "rot x = %9.5f", cam.rotx);
+		pr(monospace, x, y+=H, "rot y = %9.5f", cam.roty);
+		pr(monospace, x, y+=H, "rot z = %9.5f", cam.rotz);
+		pr(monospace, x, y+=H, "scale = %9.5f", cam.scale);
+		y = saved;
+	}
+
+	{
+		x = 20;
+		h1("Camera B:");
+		pr(monospace, x, y+=H, "pos x = %9.5f", cal_cam2.curr.x);
+		pr(monospace, x, y+=H, "pos y = %9.5f", cal_cam2.curr.y);
+		pr(monospace, x, y+=H, "pos z = %9.5f", cal_cam2.curr.z);
+		pr(monospace, x, y+=H, "rot x = %9.5f", cal_cam2.curr.rotx);
+		pr(monospace, x, y+=H, "rot y = %9.5f", cal_cam2.curr.roty);
+		pr(monospace, x, y+=H, "rot z = %9.5f", cal_cam2.curr.rotz);
+		pr(monospace, x, y+=H, "scale = %9.5f", cal_cam2.curr.scale);
+		nl();
+	}
 
 	pr(monospace, 20, y+=H,
-		"#%d Near(%dmm) Far(%dmm) [%s][%s]",
+		"#%d [%s][%s] (%.5f,%.5f)",
 			config.client_number,
-			config.near_threshold,
-			config.far_threshold,
 			mode.borderline ? "border" : "no border",
-			mode.auto_clipping ? "auto clipping" : "no auto clip");
+			mode.auto_clipping ? "auto clipping" : "no auto clip",
+			global.person_center_x,
+			global.person_center_y);
 
 	// @fps
 	pr(monospace, 20, y+=H, "%d, %.2ffps",
@@ -358,31 +374,30 @@ void StClient::display2()
 	nl();
 
 	// @profile
-	heading();
-	pr(monospace, 20, y+=H, "Profile:");
-	text();
-	b(); pr(monospace, 20, y+=H, "Frame         %7.3fms/frame", time_profile.frame);
+	x = 20;
+	h1("Profile:");
+	dt(); pr(monospace, x, y+=H, "Frame         %7.3fms/frame", time_profile.frame);
 
-	b(); pr(monospace, 20, y+=H, " Environment  %6.2f", time_profile.environment.total);
-	p(); pr(monospace, 20, y+=H, "  read1       %6.2f", time_profile.environment.read1);
-	p(); pr(monospace, 20, y+=H, "  read2       %6.2f", time_profile.environment.read2);
+	dt(); pr(monospace, x, y+=H, " Environment  %6.2f", time_profile.environment.total);
+	dd(); pr(monospace, x, y+=H, "  read1       %6.2f", time_profile.environment.read1);
+	dd(); pr(monospace, x, y+=H, "  read2       %6.2f", time_profile.environment.read2);
 
-	b(); pr(monospace, 20, y+=H, " Drawing      %6.2f", time_profile.drawing.total);
-	p(); pr(monospace, 20, y+=H, "  grid        %6.2f", time_profile.drawing.grid);
-	p(); pr(monospace, 20, y+=H, "  wall        %6.2f", time_profile.drawing.wall);
-	p(); pr(monospace, 20, y+=H, "  mix1        %6.2f", time_profile.drawing.mix1);
-	p(); pr(monospace, 20, y+=H, "  mix2        %6.2f", time_profile.drawing.mix2);
-	p(); pr(monospace, 20, y+=H, "  draw        %6.2f", time_profile.drawing.drawvoxels);
+	dt(); pr(monospace, x, y+=H, " Drawing      %6.2f", time_profile.drawing.total);
+	dd(); pr(monospace, x, y+=H, "  grid        %6.2f", time_profile.drawing.grid);
+	dd(); pr(monospace, x, y+=H, "  wall        %6.2f", time_profile.drawing.wall);
+	dd(); pr(monospace, x, y+=H, "  mix1        %6.2f", time_profile.drawing.mix1);
+	dd(); pr(monospace, x, y+=H, "  mix2        %6.2f", time_profile.drawing.mix2);
+	dd(); pr(monospace, x, y+=H, "  draw        %6.2f", time_profile.drawing.drawvoxels);
 	
-	b(); pr(monospace, 20, y+=H, " Atari        %6.2f", time_profile.atari);
+	dt(); pr(monospace, x, y+=H, " Atari        %6.2f", time_profile.atari);
 	
-	b(); pr(monospace, 20, y+=H, " Recording    %6.2f [%d]", time_profile.record.total, curr_movie.total_frames);
-	p(); pr(monospace, 20, y+=H, "  enc_stage1  %6.2f", time_profile.record.enc_stage1);
-	p(); pr(monospace, 20, y+=H, "  enc_stage2  %6.2f", time_profile.record.enc_stage2);
-	p(); pr(monospace, 20, y+=H, "  enc_stage3  %6.2f", time_profile.record.enc_stage3);
+	dt(); pr(monospace, x, y+=H, " Recording    %6.2f [%d]", time_profile.record.total, curr_movie.total_frames);
+	dd(); pr(monospace, x, y+=H, "  enc_stage1  %6.2f", time_profile.record.enc_stage1);
+	dd(); pr(monospace, x, y+=H, "  enc_stage2  %6.2f", time_profile.record.enc_stage2);
+	dd(); pr(monospace, x, y+=H, "  enc_stage3  %6.2f", time_profile.record.enc_stage3);
 
-	b(); pr(monospace, 20, y+=H, " Playback     %6.2f [%d]", time_profile.playback.total, movie_index);
-	p(); pr(monospace, 20, y+=H, "  dec_stage1  %6.2f", time_profile.playback.dec_stage1);
-	p(); pr(monospace, 20, y+=H, "  dec_stage2  %6.2f", time_profile.playback.dec_stage2);
-	p(); pr(monospace, 20, y+=H, "  draw        %6.2f", time_profile.playback.draw);
+	dt(); pr(monospace, x, y+=H, " Playback     %6.2f [%d]", time_profile.playback.total, movie_index);
+	dd(); pr(monospace, x, y+=H, "  dec_stage1  %6.2f", time_profile.playback.dec_stage1);
+	dd(); pr(monospace, x, y+=H, "  dec_stage2  %6.2f", time_profile.playback.dec_stage2);
+	dd(); pr(monospace, x, y+=H, "  draw        %6.2f", time_profile.playback.draw);
 }

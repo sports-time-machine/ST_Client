@@ -70,33 +70,30 @@ void Kdev::CreateRawDepthImage()
 //=============================================================================
 void Kdev::CreateCookedImage()
 {
-	// Part 1: Mix depth and floor
-	for (int i=0; i<640*480; ++i)
-	{
-		const int src   = raw_depth.image[i];
-		const int floor = raw_floor.image[i];
+	float avg_x = 0.0f;
+	float avg_y = 0.0f;
 
-		if (floor==0)
+	int count = 0;
+	int i = 0;
+	for (int y=0; y<480; ++y)
+	{
+		for (int x=0; x<640; ++x, ++i)
 		{
-			// Floor–³Œø
-			raw_cooked.image[i] = (uint16)src;
-		}
-		else if (src < floor || floor==FAR_DEPTH)
-		{
-			// Floor‚æ‚èŽè‘OA‚à‚µ‚­‚ÍFloor‚ª–³Œø
-			if (src>=config.far_cropping)
+			const int src   = raw_depth.image[i];
+			const int floor = raw_floor.image[i];
+
+			if (src<floor || floor==FAR_DEPTH)
 			{
-				raw_cooked.image[i] = 0;
+				avg_x += x;
+				avg_y += y;
+				++count;
+				raw_cooked.image[i] = (uint16)src;
 			}
 			else
 			{
-				raw_cooked.image[i] = (uint16)src;
+				// Floor‚æ‚è‰œ
+				raw_cooked.image[i] = 0;
 			}
-		}
-		else
-		{
-			// Floor‚æ‚è‰œ
-			raw_cooked.image[i] = 0;
 		}
 	}
 }
@@ -129,6 +126,7 @@ void Kdev::initRam()
 {
 	glGenTextures(1, &this->vram_tex);
 	glGenTextures(1, &this->vram_floor);
+	clearFloorDepth();
 }
 
 //==================================
@@ -138,7 +136,7 @@ void Kdev::clearFloorDepth()
 {
 	for (int i=0; i<640*480; ++i)
 	{
-		raw_floor.image[i] = 0;
+		raw_floor.image[i] = FAR_DEPTH;
 	}
 }
 

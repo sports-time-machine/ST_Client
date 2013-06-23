@@ -344,7 +344,7 @@ void StClient::drawFieldGrid(int size_cm)
 		}
 		else
 		{
-			global_config.grid_color(0.40f);
+			global_config.color.grid(0.40f);
 		}
 
 		glVertex3f(-F, 0, f);
@@ -470,7 +470,7 @@ enum DrawVoxelsStyle
 	DRAW_VOXELS_QUAD = 2,
 };
 
-void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style = DRAW_VOXELS_NORMAL)
+void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style = DRAW_VOXELS_NORMAL, float add_z=0.0f)
 {
 	// @voxel @dot
 	if (style & DRAW_VOXELS_QUAD)
@@ -498,7 +498,7 @@ void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVo
 
 		const float x = dots[i].x;
 		const float y = dots[i].y;
-		const float z = dots[i].z;
+		const float z = dots[i].z + add_z;
 
 		const bool in_x = (x>=-2.0f && x<=+2.0f);
 		const bool in_y = (y>=+0.0f && y<=+4.0f);
@@ -569,7 +569,7 @@ void StClient::MoviePlayback()
 	MixDepth(dots, dev1.raw_depth, mov.cam1);
 	MixDepth(dots, dev2.raw_depth, mov.cam2);
 	drawVoxels(dots,
-		global_config.movie1_color,	
+		global_config.color.movie1,	
 		glRGBA(50,50,50),
 		DRAW_VOXELS_HALF);
 }
@@ -601,9 +601,9 @@ void StClient::DrawVoxels(Dots& dots)
 			MixDepth(dots, dev1.raw_snapshot, cam1);
 			MixDepth(dots, dev2.raw_snapshot, cam2);
 
-			glRGBA color = global_config.snapshot_color;
+			glRGBA color = global_config.color.snapshot;
 			color.a = color.a * snapshot_life / SNAPSHOT_LIFE_FRAMES;
-			drawVoxels(dots, color, color_outer);
+			drawVoxels(dots, color, color_outer, DRAW_VOXELS_NORMAL, +0.5f);
 		}
 	}
 
@@ -620,9 +620,43 @@ void StClient::DrawVoxels(Dots& dots)
 			Timer tm(&time_profile.drawing.mix2);
 			MixDepth(dots, image2, cam2);
 		}
+
+		float avg_x = 0.0f;
+		float avg_y = 0.0f;
+		float avg_z = 0.0f;
+		int count = 0;
+		for (int i=0; i<dots.size(); ++i)
+		{
+			Point3D p = dots[i];
+			if (p.x>=-2.0f && p.x<=2.0f && p.y>=0.0f && p.y<=2.75f && p.z>=0.0f && p.z<=3.0f)
+			{
+				++count;
+				avg_x += p.x;
+				avg_y += p.y;
+				avg_z += p.z;
+			}
+		}
+
+		// 1–œˆÈã‚ÍˆÀ’è‚µ‚Ä‘¨‚¦‚Ä‚¢‚é‚Æ”»’f‚·‚é
+		if (count>=10000)
+		{
+			avg_x = avg_x/count;
+			avg_y = avg_y/count;
+			avg_z = avg_z/count;
+			printf("%6d %5.1f %5.1f %5.1f\n", count, avg_x, avg_y, avg_z);
+		}
+		else
+		{
+			avg_x = 0.0f;
+			avg_y = 0.0f;
+			avg_z = 0.0f;
+		}
+		global.person_center_x = avg_x;
+		global.person_center_y = avg_y;
+		
 		{
 			Timer tm(&time_profile.drawing.drawvoxels);
-			drawVoxels(dots, global_config.person_color, color_outer);
+			drawVoxels(dots, global_config.color.person, color_outer);
 		}
 	}
 	else
@@ -770,9 +804,9 @@ void StClient::displayEnvironment()
 
 	// @display
 	glClearColor(
-		global_config.ground_color.r / 255.0f,
-		global_config.ground_color.g / 255.0f,
-		global_config.ground_color.b / 255.0f,
+		global_config.color.ground.r / 255.0f,
+		global_config.color.ground.g / 255.0f,
+		global_config.color.ground.b / 255.0f,
 		1.00f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -909,7 +943,7 @@ void StClient::set_clipboard_text()
 			"rotx:%+6.3f,"
 			"roty:%+6.3f,"
 			"rotz:%+6.3f,"
-			"scale:%+6.3f];\n",
+			"scale:%+6.3f];\r\n",
 				1+i,
 				cam.x,
 				cam.y,

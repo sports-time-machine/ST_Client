@@ -9,21 +9,20 @@ struct GlobalConfig
 	bool enable_kinect;
 	bool enable_color;
 	float wall_depth;
-	mgl::glRGBA ground_color;
-	mgl::glRGBA grid_color;
-	mgl::glRGBA person_color;
-	mgl::glRGBA movie1_color;
-	mgl::glRGBA movie2_color;
-	mgl::glRGBA movie3_color;
-	float person_dot_px;
+	int auto_snapshot_interval;
 
-	struct Text
+	struct Colors
 	{
-		mgl::glRGBA heading_color;
-		mgl::glRGBA normal_color;
-		mgl::glRGBA dt_color;
-		mgl::glRGBA dd_color;
-	} text;
+		mgl::glRGBA
+			ground, grid,
+			person, movie1, movie2, movie3,
+			snapshot,
+			text_h1, text_p, text_em, text_dt, text_dd;
+	};
+
+	Colors color;
+
+	float person_dot_px;
 
 	GlobalConfig();
 };
@@ -33,9 +32,6 @@ struct Config
 	int person_inc;
 	int movie_inc;
 	int client_number;
-	int near_threshold;
-	int far_threshold;
-	int far_cropping;
 	int initial_window_x;
 	int initial_window_y;
 	bool initial_fullscreen;

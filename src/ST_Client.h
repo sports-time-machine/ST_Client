@@ -251,6 +251,8 @@ struct Global
 	mi::Image background_image;
 	mi::Image dot_image;
 	mi::File save_file;
+	float person_center_x;
+	float person_center_y;
 
 	struct 
 	{
