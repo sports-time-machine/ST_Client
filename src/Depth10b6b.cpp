@@ -139,8 +139,9 @@ void Depth10b6b::playback(RawDepthImage& dest1, RawDepthImage& dest2, const Movi
 	}
 
 #if CHECK
-	printf("<REC> %d,%d\r",
+	printf("<REC> [dev1=%d][dev2=%d][src=%d]\r",
 		dest_index_save[0],
-		dest_index_save[1]);
+		dest_index_save[1],
+		frame.compressed.size());
 #endif
 }

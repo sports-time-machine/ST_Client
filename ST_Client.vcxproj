@@ -64,6 +64,7 @@
     <ClInclude Include="src\mi\Timer.h" />
     <ClInclude Include="src\mi\Udp.h" />
     <ClInclude Include="src\pch.h" />
+    <ClInclude Include="src\psl_if.h" />
     <ClInclude Include="src\ST_Client.h" />
     <ClInclude Include="src\vec4.h" />
     <ClInclude Include="src\zlibpp.h" />

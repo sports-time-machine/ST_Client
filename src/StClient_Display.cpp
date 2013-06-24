@@ -55,7 +55,7 @@ void StClient::display3dSection()
 	}
 #endif
 
-	if (movie_mode==MOVIE_PLAYBACK)
+	if (global.clientStatus()==STATUS_REPLAY)
 	{
 		MoviePlayback();
 	}
@@ -105,7 +105,7 @@ void StClient::display3dSection()
 	}
 #endif
 
-	if (movie_mode==MOVIE_RECORD)
+	if (global.clientStatus()==STATUS_GAME)
 	{
 		MovieRecord();
 	}
@@ -137,7 +137,6 @@ void StClient::display2dSectionPrepare()
 //========================
 void StClient::display2dSection()
 {
-#if 0//#no flashing
 	if (flashing>0)
 	{
 		flashing -= 13;
@@ -150,9 +149,9 @@ void StClient::display2dSection()
 			glVertex2i(0,480);
 		glEnd();
 	}
-#endif
 
 
+	if (global.show_debug_info)
 	{
 		// 当たり判定オブジェクト(hitdata)の描画
 		glBegin(GL_QUADS);
@@ -181,11 +180,13 @@ void StClient::display2dSection()
 		}
 		glEnd();
 	}
+
+	if (global.show_debug_info)
 	{
 		glBegin(GL_QUADS);
-		for (size_t i=0; i<hit_objects.size(); ++i)
+		for (size_t i=0; i<global.hit_objects.size(); ++i)
 		{
-			const HitObject& ho = hit_objects[i];
+			const HitObject& ho = global.hit_objects[i];
 			ho.color.glColorUpdate(ho.enable ? 1.0f : 0.33f);
 			const int S = 5;
 			const int V = S-1;
@@ -200,40 +201,38 @@ void StClient::display2dSection()
 		glEnd();
 	}
 
-	// 当たり判定
-	if (flashing<=0)
+	// ゲーム中のみ「当たり判定」
+	if (global.clientStatus()==STATUS_GAME)
 	{
-		for (size_t i=0; i<hit_objects.size(); ++i)
+		for (size_t i=0; i<global.hit_objects.size(); ++i)
 		{
-			HitObject& ho = hit_objects[i];
-			if (!ho.enable)
-				continue;
-
+			HitObject& ho = global.hit_objects[i];
 			int value = hitdata.get(ho.point.x, ho.point.y);
 		
 			// 10cm3にNドット以上あったらヒットとする
-			if (value>=5)
+			if (value>=config.hit_threshold)
 			{
+				std::string s;
+				s += "HIT ";
+				s += ho.text;
+				s += " ";
+				s += to_s(ho.next_id);
+				udp_send.send(s);
+
 				printf("HIT!! hit object %d, point (%d,%d)\n",
 					i,
 					ho.point.x,
 					ho.point.y);
-				flashing = 200;
-				ho.enable = false;
+				this->flashing = 100;
+				global.hit_stage = ho.next_id;
+				global.hit_objects.clear();
 				break;
 			}
 		}
 	}
-
-
-	switch (global.client_status)
-	{
-	case STATUS_BLACK:        displayBlackScreen();   break;
-	case STATUS_PICTURE:      displayPictureScreen(); break;
-	}
 }
 
-void StClient::display2()
+void StClient::displayDebugInfo()
 {
 	static int frames = 0;
 	++frames;
@@ -360,8 +359,12 @@ void StClient::display2()
 	}
 
 	pr(monospace, 20, y+=H,
-		"#%d [%s][%s] (%.5f,%.5f)",
+		"#%d [hit-id:%d][%s] [%s] [fl=%d] [%s][%s] (%.5f,%.5f)",
 			config.client_number,
+			global.hit_stage,
+			global.hit_objects.size() ? global.hit_objects[0].text.c_str() : "-",
+			eye.fast_set ? "fast" : "slow",
+			flashing,
 			mode.borderline ? "border" : "no border",
 			mode.auto_clipping ? "auto clipping" : "no auto clip",
 			global.person_center_x,
@@ -396,7 +399,7 @@ void StClient::display2()
 	dd(); pr(monospace, x, y+=H, "  enc_stage2  %6.2f", time_profile.record.enc_stage2);
 	dd(); pr(monospace, x, y+=H, "  enc_stage3  %6.2f", time_profile.record.enc_stage3);
 
-	dt(); pr(monospace, x, y+=H, " Playback     %6.2f [%d]", time_profile.playback.total, movie_index);
+	dt(); pr(monospace, x, y+=H, " Playback     %6.2f [%d]", time_profile.playback.total, global.frame_index);
 	dd(); pr(monospace, x, y+=H, "  dec_stage1  %6.2f", time_profile.playback.dec_stage1);
 	dd(); pr(monospace, x, y+=H, "  dec_stage2  %6.2f", time_profile.playback.dec_stage2);
 	dd(); pr(monospace, x, y+=H, "  draw        %6.2f", time_profile.playback.draw);

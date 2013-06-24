@@ -89,65 +89,25 @@ typedef std::map<int,RgbScreen> RgbScreenMovie;
 local openni::RGB888Pixel* moviex = nullptr;
 
 
-void init_hit_objects(HitObjects& hit_objects)
-{
-	hit_objects.clear();
-
-	{
-		HitObject ho;
-		ho.point = Point(27,16);
-		ho.color = glRGBA(250, 100, 150);
-		ho.hit_id = 1;
-		hit_objects.push_back(ho);
-	}
-
-	{
-		HitObject ho;
-		ho.point = Point(5,10);
-		ho.color = glRGBA(20, 100, 250);
-		ho.hit_id = 2;
-		hit_objects.push_back(ho);
-	}
-
-	{
-		HitObject ho;
-		ho.point = Point(5,20);
-		ho.color = glRGBA(250, 50, 50);
-		ho.hit_id = 3;
-		hit_objects.push_back(ho);
-	}
-
-	{
-		HitObject ho;
-		ho.point = Point(30,10);
-		ho.color = glRGBA(255, 200, 120);
-		ho.hit_id = 4;
-		hit_objects.push_back(ho);
-	}
-}
-
-
 // @constructor, @init
 StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 	dev1(dev1_),
 	dev2(dev2_),
 	active_camera(CAM_BOTH),
-	movie_mode(MOVIE_READY),
-	snapshot_life(0)
+	snapshot_life(0),
+	flashing(0)
 {
-	eye.view_3d_left();
+	eye.view_2d_run();
 
 	// コンフィグデータからのロード
 	cal_cam1.curr = config.cam1;
 	cal_cam2.curr = config.cam2;
 
-	udp_recv.init(UDP_CLIENT_RECV);
+	udp_recv.init(UDP_CONTROLLER_TO_CLIENT);
 	printf("host: %s\n", Core::getComputerName().c_str());
 	printf("ip: %s\n", mi::Udp::getIpAddress().c_str());
 
 	mode.mirroring   = config.mirroring;
-
-	init_hit_objects(this->hit_objects);
 }
 
 StClient::~StClient()
@@ -157,6 +117,8 @@ StClient::~StClient()
 
 bool StClient::init()
 {
+	Console::puts(CON_GREEN, "Init StClient");
+
 	if (global_config.enable_kinect)
 	{
 		openni::VideoMode depthVideoMode;
@@ -192,6 +154,9 @@ bool StClient::init()
 
 	reloadResources();
 
+	Console::puts(CON_GREEN, "Init done!");
+	Console::nl();
+
 	return true;
 }
 
@@ -209,8 +174,89 @@ static void window_resized(int width, int height)
 	glViewport(0, 0, width, height);
 }
 
+void StClient::recordingStart()
+{
+	global.setStatus(STATUS_GAME);
+}
+
+void StClient::recordingStop()
+{
+	global.setStatus(STATUS_READY);
+}
+
+void StClient::recordingReplay()
+{
+	global.setStatus(STATUS_REPLAY);
+	global.frame_index = 0;
+}
+
+
+void CreateHitWall(float meter, int id, const char* text)
+{
+	float point = meter - config.getScreenLeftMeter();
+	if (point<0.0f || point>4.0f)
+	{
+		// 画面外 -- ignore!
+	}
+	else
+	{
+		Console::printf(CON_YELLOW, "Create hit wall %.1fm '%s'\n", meter, text);
+		const int x = (int)(HitData::CEL_W * point / 4.0f);
+		for (int i=0; i<HitData::CEL_H; ++i)
+		{
+			HitObject ho;
+			ho.point   = Point(x, i);
+			ho.color   = glRGBA(255, 200, 120);
+			ho.next_id = id;
+			ho.text    = text;
+			global.hit_objects.push_back(ho);
+		}
+	}
+}
+
+
+
+// 1フレで実行する内容
+void StClient::processOneFrame()
+{
+	// フレーム開始時にUDPコマンドの処理をする
+	while (doCommand())
+	{
+	}
+
+	// カメラ移動の適用
+	eye.updateCameraMove();
+
+	this->processKeyInput();
+	this->processMouseInput();
+
+	this->displayEnvironment();
+	this->display3dSectionPrepare();
+	this->display3dSection();
+	this->display2dSectionPrepare();
+	this->display2dSection();
+	
+	if (global.show_debug_info)
+	{
+		this->displayDebugInfo();
+	}
+
+	glfwSwapBuffers();
+}
+
+void StClient::initHitObjects()
+{
+	// 最初の当たり判定を作る
+	const int FIRST_HIT_NUMBER = 0;
+	global.hit_stage = FIRST_HIT_NUMBER;
+	global.hit_objects.clear();
+	global.on_hit_setup(global.hit_stage);
+}
+
 bool StClient::run()
 {
+	global.pslvm.addFunction("CreateHitWall", CreateHitWall);
+
 	int window_w = 0;
 	int window_h = 0;
 	glfwGetWindowSize(&window_w, &window_h);
@@ -225,11 +271,12 @@ bool StClient::run()
 			break;
 		}
 
-		// フレーム開始時にUDPコマンドの処理をする
-		while (doCommand())
+		if (glfwGetWindowParam(GLFW_ICONIFIED))
 		{
+			continue;
 		}
 
+		// Detect window resize
 		{
 			int w = 0;
 			int h = 0;
@@ -242,19 +289,7 @@ bool StClient::run()
 			}
 		}
 
-		this->processKeyInput();
-		this->processMouseInput();
-
-		{
-			this->displayEnvironment();
-			this->display3dSectionPrepare();
-			this->display3dSection();
-			this->display2dSectionPrepare();
-			this->display2dSection();
-			this->display2();
-		}
-
-		glfwSwapBuffers();
+		this->processOneFrame();
 	}
 	glfwTerminate();
 	return true;
@@ -542,21 +577,21 @@ void StClient::MoviePlayback()
 {
 	if (curr_movie.total_frames==0)
 	{
-		movie_mode = MOVIE_READY;
+		global.setStatus(STATUS_READY);
 		puts("Movie empty.");
 		return;
 	}
 
-	if (movie_index >= curr_movie.total_frames)
+	if (global.frame_index >= curr_movie.total_frames)
 	{
 #if 1
-		movie_mode = MOVIE_READY;
+		global.setStatus(STATUS_READY);
 		puts("Movie end.");
 		return;
 #else
 		// rewind!
 		puts("Rewind!");
-		movie_index = 0;
+		global.frame_index = 0;
 #endif
 	}
 
@@ -565,7 +600,7 @@ void StClient::MoviePlayback()
 	dots.init();
 
 	// @playback
-	Depth10b6b::playback(dev1.raw_depth, dev2.raw_depth, mov.frames[movie_index++]);
+	Depth10b6b::playback(dev1.raw_depth, dev2.raw_depth, mov.frames[global.frame_index]);
 	MixDepth(dots, dev1.raw_depth, mov.cam1);
 	MixDepth(dots, dev2.raw_depth, mov.cam2);
 	drawVoxels(dots,
@@ -643,7 +678,7 @@ void StClient::DrawVoxels(Dots& dots)
 			avg_x = avg_x/count;
 			avg_y = avg_y/count;
 			avg_z = avg_z/count;
-			printf("%6d %5.1f %5.1f %5.1f\n", count, avg_x, avg_y, avg_z);
+		//#	printf("%6d %5.1f %5.1f %5.1f\n", count, avg_x, avg_y, avg_z);
 		}
 		else
 		{
@@ -713,7 +748,7 @@ void StClient::MovieRecord()
 	if (curr_movie.total_frames >= MAX_TOTAL_FRAMES)
 	{
 		puts("time over! record stop.");
-		movie_mode = MOVIE_READY;
+		global.setStatus(STATUS_READY);
 	}
 	else
 	{
@@ -766,8 +801,6 @@ void StClient::loadAgent(int slot)
 		{
 			fclose(fp);
 			puts("done!");
-			movie_mode = MOVIE_PLAYBACK;
-			movie_index = 0;
 		}
 		else
 		{

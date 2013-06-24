@@ -55,6 +55,8 @@ void make_dlist(FT_Face face, int ch, GLuint list_base, GLuint* tex_base)
 	//We use the ?: operator so that value which we use
 	//will be 0 if we are in the padding zone, and whatever
 	//is the the Freetype bitmap otherwise.
+	const float gamma = 1.0f;
+	const float G = 1 / gamma;
 	for(int j=0; j <height;j++) {
 		for(int i=0; i < width; i++){
 			GLubyte data = 
@@ -63,7 +65,7 @@ void make_dlist(FT_Face face, int ch, GLuint list_base, GLuint* tex_base)
 
 			// gamma
 			float d = data/255.0;
-			data = (GLubyte)(powf(d, 1/3.2f) * 255.0);
+			data = (GLubyte)(powf(d, G) * 255.0);
 
 			expanded_data[2*(i+j*width)]   = data;
 			expanded_data[2*(i+j*width)+1] = data;

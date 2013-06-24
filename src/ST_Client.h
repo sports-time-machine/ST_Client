@@ -6,6 +6,7 @@
 #include "vec4.h"
 #include "file_io.h"
 #include "gl_funcs.h"
+#include "psl_if.h"
 #pragma warning(disable:4244) //conversion
 
 
@@ -28,8 +29,8 @@ enum VariousConstants
 };
 
 
-const int UDP_SERVER_RECV = 38702;
-const int UDP_CLIENT_RECV = 38708;
+const int UDP_CLIENT_TO_CONTROLLER = 38702;
+const int UDP_CONTROLLER_TO_CLIENT = 38708;
 
 
 
@@ -45,22 +46,14 @@ enum MovieMode
 
 enum ClientStatus
 {
-	// Idle
+	STATUS_SLEEP,
 	STATUS_IDLE,
-
-	// Demo status
+	STATUS_PICT,
 	STATUS_BLACK,
-	STATUS_PICTURE,
-	STATUS_DEPTH,
-
-	// Main status
-	STATUS_GAMEREADY,   // IDENTを受けてから
-	STATUS_GAME,        // STARTしてから
-
-	// Game end status
-	STATUS_TIMEOUT,
-	STATUS_GAMESTOP,
-	STATUS_GOAL,
+	STATUS_READY,
+	STATUS_GAME,
+	STATUS_REPLAY,
+	STATUS_SAVING,
 };
 
 enum ActiveCamera
@@ -94,7 +87,8 @@ struct HitObject
 	bool         enable;
 	mi::Point    point;
 	mgl::glRGBA  color;
-	int          hit_id;
+	int          next_id;
+	std::string  text;
 
 	HitObject():
 		enable(true)
@@ -191,17 +185,70 @@ struct Mode
 
 struct Eye
 {
+	Eye()
+	{
+		go_pos = -1;
+		fast_set = true;
+	}
+
 	float x,y,z;    // 視線の原点
 	float rh;       // 視線の水平方向(rad)
 	float v;        // 視線の垂直方向
 
-	void set(float x, float y, float z, float h, float v)
+	struct Go
 	{
-		this->x  = x;
-		this->y  = y;
-		this->z  = z;
-		this->rh = h;
-		this->v  = v;
+		float x,y,z,rh,v;
+	} from,to;
+	int go_pos;
+	bool fast_set;
+
+	enum { GO_FRAMES=25 };
+
+	void set(float go_x, float go_y, float go_z, float go_rh, float go_v)
+	{
+		if (fast_set)
+		{
+			this->x  = go_x;
+			this->y  = go_y;
+			this->z  = go_z;
+			this->rh = go_rh;
+			this->v  = go_v;
+		}
+		else
+		{
+			this->from.x  = this->x;
+			this->from.y  = this->y;
+			this->from.z  = this->z;
+			this->from.rh = this->rh;
+			this->from.v  = this->v;
+			this->to.x  = go_x;
+			this->to.y  = go_y;
+			this->to.z  = go_z;
+			this->to.rh = go_rh;
+			this->to.v  = go_v;
+			this->go_pos = GO_FRAMES;
+		}
+	}
+
+	void updateCameraMove()
+	{
+		if (go_pos>=0)
+		{
+			const float i =
+				(go_pos==GO_FRAMES)
+					?  1.0f
+					: (1.0f * go_pos  / GO_FRAMES);
+			const float j =
+				(go_pos==0)
+					?  1.0f
+					: (1.0f * (GO_FRAMES-go_pos) / GO_FRAMES);
+			x  = j*to.x  + i*from.x;
+			y  = j*to.y  + i*from.y;
+			z  = j*to.z  + i*from.z;
+			rh = j*to.rh + i*from.rh;
+			v  = j*to.v  + i*from.v;
+			--go_pos;
+		}
 	}
 
 	void gluLookAt();
@@ -243,32 +290,64 @@ enum ViewMode
 
 struct Global
 {
-	ViewMode view_mode;
-	int window_w;
-	int window_h;
-	ClientStatus client_status;
-	mi::Image pic;
-	mi::Image background_image;
-	mi::Image dot_image;
-	mi::File save_file;
-	float person_center_x;
-	float person_center_y;
-
-	struct 
+	struct View
 	{
 		struct View2D
 		{
 			double width;
 		} view2d;
 		bool is_2d_view;
-	} view;
+	};
+
+	View         view;
+	ViewMode     view_mode;
+	int          window_w;
+	int          window_h;
+	mi::Image    pic;
+	mi::Image    background_image;
+	mi::Image    dot_image;
+	mi::File     save_file;
+	float        person_center_x;
+	float        person_center_y;
+	int          frame_index;
+	ClientStatus _client_status;
+	PSL::PSLVM   pslvm;
+	int          hit_stage;
+	PSLv         on_hit_setup;
+	HitObjects   hit_objects;
+	bool         show_debug_info;
+
+	ClientStatus clientStatus() const
+	{
+		return this->_client_status;
+	}
+
+	void setStatus(ClientStatus st)
+	{
+		this->_client_status = st;
+	}
+
+	bool calibrating_now() const
+	{
+		switch (view_mode)
+		{
+		case VM_2D_TOP:
+		case VM_2D_LEFT:
+		case VM_2D_FRONT:
+			return true;
+		}
+		return false;
+	}
 
 	Global()
 	{
-		view_mode = VM_2D_LEFT;
+		view_mode = VM_2D_RUN;
 		window_w = 0;
 		window_h = 0;
-		client_status = STATUS_DEPTH;
+		setStatus(STATUS_SLEEP);
+		frame_index = 0;
+		hit_stage = 0;
+		show_debug_info = false;
 	}
 };
 
@@ -338,6 +417,10 @@ public:
 	bool init();
 	bool run();
 
+	// コマンドクラスからよばれます
+	void startMovieRecordSettings();
+	void initHitObjects();
+
 private:
 	StClient(const StClient&);           // disable
 	StClient& operator=(StClient&);      // disable
@@ -358,12 +441,11 @@ private:
 	MovieData             curr_movie;
 	Calset                cal_cam1, cal_cam2;
 	mi::Fps               fps_counter;
-	int                   movie_index;
-	MovieMode             movie_mode;
 	HitData               hitdata;
-	HitObjects            hit_objects;
 	int                   flashing;
 	int                   snapshot_life;
+
+
 
 	bool initGraphics();
 
@@ -373,12 +455,21 @@ private:
 	void display3dSection();
 	void display2dSectionPrepare();
 	void display2dSection();
+	void displayDebugInfo();
+	void processOneFrame();
 	void processKeyInput();
+	void processKeyInput_BothMode(const bool* down);
+	void processKeyInput_CalibrateMode(const bool* down);
+	void processKeyInput_RunMode(const bool* down);
 	void processMouseInput();
 	void processMouseInput_aux();
 
 	void displayBlackScreen();
 	void displayPictureScreen();
+
+	void recordingStart();
+	void recordingStop();
+	void recordingReplay();
 
 	bool doCommand();
 	bool doCommand2(const std::string& line);
@@ -389,7 +480,6 @@ private:
 	void saveAgent(int slot);
 	void loadAgent(int slot);
 
-	void display2();
 	void MoviePlayback();
 	void MovieRecord();
 	void DrawVoxels(Dots& dots);
@@ -400,6 +490,9 @@ private:
 	void drawWall();
 	void drawFieldGrid(int size_cm);
 };
+
+const char* to_s(int x);
+
 
 }//namespace stclient
 

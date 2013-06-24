@@ -181,8 +181,11 @@ void UdpSender::destroy()
 
 bool UdpSender::send(const std::string& src)
 {
+	std::string buf = src;
+	buf += "\n";
+
 	const int NO_FLAGS = 0;
-	int bytes = ::sendto(self->sock, src.c_str(), src.length(),
+	int bytes = ::sendto(self->sock, buf.c_str(), buf.length(),
 			NO_FLAGS,  (const struct sockaddr*)&self->send_addr, sizeof(self->send_addr));
 	if (bytes==SOCKET_ERROR)
 	{

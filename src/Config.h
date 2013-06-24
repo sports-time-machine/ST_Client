@@ -1,15 +1,16 @@
 #pragma once
 #include "gl_funcs.h"
 #include "file_io.h"
+#include "psl_if.h"
 
 
 struct GlobalConfig
 {
-	std::string background_image;
-	bool enable_kinect;
-	bool enable_color;
-	float wall_depth;
-	int auto_snapshot_interval;
+	std::string   background_image;
+	bool          enable_kinect;
+	bool          enable_color;
+	float         wall_depth;
+	int           auto_snapshot_interval;
 
 	struct Colors
 	{
@@ -29,13 +30,25 @@ struct GlobalConfig
 
 struct Config
 {
-	int person_inc;
-	int movie_inc;
-	int client_number;
-	int initial_window_x;
-	int initial_window_y;
-	bool initial_fullscreen;
-	bool mirroring;
+	int   person_inc;
+	int   movie_inc;
+	int   client_number;
+	int   initial_window_x;
+	int   initial_window_y;
+	bool  initial_fullscreen;
+	bool  mirroring;
+	int   hit_threshold;
+
+	float getScreenLeftMeter() const
+	{
+		return (client_number-1) * 4.0f;
+	}
+	
+	float getScreenRightMeter() const
+	{
+		return getScreenLeftMeter() + 4.0f;
+	}
+
 
 	CamParam cam1,cam2;
 

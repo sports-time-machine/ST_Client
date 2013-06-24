@@ -10,7 +10,16 @@ using namespace mi;
 using namespace stclient;
 
 
-bool commandIs(const std::string& cmd,
+const char* stclient::to_s(int x)
+{
+	static char to_s_buf[1000];
+	_ltoa(x, to_s_buf, 10);
+	return to_s_buf;
+}
+
+
+
+static inline bool commandIs(const std::string& cmd,
 		const char* cmd1,
 		const char* cmd2=nullptr,
 		const char* cmd3=nullptr)
@@ -24,9 +33,10 @@ bool commandIs(const std::string& cmd,
 	return false;
 }
 
-enum InvalidFormat
+enum Invalid
 {
 	INVALID_FORMAT,
+	INVALID_STATUS,
 };
 
 typedef const std::vector<VariantType> Args;
@@ -35,7 +45,8 @@ typedef const std::vector<VariantType> Args;
 class Command
 {
 public:
-	Command(mi::UdpSender& send) :
+	Command(StClient* cl, mi::UdpSender& send) :
+		client(cl),
 		udp_send(&send)
 	{
 	}
@@ -44,44 +55,82 @@ public:
 	void sendStatus();
 
 private:
-	void commandDepth(Args& arg);
-	void commandBlack(Args& arg);
-	void commandStatus(Args& arg);
-	void commandStart(Args& arg);
-	void commandPing(Args& arg);
-	void commandIdent(Args& arg);
+	// 起動
+	void ping(Args& arg);
 
+	// モード切り替え
+	void black(Args& arg);
+	void pict(Args& arg);
+	void ident(Args& arg);
+
+	// ゲーム情報
+	void partner(Args& arg);
+	void background(Args& arg);
+	void playerStyle(Args& arg);
+	void playerColor(Args& arg);
+
+	// ゲーム
+	void start(Args& arg);
+	void stop(Args& arg);
+	void frame(Args& arg);
+	void replay(Args& arg);
+	void save(Args& arg);
+	void init(Args& arg);
+	void hit(Args& arg);
+
+	// 随時コマンド
+	void mirror(Args& arg);
+	void diskInfo(Args& arg);
+	void reloadConfig(Args& arg);
+	void bye(Args& arg);
+	void status(Args& arg);
+
+private:
+	StClient* client;
 	mi::UdpSender* udp_send;
 };
 
 
 
-void arg_check(Args& arg, size_t x)
+static inline void arg_check(Args& arg, size_t x)
 {
 	if (arg.size()!=x)
 		throw INVALID_FORMAT;
 }
 
-
-void Command::commandDepth(Args& arg)
+static inline void arg_check(Args& arg, size_t min, size_t max)
 {
-	arg_check(arg, 0);
-	global.client_status = STATUS_DEPTH;
+	if (arg.size()<min || arg.size()>max)
+		throw INVALID_FORMAT;
 }
 
-void Command::commandBlack(Args& arg)
+void Command::ping(Args& arg)
 {
-	arg_check(arg, 0);
-	global.client_status = STATUS_BLACK;
+	arg_check(arg, 1);
+
+	printf("PING received: server is '%s'\n", arg[0].to_s());
+
+	std::string s;
+	s += "PONG ";
+	s += Core::getComputerName();
+	s += " ";
+	s += mi::Udp::getIpAddress();
+	s += " ";
+	s += to_s(config.client_number);
+
+	udp_send->init(arg[0].to_s(), UDP_CLIENT_TO_CONTROLLER);
+	udp_send->send(s);
+	global.setStatus(STATUS_IDLE);
 }
 
-void commandMirror(Args& arg)
+void Command::mirror(Args& arg)
 {
 	arg_check(arg, 0);
 	toggle(mode.mirroring);
 }
 
-void commandDiskInfo(Args& arg)
+// DISKINFO
+void Command::diskInfo(Args& arg)
 {
 	arg_check(arg, 0);
 
@@ -98,118 +147,121 @@ void commandDiskInfo(Args& arg)
 
 	auto mega_bytes = [](ULARGE_INTEGER ul)->uint32{
 		const uint64 size = ((uint64)ul.HighPart<<32) | ((uint64)ul.LowPart);
-		return (uint32)(size / 1000000);
+		return (int)(uint32)(size / 1000 / 1000);
 	};
 
-	uint32 free  = mega_bytes(free_bytes);
-	uint32 total = mega_bytes(total_bytes);
-	printf("%u MB free(%.1f%%), %u MB total\n",
+	const int free  = mega_bytes(free_bytes);
+	const int total = mega_bytes(total_bytes);
+	fprintf(stderr, "%u MB free(%.1f%%), %u MB total\n",
 			free,
 			free*100.0f/total,
 			total);
+	std::string s;
+	s += "DISKSIZE ";
+	s += to_s(free);
+	s += " ";
+	s += to_s(total);
+	udp_send->send(s);
 }
 
-static void commandReloadConfig(Args& arg)
+// RELOAD-CONFIG
+void Command::reloadConfig(Args& arg)
 {
 	arg_check(arg, 0);
 	load_config();
 }
 
+static const char* getStatusName(int present=-1)
+{
+	const auto st = (present==-1) ? global.clientStatus() : (ClientStatus)present;
+	switch (st)
+	{
+	case STATUS_SLEEP:  return "SLEEP";
+	case STATUS_IDLE:   return "IDLE";
+	case STATUS_PICT:   return "PICT";
+	case STATUS_BLACK:  return "BLACK";
+	case STATUS_READY:  return "READY";
+	case STATUS_GAME:   return "GAME";
+	case STATUS_REPLAY: return "REPLAY";
+	case STATUS_SAVING: return "SAVING";
+	}
+	return "UNKNOWN-STATUS";
+}
+
+// ステータスチェックをしない
+static void no_check_status()
+{
+	// nop
+}
+
+
+
+// ClientStatusをチェックして規定値以外であれば弾く
+static void status_check(ClientStatus st)
+{
+	if (global.clientStatus()!=st)
+	{
+		Console::pushColor(CON_RED); 
+		fprintf(stderr, "INVALID STATUS: status is not <%s>, current status is <%s>\n",
+			getStatusName(st),
+			getStatusName());
+		Console::popColor();
+		throw INVALID_STATUS;
+	}
+}
+
 void Command::sendStatus()
 {
-	const auto st = global.client_status;
-
 	std::string s;
 	s += "STATUS ";
 	s += Core::getComputerName();
 	s += " ";
-	s += (
-		(st==STATUS_BLACK) ? "BLACK" :
-		(st==STATUS_PICTURE) ? "PICTURE" :
-		(st==STATUS_IDLE) ? "IDLE" :
-		(st==STATUS_GAMEREADY) ? "GAMEREADY" :
-		(st==STATUS_GAME) ? "GAME" :
-		(st==STATUS_DEPTH) ? "DEPTH" :
-		(st==STATUS_GAMESTOP) ? "GAMESTOP" :
-		(st==STATUS_TIMEOUT) ? "TIMEOUT" :
-		(st==STATUS_GOAL) ? "GOAL" :
-			"UNKNOWN-STATUS");
+	s += getStatusName();
 	udp_send->send(s);
 }
 
-void Command::commandStatus(Args& arg)
+// STATUS
+void Command::status(Args& arg)
 {
 	arg_check(arg, 0);
 	sendStatus();
 }
 
-void Command::commandStart(Args& arg)
+
+// 0123456789 => 9/8/7/6/5/4/3/2/1/0/0123456789
+static void SetFileNameFromGameId(std::string& dest, const char* s)
 {
-	arg_check(arg, 0);
-
-	global.client_status = STATUS_GAME;
-	sendStatus();
-}
-
-static void commandBorderLine(Args& arg)
-{
-	arg_check(arg, 0);
-	toggle(mode.borderline);
-}
-
-
-const char* to_s(int x)
-{
-	static char to_s_buf[1000];
-	_ltoa(x, to_s_buf, 10);
-	return to_s_buf;
-}
-
-void Command::commandPing(Args& arg)
-{
-	arg_check(arg, 1);
-
-	printf("PING received: server is '%s'\n", arg[0].to_s());
-
-	std::string s;
-	s += "PONG ";
-	s += Core::getComputerName();
-	s += " ";
-	s += mi::Udp::getIpAddress();
-	s += " ";
-	s += to_s(config.client_number);
-
-	udp_send->init(arg[0].to_s(), UDP_SERVER_RECV);
-	udp_send->send(s);
-}
-
-void commandPict(Args& arg)
-{
-	arg_check(arg, 1);
-
-	std::string path;
-	path += "//STMX64/ST/Picture/";
-	path += arg[0].to_s();
-	if (global.pic.createFromImageA(path.c_str()))
+#if 1
+	dest = s;
+#else
+	dest.clear();
+	int length = strlen(s);
+	for (int i=0; i<length; ++i)
 	{
-		global.client_status = STATUS_PICTURE;
-		return;
+		dest += s[length-1-i];
+		dest += '/';
 	}
-	else
-	{
-		printf("picture load error. %s\n", arg[0].to_s());
-	}
+	dest += s;
+#endif
 }
 
 
-void Command::commandIdent(Args& arg)
+
+// IDENT <player> <game>
+void Command::ident(Args& arg)
 {
 	arg_check(arg, 2);
+	status_check(STATUS_IDLE);
 
+	const auto& player = arg[0];
+	const auto& game   = arg[1];
 
-	printf("%s, %s\n", arg[0].to_s(), arg[1].to_s());
+	printf("PLAYER:%s, GAME:%s\n",
+		player.to_s(),
+		game.to_s());
 	
-	std::string filename = (arg[0].string() + "-" + arg[1].string());
+	std::string filename;
+	SetFileNameFromGameId(filename, game.to_s());
 	if (!global.save_file.openForWrite(filename.c_str()))
 	{
 		puts("Open error (savefile)");
@@ -218,20 +270,185 @@ void Command::commandIdent(Args& arg)
 
 	printf("Filename %s ok\n", filename.c_str());
 
-	global.client_status = STATUS_GAMEREADY;
+	global.setStatus(STATUS_READY);
 	sendStatus();
 }
 
-void commandBye(Args& arg)
+// PARTNER <game>
+void Command::partner(Args& arg)
+{
+	arg_check(arg, 1);
+	status_check(STATUS_READY);
+
+	printf("PARTNER:%s\n", arg[0].to_s());
+	
+	std::string filename;
+	SetFileNameFromGameId(filename, arg[0].to_s());
+	if (!global.save_file.openForWrite(filename.c_str()))
+	{
+		puts("Open error (savefile)");
+		return;
+	}
+
+	printf("Filename %s ok\n", filename.c_str());
+
+	global.setStatus(STATUS_GAME);
+	sendStatus();
+}
+
+// BACKGROUND <name>
+void Command::background(Args& arg)
+{
+	arg_check(arg, 1);
+	status_check(STATUS_READY);
+
+	printf("BACKGROUND:%s\n", arg[0].to_s());
+}
+
+// PLAYER-STYLE <name>
+void Command::playerStyle(Args& arg)
+{
+	arg_check(arg, 1);
+	status_check(STATUS_READY);
+
+	printf("PLAYER-STYLE:%s\n", arg[0].to_s());
+}
+
+// PLAYER-COLOR: <name>
+void Command::playerColor(Args& arg)
+{
+	arg_check(arg, 1);
+	status_check(STATUS_READY);
+
+	printf("PLAYER-COLOR:%s\n", arg[0].to_s());
+}
+
+// START
+void Command::start(Args& arg)
+{
+	arg_check(arg, 0);
+	status_check(STATUS_READY);
+
+	client->initHitObjects();
+	client->startMovieRecordSettings();
+
+	global.setStatus(STATUS_GAME);
+	sendStatus();
+}
+
+// STOP
+void Command::stop(Args& arg)
+{
+	arg_check(arg, 0);
+	status_check(STATUS_GAME);
+
+	global.setStatus(STATUS_READY);
+	sendStatus();
+}
+
+// REPLAY
+void Command::replay(Args& arg)
+{
+	arg_check(arg, 0);
+	status_check(STATUS_READY);
+	global.setStatus(STATUS_REPLAY);
+}
+
+// HIT <int>
+void Command::hit(Args& arg)
+{
+	arg_check(arg, 1);
+	status_check(STATUS_GAME);
+	const int next_id = arg[0].to_i();
+	Console::printf(CON_GREEN, "hit next_id is %d\n", next_id);
+	global.hit_stage = next_id;
+	global.on_hit_setup(next_id);
+}
+
+void Notice(const char* s)
+{
+	Console::puts(CON_CYAN, s);
+}
+
+void SystemMessage(const char* s)
+{
+	Console::puts(CON_GREEN, s);
+}
+
+void ErrorMessage(const char* s)
+{
+	Console::puts(CON_RED, s);
+}
+
+
+// SAVE
+void Command::save(Args& arg)
+{
+	arg_check(arg, 0);
+	status_check(STATUS_READY);
+
+	SystemMessage("Saving...");
+	global.setStatus(STATUS_SAVING);
+	sendStatus();
+
+	SystemMessage("Saved!");
+	global.setStatus(STATUS_READY);
+	sendStatus();
+}
+
+// FRAME <int:frame_num>
+void Command::frame(Args& arg)
+{
+	arg_check(arg, 1);
+	no_check_status();
+
+	const int frame = arg[0].to_i();
+	if (frame<0)
+	{
+		ErrorMessage("Invalid frame.");
+	}
+	else
+	{
+		printf("frame recvd: %d\n", frame);
+		global.frame_index = frame;
+	}
+}
+
+// BLACK
+void Command::black(Args& arg)
+{
+	arg_check(arg, 0);
+	status_check(STATUS_IDLE);
+	global.setStatus(STATUS_BLACK);
+}
+
+// PICT <filename>
+void Command::pict(Args& arg)
+{
+	arg_check(arg, 1);
+	status_check(STATUS_IDLE);
+
+	std::string path;
+	path += "//STMX64/ST/Picture/";
+	path += arg[0].to_s();
+	if (global.pic.createFromImageA(path.c_str()))
+	{
+		global.setStatus(STATUS_PICT);
+		return;
+	}
+	else
+	{
+		printf("picture load error. %s\n", arg[0].to_s());
+	}
+}
+
+// BYE
+// EXIT
+// QUIT
+void Command::bye(Args& arg)
 {
 	arg_check(arg, 0);
 	exit(0);
-}
-
-void commandHitBoxes(Args& arg)
-{
-	arg_check(arg, 0);
-	toggle(mode.show_hit_boxes);
 }
 
 
@@ -244,12 +461,12 @@ bool Command::command(const std::string& line)
 	// Daemon command
 	if (cmd[0]=='#')
 	{
-		printf("[DAEMON COMMAND] '%s' -- ignore", cmd.c_str());
+		Console::printf(CON_DARKCYAN, "[DAEMON COMMAND] '%s' -- ignore", cmd.c_str());
 		return true;
 	}
 
 
-	printf("[UDP COMMAND] '%s' ", cmd.c_str());
+	Console::printf(CON_CYAN, "Command: %s ", cmd.c_str());
 	for (size_t i=0; i<arg.size(); ++i)
 	{
 		if (arg[i].is_int())
@@ -269,30 +486,46 @@ bool Command::command(const std::string& line)
 	{
 		// @command
 #define COMMAND(CMD, PROC)    if (cmd.compare(CMD)==0) { PROC(arg); return true; }
-		COMMAND("HITBOXES", commandHitBoxes);
-		COMMAND("RELOADCONFIG", commandReloadConfig);
+		// 起動
+		COMMAND("PING",     ping);
 
-		COMMAND("DISKINFO", commandDiskInfo);
-		COMMAND("MIRROR",   commandMirror);
-		COMMAND("BLACK",    commandBlack);
-		COMMAND("DEPTH",    commandDepth);
-		COMMAND("STATUS",   commandStatus);
-		COMMAND("START",    commandStart);
+		// モード切り替え
+		COMMAND("PICT",     pict);
+		COMMAND("BLACK",    black);
+		COMMAND("IDENT",    ident);
 
-		COMMAND("BORDERLINE", commandBorderLine);
-		COMMAND("IDENT",    commandIdent);
-		COMMAND("PING",     commandPing);
-		COMMAND("PICT",     commandPict);
-		COMMAND("BYE",      commandBye);
-		COMMAND("QUIT",     commandBye);
-		COMMAND("EXIT",     commandBye);
+		// ゲーム情報
+		COMMAND("PARTNER",      partner);
+		COMMAND("BACKGROUND",   background);
+		COMMAND("PLAYER-STYLE", playerStyle);
+		COMMAND("PLAYER-COLOR", playerColor);
+
+		// ゲーム情報
+		COMMAND("START",    start);
+		COMMAND("STOP",     stop);
+		COMMAND("FRAME",    frame);
+		COMMAND("REPLAY",   replay);
+		COMMAND("HIT",      hit);
+
+		// 随時
+		COMMAND("STATUS",  status);
+		COMMAND("DISKINFO", diskInfo);
+		COMMAND("MIRROR",   mirror);
+		COMMAND("RELOAD-CONFIG", reloadConfig);
+		COMMAND("BYE",      bye) ;
+		COMMAND("QUIT",     bye);
+		COMMAND("EXIT",     bye);
 #undef COMMAND
 
+		Console::pushColor(CON_GREEN); 
 		printf("Invalid udp-command '%s'\n", cmd.c_str());
+		Console::popColor();
 	}
-	catch (InvalidFormat)
+	catch (Invalid)
 	{
-		printf("Invalid format '%s' argc=%d\n", cmd.c_str(), argc);
+		Console::pushColor(CON_YELLOW); 
+		printf("Invalid '%s' argc=%d\n", cmd.c_str(), argc);
+		Console::popColor();
 	}
 
 	return false;
@@ -311,7 +544,7 @@ bool StClient::doCommand()
 
 	for (size_t i=0; i<lines.size(); ++i)
 	{
-		Command cmd(udp_send);
+		Command cmd(this, udp_send);
 		cmd.command(lines[i]);
 	}
 	return true;

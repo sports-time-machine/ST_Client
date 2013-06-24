@@ -2,16 +2,7 @@
 #include <OpenNI.h>
 #include "ST_Client.h"
 #include "Config.h"
-
-//begin load psl
-#pragma warning(push)
-#pragma warning(disable: 4100) // unused variable
-#pragma warning(disable: 4201) // non-standard expanded function
-#pragma warning(disable: 4512) // 
-#pragma warning(disable: 4996) // unsafe function
-#include "PSL/PSL.h"
-#pragma warning(pop)
-//end of psl
+#include "psl_if.h"
 
 #ifdef _M_X64
 #pragma comment(lib,"OpenNI2_x64.lib")
@@ -54,6 +45,7 @@ Config::Config()
 	initial_window_y = 50;
 	initial_fullscreen = false;
 	mirroring = false;
+	hit_threshold = 10;
 	
 	metrics.ground_px = 480;
 	metrics.left_mm   = 0;
@@ -90,7 +82,7 @@ static bool var_exist(PSL::PSLVM& vm, const char* name)
 
 void load_config()
 {
-	PSL::PSLVM psl;
+	PSL::PSLVM& psl = global.pslvm;
 
 	auto load_psl = [&](PSL::string path)->bool{
 		fprintf(stderr, "[PSL] Load '%s'...", path.c_str());
@@ -144,8 +136,6 @@ void load_config()
 	double right_meter = 0.0f;
 	double top_meter   = 0.0f;
 	int    ground_px   = 0;
-	CONFIG_LET2(left_meter,  metrics_left_meter,  float, toDouble);
-	CONFIG_LET2(right_meter, metrics_right_meter, float, toDouble);
 	CONFIG_LET2(top_meter,   metrics_topt_meter,  float, toDouble);
 	CONFIG_LET2(ground_px,   metrics_ground_px,   int,   toInt);
 	config.metrics.left_mm   = (int)(1000 * left_meter);
@@ -178,9 +168,13 @@ void load_config()
 		return PSL::variable(psl.get(name)).toString().c_str();
 	};
 
+	//=== GLOBAL VARS ===
+	global.on_hit_setup = psl.get("onHitSetup");
+
 	//=== LOCAL SETTINGS ===
 	CONFIG_INT(config, person_inc);
 	CONFIG_INT(config, movie_inc);
+	CONFIG_INT(config, hit_threshold);
 	set_camera_param(config.cam1, "camera1");
 	set_camera_param(config.cam2, "camera2");
 
