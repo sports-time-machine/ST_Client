@@ -12,6 +12,8 @@
 
 namespace stclient{
 
+typedef std::string string;
+
 
 const float PI = 3.141592653;
 
@@ -88,7 +90,7 @@ struct HitObject
 	mi::Point    point;
 	mgl::glRGBA  color;
 	int          next_id;
-	std::string  text;
+	string       text;
 
 	HitObject():
 		enable(true)
@@ -288,6 +290,58 @@ enum ViewMode
 	VM_3D_FRONT,
 };
 
+enum StColor
+{
+	STCOLOR_RED,
+	STCOLOR_GREEN,
+	STCOLOR_BLUE,
+	STCOLOR_ORANGE,
+	STCOLOR_LIME,
+	STCOLOR_AQUA,
+	STCOLOR_PINK,
+	STCOLOR_VIOLET,
+	STCOLOR_WHITE,
+	STCOLOR_BLACK,
+};
+
+// ÉQÅ[ÉÄÇ–Ç∆Ç¬Ç–Ç∆Ç¬ÇÃèÓïÒ
+struct GameInfo
+{
+	static const char* non_id()
+	{
+		return "NON-ID";
+	}
+
+	struct RunInfo
+	{
+		string   run_id;
+		float    dot_size;
+		StColor  player_color;
+
+		void clear()
+		{
+			run_id       = GameInfo::non_id();
+			dot_size     = 1.0f;
+			player_color = STCOLOR_WHITE;
+		}
+	};
+
+	string     player_id;
+	RunInfo    self;
+	RunInfo    partner1;
+	RunInfo    partner2;
+	RunInfo    partner3;
+	MovieData  movie;
+
+	// ÉQÅ[ÉÄèÓïÒÇÃîjä¸ÅAèâä˙âª
+	void init();
+
+	GameInfo()
+	{
+		init();
+	}
+};
+
 struct Global
 {
 	struct View
@@ -299,6 +353,7 @@ struct Global
 		bool is_2d_view;
 	};
 
+	GameInfo     gameinfo;
 	View         view;
 	ViewMode     view_mode;
 	int          window_w;
@@ -393,9 +448,9 @@ struct TimeProfile
 #include "Config.h"  // EXTERN
 
 
-SmartExtern Global global;
-SmartExtern Mode mode;
-SmartExtern TimeProfile time_profile;
+SmartExtern Global       global;
+SmartExtern Mode         mode;
+SmartExtern TimeProfile  time_profile;
 
 
 namespace Depth10b6b{
@@ -438,7 +493,6 @@ private:
 	Eye                   eye;
 	ActiveCamera          active_camera;
 	freetype::font_data   monospace;
-	MovieData             curr_movie;
 	Calset                cal_cam1, cal_cam2;
 	mi::Fps               fps_counter;
 	HitData               hitdata;

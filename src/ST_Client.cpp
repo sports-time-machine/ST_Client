@@ -144,7 +144,7 @@ bool StClient::init()
 	// Init routine @init
 	{
 		puts("Init font...");
-		const std::string font_folder = "C:/Windows/Fonts/";
+		const string font_folder = "C:/Windows/Fonts/";
 		monospace.init(font_folder + "Cour.ttf", 12);
 
 		// Consolas
@@ -265,6 +265,8 @@ bool StClient::run()
 	for (;;)
 	{
 		mi::Timer mi(&time_profile.frame);
+
+		glfwPollEvents();
 
 		if (!glfwGetWindowParam(GLFW_OPENED))
 		{
@@ -571,18 +573,31 @@ void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVo
 	glEnd();
 }
 
+// ゲーム情報の破棄、初期化
+void GameInfo::init()
+{
+	player_id = "NO-ID";
+	self.clear();
+	partner1.clear();
+	partner2.clear();
+	partner3.clear();
+	movie.frames.clear();
+	movie.total_frames = 0;
+	movie.cam1 = CamParam();
+	movie.cam2 = CamParam();
+}
 
 
 void StClient::MoviePlayback()
 {
-	if (curr_movie.total_frames==0)
+	if (global.gameinfo.movie.total_frames==0)
 	{
 		global.setStatus(STATUS_READY);
 		puts("Movie empty.");
 		return;
 	}
 
-	if (global.frame_index >= curr_movie.total_frames)
+	if (global.frame_index >= global.gameinfo.movie.total_frames)
 	{
 #if 1
 		global.setStatus(STATUS_READY);
@@ -595,7 +610,7 @@ void StClient::MoviePlayback()
 #endif
 	}
 
-	auto& mov = curr_movie;
+	auto& mov = global.gameinfo.movie;
 	static Dots dots;
 	dots.init();
 
@@ -745,14 +760,14 @@ void StClient::CreateAtari(const Dots& dots)
 
 void StClient::MovieRecord()
 {
-	if (curr_movie.total_frames >= MAX_TOTAL_FRAMES)
+	if (global.gameinfo.movie.total_frames >= MAX_TOTAL_FRAMES)
 	{
 		puts("time over! record stop.");
 		global.setStatus(STATUS_READY);
 	}
 	else
 	{
-		auto& mov = curr_movie;
+		auto& mov = global.gameinfo.movie;
 #if 0
 		VoxelRecorder::record(dot_set, mov.frames[mov.total_frames++]);
 #else
@@ -779,7 +794,7 @@ void StClient::saveAgent(int slot)
 	}
 	else
 	{
-		saveToFile(fp, curr_movie);
+		saveToFile(fp, global.gameinfo.movie);
 		fclose(fp);
 		puts("done!");
 	}	
@@ -797,7 +812,7 @@ void StClient::loadAgent(int slot)
 	}
 	else
 	{
-		if (loadFromFile(fp, curr_movie))
+		if (loadFromFile(fp, global.gameinfo.movie))
 		{
 			fclose(fp);
 			puts("done!");
@@ -962,7 +977,7 @@ void StClient::do_calibration(float mx, float my)
 
 void StClient::set_clipboard_text()
 {
-	std::string s;
+	string s;
 	
 	for (int i=0; i<2; ++i)
 	{
@@ -1025,7 +1040,7 @@ bool StClient::initGraphics()
 	glfwEnable(GLFW_MOUSE_CURSOR);
 
 	{
-		std::string name;
+		string name;
 		name += "スポーツタイムマシン クライアント";
 		name += " (";
 		name += Core::getComputerName();

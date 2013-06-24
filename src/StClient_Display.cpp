@@ -305,7 +305,7 @@ void StClient::displayDebugInfo()
 	{
 		const int saved = y;
 		x = 200;
-		const auto cam = curr_movie.cam1;
+		const auto cam = global.gameinfo.movie.cam1;
 		h1("RecCam A:");
 		pr(monospace, x, y+=H, "pos x = %9.5f", cam.x);
 		pr(monospace, x, y+=H, "pos y = %9.5f", cam.y);
@@ -333,7 +333,7 @@ void StClient::displayDebugInfo()
 	{
 		const int saved = y;
 		x = 200;
-		const auto cam = curr_movie.cam2;
+		const auto cam = global.gameinfo.movie.cam2;
 		h1("RecCam B:");
 		pr(monospace, x, y+=H, "pos x = %9.5f", cam.x);
 		pr(monospace, x, y+=H, "pos y = %9.5f", cam.y);
@@ -394,7 +394,7 @@ void StClient::displayDebugInfo()
 	
 	dt(); pr(monospace, x, y+=H, " Atari        %6.2f", time_profile.atari);
 	
-	dt(); pr(monospace, x, y+=H, " Recording    %6.2f [%d]", time_profile.record.total, curr_movie.total_frames);
+	dt(); pr(monospace, x, y+=H, " Recording    %6.2f [%d]", time_profile.record.total, global.gameinfo.movie.total_frames);
 	dd(); pr(monospace, x, y+=H, "  enc_stage1  %6.2f", time_profile.record.enc_stage1);
 	dd(); pr(monospace, x, y+=H, "  enc_stage2  %6.2f", time_profile.record.enc_stage2);
 	dd(); pr(monospace, x, y+=H, "  enc_stage3  %6.2f", time_profile.record.enc_stage3);

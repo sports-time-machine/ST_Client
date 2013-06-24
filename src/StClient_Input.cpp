@@ -106,7 +106,7 @@ void StClient::processKeyInput_CalibrateMode(const bool* down)
 
 void StClient::startMovieRecordSettings()
 {
-	curr_movie.clear();
+	global.gameinfo.movie.clear();
 }
 
 void StClient::processKeyInput()

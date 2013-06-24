@@ -19,7 +19,7 @@ const char* stclient::to_s(int x)
 
 
 
-static inline bool commandIs(const std::string& cmd,
+static inline bool commandIs(const string& cmd,
 		const char* cmd1,
 		const char* cmd2=nullptr,
 		const char* cmd3=nullptr)
@@ -51,7 +51,7 @@ public:
 	{
 	}
 
-	bool command(const std::string& line);
+	bool command(const string& line);
 	void sendStatus();
 
 private:
@@ -110,7 +110,7 @@ void Command::ping(Args& arg)
 
 	printf("PING received: server is '%s'\n", arg[0].to_s());
 
-	std::string s;
+	string s;
 	s += "PONG ";
 	s += Core::getComputerName();
 	s += " ";
@@ -156,7 +156,7 @@ void Command::diskInfo(Args& arg)
 			free,
 			free*100.0f/total,
 			total);
-	std::string s;
+	string s;
 	s += "DISKSIZE ";
 	s += to_s(free);
 	s += " ";
@@ -212,7 +212,7 @@ static void status_check(ClientStatus st)
 
 void Command::sendStatus()
 {
-	std::string s;
+	string s;
 	s += "STATUS ";
 	s += Core::getComputerName();
 	s += " ";
@@ -229,7 +229,7 @@ void Command::status(Args& arg)
 
 
 // 0123456789 => 9/8/7/6/5/4/3/2/1/0/0123456789
-static void SetFileNameFromGameId(std::string& dest, const char* s)
+static void SetFileNameFromGameId(string& dest, const char* s)
 {
 #if 1
 	dest = s;
@@ -260,7 +260,7 @@ void Command::ident(Args& arg)
 		player.to_s(),
 		game.to_s());
 	
-	std::string filename;
+	string filename;
 	SetFileNameFromGameId(filename, game.to_s());
 	if (!global.save_file.openForWrite(filename.c_str()))
 	{
@@ -282,7 +282,7 @@ void Command::partner(Args& arg)
 
 	printf("PARTNER:%s\n", arg[0].to_s());
 	
-	std::string filename;
+	string filename;
 	SetFileNameFromGameId(filename, arg[0].to_s());
 	if (!global.save_file.openForWrite(filename.c_str()))
 	{
@@ -380,22 +380,6 @@ void ErrorMessage(const char* s)
 	Console::puts(CON_RED, s);
 }
 
-
-// SAVE
-void Command::save(Args& arg)
-{
-	arg_check(arg, 0);
-	status_check(STATUS_READY);
-
-	SystemMessage("Saving...");
-	global.setStatus(STATUS_SAVING);
-	sendStatus();
-
-	SystemMessage("Saved!");
-	global.setStatus(STATUS_READY);
-	sendStatus();
-}
-
 // FRAME <int:frame_num>
 void Command::frame(Args& arg)
 {
@@ -414,6 +398,34 @@ void Command::frame(Args& arg)
 	}
 }
 
+// SAVE
+void Command::save(Args& arg)
+{
+	arg_check(arg, 0);
+	status_check(STATUS_READY);
+
+	SystemMessage("Saving...");
+	global.setStatus(STATUS_SAVING);
+	sendStatus();
+
+	SystemMessage("Saved!");
+	global.setStatus(STATUS_READY);
+	sendStatus();
+}
+
+// INIT
+void Command::init(Args& arg)
+{
+	arg_check(arg, 0);
+	no_check_status();
+
+	SystemMessage("Init!");
+	global.setStatus(STATUS_IDLE);
+
+	// ÉQÅ[ÉÄèÓïÒÇÃîjä¸
+	global.gameinfo.init();
+}
+
 // BLACK
 void Command::black(Args& arg)
 {
@@ -428,7 +440,7 @@ void Command::pict(Args& arg)
 	arg_check(arg, 1);
 	status_check(STATUS_IDLE);
 
-	std::string path;
+	string path;
 	path += "//STMX64/ST/Picture/";
 	path += arg[0].to_s();
 	if (global.pic.createFromImageA(path.c_str()))
@@ -452,9 +464,9 @@ void Command::bye(Args& arg)
 }
 
 
-bool Command::command(const std::string& line)
+bool Command::command(const string& line)
 {
-	std::string cmd;
+	string cmd;
 	std::vector<VariantType> arg;
 	Lib::splitString(line, cmd, arg);
 
@@ -500,12 +512,14 @@ bool Command::command(const std::string& line)
 		COMMAND("PLAYER-STYLE", playerStyle);
 		COMMAND("PLAYER-COLOR", playerColor);
 
-		// ÉQÅ[ÉÄèÓïÒ
+		// ÉQÅ[ÉÄ
 		COMMAND("START",    start);
 		COMMAND("STOP",     stop);
 		COMMAND("FRAME",    frame);
 		COMMAND("REPLAY",   replay);
 		COMMAND("HIT",      hit);
+		COMMAND("SAVE",     save);
+		COMMAND("INIT",     init);
 
 		// êèéû
 		COMMAND("STATUS",  status);
@@ -533,13 +547,13 @@ bool Command::command(const std::string& line)
 
 bool StClient::doCommand()
 {
-	std::string rawstring;
+	string rawstring;
 	if (udp_recv.receive(rawstring)<=0)
 	{
 		return false;
 	}
 
-	std::vector<std::string> lines;
+	std::vector<string> lines;
 	Lib::splitStringToLines(rawstring, lines);
 
 	for (size_t i=0; i<lines.size(); ++i)
