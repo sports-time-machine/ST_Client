@@ -70,14 +70,15 @@ void StClient::processKeyInput_BothMode(const bool* down)
 
 void StClient::processKeyInput_RunMode(const bool* down)
 {
-	static int frame_count;
-	++frame_count;
-	if (frame_count%global_config.auto_snapshot_interval==0)
+	if (global_config.auto_snapshot_interval>0)
 	{
-		this->snapshot_life = SNAPSHOT_LIFE_FRAMES;
-		dev1.raw_snapshot = dev1.raw_cooked;
-		dev2.raw_snapshot = dev2.raw_cooked;
-		return;
+		static int frame_count;
+		++frame_count;
+		if (frame_count%global_config.auto_snapshot_interval==0)
+		{
+			this->createSnapshot();
+			return;
+		}
 	}
 }
 
@@ -239,10 +240,8 @@ void StClient::processKeyInput()
 		set_clipboard_text();
 		break;
 
-	case 'C':  toggle(mode.auto_clipping);    break;
 	case 'm':  toggle(mode.mixed_enabled);    break;
 	case 'M':  toggle(mode.mirroring);        break;
-	case 'b':  toggle(mode.borderline);       break;
 
 	case VK_BACK:
 		dev1.clearFloorDepth();

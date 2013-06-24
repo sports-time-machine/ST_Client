@@ -3,6 +3,12 @@
 #include "file_io.h"
 #include "psl_if.h"
 
+#define GROUND_WIDTH       (4.00f)
+#define GROUND_LEFT        (-GROUND_WIDTH/2)
+#define GROUND_RIGHT       (+GROUND_WIDTH/2)
+#define GROUND_HEIGHT      (2.75f)
+#define GROUND_DEPTH       (3.00f)
+
 
 struct GlobalConfig
 {
@@ -41,12 +47,12 @@ struct Config
 
 	float getScreenLeftMeter() const
 	{
-		return (client_number-1) * 4.0f;
+		return (client_number-1) * GROUND_WIDTH;
 	}
 	
 	float getScreenRightMeter() const
 	{
-		return getScreenLeftMeter() + 4.0f;
+		return getScreenLeftMeter() + GROUND_WIDTH;
 	}
 
 

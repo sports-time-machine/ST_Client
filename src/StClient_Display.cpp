@@ -150,10 +150,9 @@ void StClient::display2dSection()
 		glEnd();
 	}
 
-
 	if (global.show_debug_info)
 	{
-		// 当たり判定オブジェクト(hitdata)の描画
+		// 当たり判定マトリクスの表示
 		glBegin(GL_QUADS);
 		for (int y=0; y<HitData::CEL_H; ++y)
 		{
@@ -163,15 +162,15 @@ void StClient::display2dSection()
 				int p = minmax(hit*ATARI_INC/5, 0, 255);
 				int q = 255-p;
 				glRGBA(
-					(240*p +  50*q)>>8,
-					(220*p +  70*q)>>8,
-					( 60*p + 110*q)>>8,
-					180).glColorUpdate();
-				const int S = 5;
-				const int V = S-1;
+					(180*p +  90*q)>>8,
+					( 70*p + 110*q)>>8,
+					( 30*p + 130*q)>>8,
+					(240*p +  50*q)>>8).glColorUpdate();
+				const int DOTSIZE = 5;
+				const int V = DOTSIZE-1;
 				const int M = 10;
-				const int dx = x*S + 640 - M - HitData::CEL_W*S;
-				const int dy = y*S +   0 + M;
+				const int dx = x*DOTSIZE + 640 - M - HitData::CEL_W*DOTSIZE;
+				const int dy = y*DOTSIZE +   0 + M;
 				glVertex2i(dx,   dy);
 				glVertex2i(dx+V, dy);
 				glVertex2i(dx+V, dy+V);
@@ -183,6 +182,7 @@ void StClient::display2dSection()
 
 	if (global.show_debug_info)
 	{
+		// 当たり判定オブジェクトの表示
 		glBegin(GL_QUADS);
 		for (size_t i=0; i<global.hit_objects.size(); ++i)
 		{
@@ -226,6 +226,8 @@ void StClient::display2dSection()
 				this->flashing = 100;
 				global.hit_stage = ho.next_id;
 				global.hit_objects.clear();
+
+				this->createSnapshot();
 				break;
 			}
 		}
@@ -359,14 +361,12 @@ void StClient::displayDebugInfo()
 	}
 
 	pr(monospace, 20, y+=H,
-		"#%d [hit-id:%d][%s] [%s] [fl=%d] [%s][%s] (%.5f,%.5f)",
+		"#%d [hit-id:%d][%s] [%s] [fl=%d] (%.5f,%.5f)",
 			config.client_number,
 			global.hit_stage,
 			global.hit_objects.size() ? global.hit_objects[0].text.c_str() : "-",
 			eye.fast_set ? "fast" : "slow",
 			flashing,
-			mode.borderline ? "border" : "no border",
-			mode.auto_clipping ? "auto clipping" : "no auto clip",
 			global.person_center_x,
 			global.person_center_y);
 

@@ -124,11 +124,11 @@ public:
 		return hit[x + y*CEL_W];
 	}
 
-	void inc(int x, int y)
+	void inc(int x, int y, int gain=1)
 	{
 		if (inner(x,y))
 		{
-			++hit[x + y*CEL_W];
+			hit[x + y*CEL_W] += gain;
 		}
 	}
 
@@ -172,15 +172,12 @@ struct Kdev
 
 struct Mode
 {
-	bool auto_clipping;
 	bool show_hit_boxes;
 	bool mixed_enabled;//#?
 	bool mirroring;
-	bool borderline;//#?
 
 	Mode()
 	{
-		auto_clipping = true;
 	}
 };
 
@@ -371,6 +368,7 @@ struct Global
 	PSLv         on_hit_setup;
 	HitObjects   hit_objects;
 	bool         show_debug_info;
+	mgl::glRGBA  color_overlay;
 
 	ClientStatus clientStatus() const
 	{
@@ -403,6 +401,7 @@ struct Global
 		frame_index = 0;
 		hit_stage = 0;
 		show_debug_info = false;
+		color_overlay.set(0,0,0,0);  // transparent
 	}
 };
 
@@ -525,6 +524,8 @@ private:
 	void recordingStop();
 	void recordingReplay();
 
+	void createSnapshot();
+
 	bool doCommand();
 	bool doCommand2(const std::string& line);
 
@@ -537,12 +538,15 @@ private:
 	void MoviePlayback();
 	void MovieRecord();
 	void DrawVoxels(Dots& dots);
-	void CreateAtari(const Dots& dots);
 	void set_clipboard_text();
 
 	void reloadResources();
 	void drawWall();
 	void drawFieldGrid(int size_cm);
+
+	void CreateAtari(const Dots& dots);
+	void CreateAtariFromBodyCenter();
+	void CreateAtariFromDepthMatrix(const Dots& dots);
 };
 
 const char* to_s(int x);

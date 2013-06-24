@@ -78,7 +78,6 @@ void toggle(bool& ref)
 	puts("-----------------------------");
 	log(mode.mixed_enabled,    'm', "mixed");
 	log(mode.mirroring,        '?', "mirroring");
-	log(mode.borderline,       'b', "borderline");
 	puts("-----------------------------");
 }
 
@@ -119,6 +118,7 @@ bool StClient::init()
 {
 	Console::puts(CON_GREEN, "Init StClient");
 
+#if 0//#
 	if (global_config.enable_kinect)
 	{
 		openni::VideoMode depthVideoMode;
@@ -132,6 +132,7 @@ bool StClient::init()
 		const int color_h = colorVideoMode.getResolutionY();
 		printf("Kinect Input: depth[%dx%d], color[%dx%d]\n", depth_w, depth_h, color_w, color_h);
 	}
+#endif
 
 	if (!initGraphics())
 	{
@@ -194,14 +195,14 @@ void StClient::recordingReplay()
 void CreateHitWall(float meter, int id, const char* text)
 {
 	float point = meter - config.getScreenLeftMeter();
-	if (point<0.0f || point>4.0f)
+	if (point<0.0f || point>=GROUND_WIDTH)
 	{
 		// 画面外 -- ignore!
 	}
 	else
 	{
 		Console::printf(CON_YELLOW, "Create hit wall %.1fm '%s'\n", meter, text);
-		const int x = (int)(HitData::CEL_W * point / 4.0f);
+		const int x = (int)(HitData::CEL_W * point / GROUND_WIDTH);
 		for (int i=0; i<HitData::CEL_H; ++i)
 		{
 			HitObject ho;
@@ -235,6 +236,17 @@ void StClient::processOneFrame()
 	this->display3dSection();
 	this->display2dSectionPrepare();
 	this->display2dSection();
+
+	if (global.color_overlay.a>0)
+	{
+		global.color_overlay();
+		glBegin(GL_QUADS);
+		glVertex2i(0,0);
+		glVertex2i(640,0);
+		glVertex2i(640,480);
+		glVertex2i(0,480);
+		glEnd();
+	}
 	
 	if (global.show_debug_info)
 	{
@@ -262,6 +274,7 @@ bool StClient::run()
 	glfwGetWindowSize(&window_w, &window_h);
 	window_resized(window_w, window_h);
 
+	// @main
 	for (;;)
 	{
 		mi::Timer mi(&time_profile.frame);
@@ -272,7 +285,7 @@ bool StClient::run()
 		{
 			break;
 		}
-
+		
 		if (glfwGetWindowParam(GLFW_ICONIFIED))
 		{
 			continue;
@@ -393,9 +406,9 @@ void StClient::drawFieldGrid(int size_cm)
 
 	glEnd();
 
-	const float BOX_WIDTH  = 4.0f;
-	const float BOX_HEIGHT = 3.0f;
-	const float BOX_DEPTH  = 3.0f;
+	const float BOX_WIDTH  = GROUND_WIDTH;
+	const float BOX_HEIGHT = GROUND_HEIGHT;
+	const float BOX_DEPTH  = GROUND_DEPTH;
 	const float LEFT  = -(BOX_WIDTH/2);
 	const float RIGHT = +(BOX_WIDTH/2);
 
@@ -537,9 +550,9 @@ void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVo
 		const float y = dots[i].y;
 		const float z = dots[i].z + add_z;
 
-		const bool in_x = (x>=-2.0f && x<=+2.0f);
-		const bool in_y = (y>=+0.0f && y<=+4.0f);
-		const bool in_z = (z>=+0.0f && z<=+3.0f);
+		const bool in_x = (x>=GROUND_LEFT && x<=GROUND_RIGHT);
+		const bool in_y = (y>=0.0f && y<=GROUND_HEIGHT);
+		const bool in_z = (z>=0.0f && z<=GROUND_DEPTH);
 		
 		float col = z/4;
 		if (col<0.25f) col=0.25f;
@@ -624,6 +637,13 @@ void StClient::MoviePlayback()
 		DRAW_VOXELS_HALF);
 }
 
+void StClient::createSnapshot()
+{
+	this->snapshot_life = SNAPSHOT_LIFE_FRAMES;
+	dev1.raw_snapshot = dev1.raw_cooked;
+	dev2.raw_snapshot = dev2.raw_cooked;
+	puts("Create snapshot!");
+}
 
 void StClient::DrawVoxels(Dots& dots)
 {
@@ -732,10 +752,22 @@ void StClient::DrawVoxels(Dots& dots)
 	}
 }
 
-void StClient::CreateAtari(const Dots& dots)
+void StClient::CreateAtariFromBodyCenter()
 {
-	Timer tm(&time_profile.atari);
+	// 体幹アタリ
+	int body_x = (-GROUND_LEFT  + global.person_center_x * 1.15f) / GROUND_WIDTH  * HitData::CEL_W;
+	int body_y = (GROUND_HEIGHT - global.person_center_y        ) / GROUND_HEIGHT * HitData::CEL_H;
+
+	body_x = minmax(body_x, 0, HitData::CEL_W);
+	body_y = minmax(body_y, 0, HitData::CEL_H);
+
+	const int MAX_HIT_VALUE = 9999;
 	hitdata.clear();
+	hitdata.inc(body_x, body_y, MAX_HIT_VALUE);
+}
+
+void StClient::CreateAtariFromDepthMatrix(const Dots& dots)
+{
 	for (int i=0; i<dots.size(); i+=ATARI_INC)
 	{
 		// デプスはGreenのなかだけ
@@ -746,15 +778,31 @@ void StClient::CreateAtari(const Dots& dots)
 			continue;
 		}
 
-		// (x,z)を、大きさ1の正方形におさめる（はみ出すこともある）
-		float fx = ((p.x+2.0)/4.0);
-		float fy = ((2.8-p.y)/2.8);
+		// (x,z)を、大きさ1の正方形におさめる
+		// はみ出すこともあるが、hitdata.incは有効な部分のみをアタリに使う
+		float fx = ((p.x-GROUND_LEFT)/GROUND_WIDTH);
+		float fy = ((GROUND_HEIGHT-p.y)/GROUND_HEIGHT);
 
 		const int x = (int)(fx * HitData::CEL_W);
 		const int y = (int)(fy * HitData::CEL_H);
 
 		hitdata.inc(x, y);
 	}
+}
+
+void StClient::CreateAtari(const Dots& dots)
+{
+	Timer tm(&time_profile.atari);
+	hitdata.clear();
+
+#if 1
+	// ドットの中央を身体の座標としてアタリを得る
+	(void)dots;
+	CreateAtariFromBodyCenter();
+#else
+	// デプスから濃度的にアタリを得る
+	CreateAtariFromDepthMatrix(dots);
+#endif
 }
 
 

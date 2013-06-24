@@ -84,6 +84,7 @@ private:
 	void reloadConfig(Args& arg);
 	void bye(Args& arg);
 	void status(Args& arg);
+	void colorOverlay(Args& arg);
 
 private:
 	StClient* client;
@@ -225,6 +226,17 @@ void Command::status(Args& arg)
 {
 	arg_check(arg, 0);
 	sendStatus();
+}
+
+// COLOR-OVERLAY <r> <g> <b> <a>
+void Command::colorOverlay(Args& arg)
+{
+	arg_check(arg, 4);
+	const int r = minmax(arg[0].to_i(), 0, 255);
+	const int g = minmax(arg[1].to_i(), 0, 255);
+	const int b = minmax(arg[2].to_i(), 0, 255);
+	const int a = minmax(arg[3].to_i(), 0, 255);
+	global.color_overlay.set(r, g, b, a);
 }
 
 
@@ -522,6 +534,7 @@ bool Command::command(const string& line)
 		COMMAND("INIT",     init);
 
 		// êèéû
+		COMMAND("COLOR-OVERLAY", colorOverlay);
 		COMMAND("STATUS",  status);
 		COMMAND("DISKINFO", diskInfo);
 		COMMAND("MIRROR",   mirror);

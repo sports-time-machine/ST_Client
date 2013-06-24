@@ -113,13 +113,6 @@ void RawDepthImage::CalcDepthMinMax()
 		}
 	}
 	this->range = max(1, this->max_value - this->min_value);
-
-	if (!mode.auto_clipping)
-	{
-		this->max_value = 3000;
-		this->min_value = 500;
-		this->range = this->max_value - this->min_value;
-	}
 }
 
 void Kdev::initRam()

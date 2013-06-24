@@ -330,8 +330,6 @@ static void init_kinect(const char* uri, Kdev& k)
 
 int main()
 {
-//	global_config.enable_kinect = false;
-
 	mi::Console::setTitle("スポーツタイムマシン コンソール");
 
 	load_config();
@@ -344,6 +342,19 @@ int main()
 
 		std::string first, second;
 		get_kinect_devices(first, second);
+		
+		if (first.empty())
+		{
+			Core::dialog("Kinectが見つかりません。起動を中止します。");
+			return -1;
+		}
+		if (second.empty())
+		{
+			Core::dialog("Kinectが2台見つかりません。起動を中止します。");
+			return -1;
+		}
+		
+
 		if (!first.empty())
 		{
 			init_kinect(
