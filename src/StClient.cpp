@@ -4,7 +4,7 @@
 #include <map>
 #pragma warning(disable:4366)
 #define GL_GENERATE_MIPMAP_SGIS 0x8191
-#include "ST_Client.h"
+#include "StClient.h"
 #include <GL/glfw.h>
 #pragma comment(lib,"GLFW_x32.lib")
 #pragma warning(disable:4244) // conversion
@@ -76,7 +76,6 @@ void toggle(bool& ref)
 
 	ref = !ref;
 	puts("-----------------------------");
-	log(mode.mixed_enabled,    'm', "mixed");
 	log(mode.mirroring,        '?', "mirroring");
 	puts("-----------------------------");
 }

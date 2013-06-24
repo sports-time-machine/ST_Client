@@ -1,4 +1,4 @@
-#include "ST_Client.h"
+#include "StClient.h"
 #include <gl/glfw.h>
 
 using namespace mgl;
@@ -240,7 +240,6 @@ void StClient::processKeyInput()
 		set_clipboard_text();
 		break;
 
-	case 'm':  toggle(mode.mixed_enabled);    break;
 	case 'M':  toggle(mode.mirroring);        break;
 
 	case VK_BACK:

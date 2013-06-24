@@ -1,2 +1,2 @@
-#include "ST_Client.h"
+#include "StClient.h"
 #include "gl_funcs.h"

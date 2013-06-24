@@ -42,8 +42,8 @@
     </ClCompile>
     <ClCompile Include="src\StClient_Display.cpp" />
     <ClCompile Include="src\StClient_Input.cpp" />
-    <ClCompile Include="src\ST_Client.cpp" />
-    <ClCompile Include="src\ST_Client_Udp.cpp" />
+    <ClCompile Include="src\StClient.cpp" />
+    <ClCompile Include="src\StClient_Udp.cpp" />
     <ClCompile Include="src\VoxelRecorder.cpp" />
     <ClCompile Include="src\zlibpp.cpp" />
   </ItemGroup>
@@ -65,7 +65,7 @@
     <ClInclude Include="src\mi\Udp.h" />
     <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\psl_if.h" />
-    <ClInclude Include="src\ST_Client.h" />
+    <ClInclude Include="src\StClient.h" />
     <ClInclude Include="src\vec4.h" />
     <ClInclude Include="src\zlibpp.h" />
   </ItemGroup>

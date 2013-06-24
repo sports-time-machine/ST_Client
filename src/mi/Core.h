@@ -31,6 +31,12 @@ struct RGBA_raw
 	}
 };
 
+class Folder
+{
+public:
+	static void createFolder(const char* folder);
+};
+
 class File
 {
 private:

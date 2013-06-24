@@ -1,6 +1,6 @@
 #define THIS_IS_MAIN
 #include <OpenNI.h>
-#include "ST_Client.h"
+#include "StClient.h"
 #include "Config.h"
 #include "psl_if.h"
 
@@ -330,6 +330,11 @@ static void init_kinect(const char* uri, Kdev& k)
 
 int main()
 {
+	mi::Folder::createFolder("C:/ST/Movie/8/7/6/5/4/3/2/1/");
+
+
+
+
 	mi::Console::setTitle("スポーツタイムマシン コンソール");
 
 	load_config();

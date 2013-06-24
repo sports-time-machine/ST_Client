@@ -13,6 +13,29 @@ VariantType::VariantType(const std::string& s)
 }
 
 
+void Lib::splitByChars(const std::string& rawstring, const char* chars, std::vector<std::string>& lines)
+{
+	lines.clear();
+
+	const char* src = rawstring.c_str();
+
+	while (*src!='\0')
+	{
+		if (strchr(chars,*src)==nullptr)
+		{
+			++src;
+			continue;
+		}
+
+		std::string line;
+		while (*src!='\0' && strchr(chars,*src)==nullptr)
+		{
+			line += *src++;
+		}
+		lines.push_back(line);
+	}
+}
+
 void Lib::splitStringToLines(const std::string& rawstring, std::vector<std::string>& lines)
 {
 	lines.clear();

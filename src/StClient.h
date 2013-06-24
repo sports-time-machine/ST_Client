@@ -172,8 +172,6 @@ struct Kdev
 
 struct Mode
 {
-	bool show_hit_boxes;
-	bool mixed_enabled;//#?
 	bool mirroring;
 
 	Mode()

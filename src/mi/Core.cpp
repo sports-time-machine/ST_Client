@@ -1,4 +1,5 @@
 #include "Core.h"
+#include "Libs.h"
 #include <Windows.h>
 #pragma comment(lib, "User32.lib")
 #pragma comment(lib, "winmm.lib")
@@ -42,4 +43,20 @@ const std::string& Core::getComputerName()
 	static std::string res;
 	res = name;
 	return res;
+}
+
+
+
+void Folder::createFolder(const char* folder)
+{
+	std::vector<std::string> lines;
+	Lib::splitByChars(folder, "/\\", lines);
+
+
+
+
+
+
+
+
 }

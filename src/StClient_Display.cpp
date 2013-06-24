@@ -1,4 +1,4 @@
-#include "ST_Client.h"
+#include "StClient.h"
 
 using namespace stclient;
 using namespace mgl;

@@ -1,5 +1,5 @@
-#include "ST_Client.h"
-#include <GL/GLU.h>
+#include "StClient.h"
+#include <gl/glu.h>
 
 using namespace stclient;
 
