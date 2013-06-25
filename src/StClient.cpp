@@ -255,25 +255,47 @@ void StClient::processOneFrame()
 	this->processMouseInput();
 
 	this->displayEnvironment();
-	this->display3dSectionPrepare();
-	this->display3dSection();
-	this->display2dSectionPrepare();
-	this->display2dSection();
-
-	if (global.color_overlay.a>0)
-	{
-		global.color_overlay();
-		glBegin(GL_QUADS);
-		glVertex2i(0,0);
-		glVertex2i(640,0);
-		glVertex2i(640,480);
-		glVertex2i(0,480);
-		glEnd();
-	}
 	
-	if (global.show_debug_info)
+	if (global.clientStatus()==STATUS_INIT_FLOOR)
 	{
-		this->displayDebugInfo();
+		// 実映像の表示
+		this->display3dSectionPrepare();
+		this->display3dSection();
+		static Dots dots;
+		DrawVoxels(dots);
+		
+		// 床消しのアップデート
+		dev1.updateFloorDepth();
+		dev2.updateFloorDepth();
+
+		// テキスト
+		this->display2dSectionPrepare();
+		this->display2dSection();
+		auto pr = freetype::print;
+		glRGBA::black();
+		pr(monospace, 100, 100, "Initializing floor image...");
+	}
+	else
+	{
+		this->display3dSectionPrepare();
+		this->display3dSection();
+		this->display2dSectionPrepare();
+		this->display2dSection();
+		if (global.color_overlay.a>0)
+		{
+			global.color_overlay();
+			glBegin(GL_QUADS);
+			glVertex2i(0,0);
+			glVertex2i(640,0);
+			glVertex2i(640,480);
+			glVertex2i(0,480);
+			glEnd();
+		}
+	
+		if (global.show_debug_info)
+		{
+			this->displayDebugInfo();
+		}
 	}
 
 	glfwSwapBuffers();

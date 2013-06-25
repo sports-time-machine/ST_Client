@@ -61,6 +61,8 @@ private:
 	void black(Args& arg);
 	void pict(Args& arg);
 	void ident(Args& arg);
+	void beginInitFloor(Args& arg);
+	void endInitFloor(Args& arg);
 
 	// ゲーム情報
 	void partner(Args& arg);
@@ -176,14 +178,15 @@ static const char* getStatusName(int present=-1)
 	const auto st = (present==-1) ? global.clientStatus() : (ClientStatus)present;
 	switch (st)
 	{
-	case STATUS_SLEEP:  return "SLEEP";
-	case STATUS_IDLE:   return "IDLE";
-	case STATUS_PICT:   return "PICT";
-	case STATUS_BLACK:  return "BLACK";
-	case STATUS_READY:  return "READY";
-	case STATUS_GAME:   return "GAME";
-	case STATUS_REPLAY: return "REPLAY";
-	case STATUS_SAVING: return "SAVING";
+	case STATUS_SLEEP:       return "SLEEP";
+	case STATUS_IDLE:        return "IDLE";
+	case STATUS_PICT:        return "PICT";
+	case STATUS_BLACK:       return "BLACK";
+	case STATUS_READY:       return "READY";
+	case STATUS_GAME:        return "GAME";
+	case STATUS_REPLAY:      return "REPLAY";
+	case STATUS_SAVING:      return "SAVING";
+	case STATUS_INIT_FLOOR:  return "INIT-FLOOR";
 	}
 	return "UNKNOWN-STATUS";
 }
@@ -227,6 +230,29 @@ void Command::status(Args& arg)
 	sendStatus();
 }
 
+// BEGIN-INIT-FLOOR
+void Command::beginInitFloor(Args& arg)
+{
+	arg_check(arg, 0);
+	status_check(STATUS_IDLE);
+	
+	Msg::SystemMessage("Begin init floor");
+	client->clearFloorDepth();
+	global.setStatus(STATUS_INIT_FLOOR);
+	sendStatus();
+}
+
+// END-INIT-FLOOR
+void Command::endInitFloor(Args& arg)
+{
+	arg_check(arg, 0);
+	status_check(STATUS_INIT_FLOOR);
+	
+	Msg::SystemMessage("End of init floor");
+	global.setStatus(STATUS_IDLE);
+	sendStatus();
+}
+
 // COLOR-OVERLAY <r> <g> <b> <a>
 void Command::colorOverlay(Args& arg)
 {
@@ -257,6 +283,63 @@ static void SetFileNameFromGameId(string& dest, const char* s)
 }
 
 
+// 'P'+8桁の場合
+// 1             00000001
+// ABC           00000ABC
+// HELLO         000HELLO
+// HELLO250      HELLO250
+// POINT500      POINT500
+// POINT9999     OINT9999
+// P00000001     00000001
+// PABCDEF12     ABCDEF12
+// MACINTOSH     error
+// PACIFIC500    error
+static string normalize(char prefix, const string& untaint, int length)
+{
+	string raw;
+	for (size_t i=0; i<untaint.length(); ++i)
+	{
+		// [^A-Z0-9]ならエラー
+		if (!isalnum(untaint[i]))
+		{
+			return "";
+		}
+		raw += toupper(untaint[i]);
+	}
+
+	// そもそもIDがlength+1を超えているとエラー
+	if (raw.length() > length+1u)
+	{
+		return "";
+	}
+
+	// length+1
+	if (raw.length()==length+1u)
+	{
+		if (raw[0]==prefix)
+		{
+			// 正規のIDだ!!!
+			return raw.substr(1);
+		}
+		else
+		{
+			// POINT9999(P:OINT9999)などだ!! -- error
+			return "";
+		}
+	}
+
+	// zero padding
+	const size_t ZERO = length-raw.size();
+	string id;
+	for (size_t i=0; i<ZERO; ++i)
+	{
+		id += '0';
+	}
+	id += raw;
+	return id;
+}
+
+
 
 // IDENT <player> <game>
 // IDENT命令の前にさまざまなパラメーターがおくられている予定
@@ -265,15 +348,28 @@ void Command::ident(Args& arg)
 	arg_check(arg, 2);
 	status_check(STATUS_IDLE);
 
-	const auto& player = arg[0];
-	const auto& game   = arg[1];
+	// IDの正規化
+	string player_id = normalize('P', arg[0].to_s(),  8);
+	string   game_id = normalize('G', arg[1].to_s(), 10);
+	
+	if (player_id=="")
+	{
+		Msg::ErrorMessage("Invalid player id", player_id);
+		return;
+	}
+	if (game_id=="")
+	{
+		Msg::ErrorMessage("Invalid game id", game_id);
+		return;
+	}
+
 
 	printf("PLAYER:%s, GAME:%s\n",
-		player.to_s(),
-		game.to_s());
+		player_id.c_str(),
+		game_id.c_str());
 	
 	string filename;
-	SetFileNameFromGameId(filename, game.to_s());
+	SetFileNameFromGameId(filename, game_id.c_str());
 	if (!global.save_file.openForWrite(filename.c_str()))
 	{
 		puts("Open error (savefile)");
@@ -471,9 +567,16 @@ bool Command::command(const string& line)
 	Lib::splitString(line, cmd, arg);
 
 	// Daemon command
-	if (cmd[0]=='#')
+	if (cmd.substr(0,1)=="#")
 	{
-		Console::printf(CON_DARKCYAN, "[DAEMON COMMAND] '%s' -- ignore", cmd.c_str());
+		Console::printf(CON_DARKCYAN, "[DAEMON COMMAND] '%s' -- ignore\n", cmd.c_str());
+		return true;
+	}
+
+	// UI command
+	if (cmd.substr(0,3)=="UI_")
+	{
+		Console::printf(CON_DARKCYAN, "[UI COMMAND] '%s' -- ignore\n", cmd.c_str());
 		return true;
 	}
 
@@ -499,18 +602,20 @@ bool Command::command(const string& line)
 		// @command
 #define COMMAND(CMD, PROC)    if (cmd.compare(CMD)==0) { PROC(arg); return true; }
 		// 起動
-		COMMAND("PING",     ping);
+		COMMAND("PING",              ping);
 
 		// モード切り替え
-		COMMAND("PICT",     pict);
-		COMMAND("BLACK",    black);
-		COMMAND("IDENT",    ident);
+		COMMAND("PICT",              pict);
+		COMMAND("BLACK",             black);
+		COMMAND("IDENT",             ident);
+		COMMAND("BEGIN-INIT-FLOOR",  beginInitFloor);
+		COMMAND("END-INIT-FLOOR",    endInitFloor);
 
 		// ゲーム情報
-		COMMAND("PARTNER",      partner);
-		COMMAND("BACKGROUND",   background);
-		COMMAND("PLAYER-STYLE", playerStyle);
-		COMMAND("PLAYER-COLOR", playerColor);
+		COMMAND("PARTNER",           partner);
+		COMMAND("BACKGROUND",        background);
+		COMMAND("PLAYER-STYLE",      playerStyle);
+		COMMAND("PLAYER-COLOR",      playerColor);
 
 		// ゲーム
 		COMMAND("START",    start);

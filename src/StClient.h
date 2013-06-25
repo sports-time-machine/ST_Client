@@ -59,6 +59,7 @@ enum ClientStatus
 	STATUS_GAME,
 	STATUS_REPLAY,
 	STATUS_SAVING,
+	STATUS_INIT_FLOOR,
 };
 
 enum ActiveCamera
@@ -461,6 +462,12 @@ public:
 	// コマンドクラスからよばれます
 	void startMovieRecordSettings();
 	void initGameInfo();
+
+	void clearFloorDepth()
+	{
+		dev1.clearFloorDepth();
+		dev2.clearFloorDepth();
+	}
 
 private:
 	StClient(const StClient&);           // disable

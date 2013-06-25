@@ -76,10 +76,10 @@ void StClient::display3dSection()
 	}
 
 
-	// 　　　　　　 START REPLAY OTHER
-	// 実映像　       X    ---     X     リプレイ以外表示
-	// 動画リプレイ  ---    X     --- 
-	// 並走表示　　   X     X     ---    スタートとリプレイ
+	// 　　　　　　 SLEEP START REPLAY OTHER
+	// 実映像　       X     X    ---     X     リプレイ以外表示
+	// 動画リプレイ  ---   ---    X     --- 
+	// 並走表示　　  ---    X     X     ---    スタートとリプレイ
 	const auto st = global.clientStatus();
 	const bool recording      = (st==STATUS_GAME);
 	const bool show_realmovie = (st!=STATUS_REPLAY);
