@@ -83,18 +83,40 @@ public:
 		return true;
 	}
 
-	uint8 get8()     { return (uint8)fgetc(fp); }
-	uint16 get16()   { uint16 x = get8 (); x |= get8 ()<< 8; return x; }
-	uint32 get32()   { uint32 x = get16(); x |= get16()<<16; return x; }
-	bool eof()       { return feof(fp)!=0; }
+	bool   eof()             { return feof(fp)!=0; }
+	uint8  get8()            { return (uint8)fgetc(fp); }
+	uint16 get16()           { uint16 x = get8 (); x |= get8 ()<< 8; return x; }
+	uint32 get32()           { uint32 x = get16(); x |= get16()<<16; return x; }
+	void   put8(uint8 x)     { fputc(x, fp); }
+	void   put16(uint16 x)   { put8((uint8)x); put8((uint8)(x>>8)); }
+	void   put32(uint32 x)   { put16((uint16)x); put16((uint16)(x>>16)); }
+
+	template<typename T> void write(const T& data) {
+		write(&data, sizeof(data)); }
+	template<typename T> void read(T& data) {
+		read(&data, sizeof(data)); }
 
 	void read(void* buffer, int size)
 	{
 		int readbytes = (int)fread(buffer, 1, size, fp);
 		if (readbytes!=size)
 		{
-			printf("read()...%d, %d\n", readbytes, size);
+			fprintf(stderr, "read()...%d, %d\n", readbytes, size);
 		}
+	}
+
+	void write(const void* buffer, int size)
+	{
+		int writebytes = (int)fwrite(buffer, 1, size, fp);
+		if (writebytes!=size)
+		{
+			fprintf(stderr, "write()...%d, %d\n", writebytes, size);
+		}
+	}
+	
+	void write(const std::string& s)
+	{
+		write(s.c_str(), s.length());
 	}
 
 	void readStringA(std::string& dest, int length)

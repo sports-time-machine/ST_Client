@@ -44,6 +44,7 @@ struct Config
 	bool  initial_fullscreen;
 	bool  mirroring;
 	int   hit_threshold;
+	bool  ignore_udp;
 
 	float getScreenLeftMeter() const
 	{

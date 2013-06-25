@@ -12,6 +12,9 @@
 
 namespace stclient{
 
+using namespace mgl;
+
+
 typedef std::string string;
 
 
@@ -64,6 +67,18 @@ enum ActiveCamera
 	CAM_B,
 	CAM_BOTH,
 };
+
+
+namespace Msg
+{
+	extern void Notice       (const string&);
+	extern void SystemMessage(const string&);
+	extern void ErrorMessage (const string&);
+	extern void Notice       (const string&, const string&);
+	extern void SystemMessage(const string&, const string&);
+	extern void ErrorMessage (const string&, const string&);
+}
+
 
 
 struct RawDepthImage
@@ -285,48 +300,14 @@ enum ViewMode
 	VM_3D_FRONT,
 };
 
-enum StColor
-{
-	STCOLOR_RED,
-	STCOLOR_GREEN,
-	STCOLOR_BLUE,
-	STCOLOR_ORANGE,
-	STCOLOR_LIME,
-	STCOLOR_AQUA,
-	STCOLOR_PINK,
-	STCOLOR_VIOLET,
-	STCOLOR_WHITE,
-	STCOLOR_BLACK,
-};
-
 // ゲームひとつひとつの情報
 struct GameInfo
 {
-	static const char* non_id()
-	{
-		return "NON-ID";
-	}
-
-	struct RunInfo
-	{
-		string   run_id;
-		float    dot_size;
-		StColor  player_color;
-
-		void clear()
-		{
-			run_id       = GameInfo::non_id();
-			dot_size     = 1.0f;
-			player_color = STCOLOR_WHITE;
-		}
-	};
-
 	string     player_id;
-	RunInfo    self;
-	RunInfo    partner1;
-	RunInfo    partner2;
-	RunInfo    partner3;
 	MovieData  movie;
+	MovieData  partner1;
+	MovieData  partner2;
+	MovieData  partner3;
 
 	// ゲーム情報の破棄、初期化
 	void init();
@@ -335,6 +316,13 @@ struct GameInfo
 	{
 		init();
 	}
+
+	static string GetFolderName(const string& id);
+	void save();
+
+private:
+	void save_Movie(const string& basename);
+	void save_Thumbnail(const string& basename, const string& suffix, int );
 };
 
 struct Global
@@ -360,6 +348,7 @@ struct Global
 	float        person_center_x;
 	float        person_center_y;
 	int          frame_index;
+	bool         frame_auto_increment;
 	ClientStatus _client_status;
 	PSL::PSLVM   pslvm;
 	int          hit_stage;
@@ -392,13 +381,14 @@ struct Global
 
 	Global()
 	{
-		view_mode = VM_2D_RUN;
-		window_w = 0;
-		window_h = 0;
+		view_mode            = VM_2D_RUN;
+		window_w             = 0;
+		window_h             = 0;
+		frame_index          = 0;
+		frame_auto_increment = false;
+		hit_stage            = 0;
+		show_debug_info      = false;
 		setStatus(STATUS_SLEEP);
-		frame_index = 0;
-		hit_stage = 0;
-		show_debug_info = false;
 		color_overlay.set(0,0,0,0);  // transparent
 	}
 };
@@ -471,7 +461,7 @@ public:
 
 	// コマンドクラスからよばれます
 	void startMovieRecordSettings();
-	void initHitObjects();
+	void initGameInfo();
 
 private:
 	StClient(const StClient&);           // disable
@@ -497,7 +487,6 @@ private:
 	int                   snapshot_life;
 
 
-
 	bool initGraphics();
 
 	void display();
@@ -521,6 +510,8 @@ private:
 	void recordingStart();
 	void recordingStop();
 	void recordingReplay();
+	bool recordingNow() const;
+	bool replayingNow() const;
 
 	void createSnapshot();
 
@@ -530,7 +521,6 @@ private:
 	void BuildDepthImage(uint8* dest);
 	void do_calibration(float mx, float my);
 
-	void saveAgent(int slot);
 	void loadAgent(int slot);
 
 	void MoviePlayback();
@@ -548,6 +538,18 @@ private:
 };
 
 const char* to_s(int x);
+
+
+
+enum DrawVoxelsStyle
+{
+	DRAW_VOXELS_NORMAL = 0,
+	DRAW_VOXELS_HALF = 1,
+	DRAW_VOXELS_QUAD = 2,
+};
+
+void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam);
+void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style = DRAW_VOXELS_NORMAL, float add_z=0.0f);
 
 
 }//namespace stclient

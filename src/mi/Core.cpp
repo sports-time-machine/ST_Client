@@ -47,16 +47,20 @@ const std::string& Core::getComputerName()
 
 
 
-void Folder::createFolder(const char* folder)
+void Folder::createFolder(const char* full_folder_name)
 {
 	std::vector<std::string> lines;
-	Lib::splitByChars(folder, "/\\", lines);
+	Lib::splitByChars(full_folder_name, "/\\", lines);
 
-
-
-
-
-
-
-
+	std::string folder;
+	for (size_t i=0; i<lines.size(); ++i)
+	{
+		folder += lines[i];
+		folder += "/";
+		if (CreateDirectory(folder.c_str(), nullptr)!=0)
+		{
+			//success
+			fprintf(stderr, "Folder created: '%s'\n", folder.c_str());
+		}
+	}
 }

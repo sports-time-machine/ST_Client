@@ -64,10 +64,10 @@ void Console::printf(int color, const char* f, ...)
 	Console::popColor();
 }
 
-void Console::puts(int color, const char* s)
+void Console::puts(int color, const std::string& s)
 {
 	Console::pushColor(color);
-	fputs(s,    stderr);
+	fputs(s.c_str(), stderr);
 	nl();
 	Console::popColor();
 }

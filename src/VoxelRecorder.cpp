@@ -213,7 +213,7 @@ void VoxelRecorder::record(const Dots& dots, MovieData::Frame& dest_frame)
 		memcpy(dest_frame.compressed.data(), store, store_bytes);
 	}
 
-#if 1
+#if 0
 	printf("<REC> total[%d] inner[%d] outer[%d] duplex[%d] [%d]Kbytes\r",
 		dots.size(),
 		vc.inner_voxels,
@@ -239,7 +239,7 @@ void VoxelRecorder::playback(Dots& dots, const MovieData::Frame& frame)
 
 	int dot_index = 0;
 	int index = 0;
-	for (volatile size_t i=0; i<frame.compressed.size(); )
+	for (size_t i=0; i<frame.compressed.size(); )
 	{
 		const int first = frame.compressed[i++];
 		int zero_length = first;

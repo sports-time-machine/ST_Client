@@ -18,7 +18,6 @@ const char* stclient::to_s(int x)
 }
 
 
-
 static inline bool commandIs(const string& cmd,
 		const char* cmd1,
 		const char* cmd2=nullptr,
@@ -335,14 +334,15 @@ void Command::playerColor(Args& arg)
 	printf("PLAYER-COLOR:%s\n", arg[0].to_s());
 }
 
-// START
+// START -- ゲーム開始
+//  - ステート変更以外にはINITと同じ処理をする
 void Command::start(Args& arg)
 {
 	arg_check(arg, 0);
 	status_check(STATUS_READY);
 
-	client->initHitObjects();
-	client->startMovieRecordSettings();
+	// ゲーム情報の破棄
+	client->initGameInfo();
 
 	global.setStatus(STATUS_GAME);
 	sendStatus();
@@ -377,21 +377,6 @@ void Command::hit(Args& arg)
 	global.on_hit_setup(next_id);
 }
 
-void Notice(const char* s)
-{
-	Console::puts(CON_CYAN, s);
-}
-
-void SystemMessage(const char* s)
-{
-	Console::puts(CON_GREEN, s);
-}
-
-void ErrorMessage(const char* s)
-{
-	Console::puts(CON_RED, s);
-}
-
 // FRAME <int:frame_num>
 void Command::frame(Args& arg)
 {
@@ -401,7 +386,7 @@ void Command::frame(Args& arg)
 	const int frame = arg[0].to_i();
 	if (frame<0)
 	{
-		ErrorMessage("Invalid frame.");
+		Msg::ErrorMessage("Invalid frame.");
 	}
 	else
 	{
@@ -416,11 +401,13 @@ void Command::save(Args& arg)
 	arg_check(arg, 0);
 	status_check(STATUS_READY);
 
-	SystemMessage("Saving...");
+	Msg::SystemMessage("Saving...");
 	global.setStatus(STATUS_SAVING);
 	sendStatus();
 
-	SystemMessage("Saved!");
+	global.gameinfo.save();
+
+	Msg::SystemMessage("Saved!");
 	global.setStatus(STATUS_READY);
 	sendStatus();
 }
@@ -431,11 +418,11 @@ void Command::init(Args& arg)
 	arg_check(arg, 0);
 	no_check_status();
 
-	SystemMessage("Init!");
+	Msg::SystemMessage("Init!");
 	global.setStatus(STATUS_IDLE);
 
 	// ゲーム情報の破棄
-	global.gameinfo.init();
+	client->initGameInfo();
 }
 
 // BLACK
@@ -571,8 +558,15 @@ bool StClient::doCommand()
 
 	for (size_t i=0; i<lines.size(); ++i)
 	{
-		Command cmd(this, udp_send);
-		cmd.command(lines[i]);
+		if (config.ignore_udp)
+		{
+			Msg::Notice("UDP処理を無視します", lines[0].c_str());
+		}
+		else
+		{
+			Command cmd(this, udp_send);
+			cmd.command(lines[i]);
+		}
 	}
 	return true;
 }

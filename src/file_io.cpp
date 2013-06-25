@@ -1,92 +1,143 @@
-#include "file_io.h"
+#include "StClient.h"
+
+using namespace mi;
+using namespace stclient;
+
+static const char
+	STMOVIE_MAGIC_ID[6] = {
+		'S','T','M','V',' ',' '},
+	DEPTH_2D_10B6B[16]  = {
+		'd','e','p','t',
+		'h',' ','2','d',
+		' ','1','0','b',
+		'/','6','b',' '};
+
+const int MAX_TOTAL_FRAMES = 30 * 60 * 5; // 5 minute
 
 
-void saveToFile(FILE* fp, const MovieData& movie)
+void saveToFile(File& f, const MovieData& movie)
 {
+	const int TOTAL_FRAMES = movie.frames.size();
+
+	// ファイルヘッダ
 	FileHeader header;
+	memcpy(header.signature, STMOVIE_MAGIC_ID, sizeof(header.signature));
+	memcpy(header.format,    DEPTH_2D_10B6B,   sizeof(header.format));
+	header.ver_major = 1;
+	header.ver_minor = 0;
+	header.total_frames = TOTAL_FRAMES;
+	header.total_msec   = TOTAL_FRAMES * 1000 / 30;
+	f.write(header);
 
-	header.signature[0] = 's';
-	header.signature[1] = 't';
-	header.signature[2] = 'm';
-	header.signature[3] = ' ';
-	header.compress[0] = 'z';
-	header.compress[1] = 'i';
-	header.compress[2] = 'p';
-	header.compress[3] = ' ';
-	header.graphic[0] = 'd';
-	header.graphic[1] = 'p';
-	header.graphic[2] = 't';
-	header.graphic[3] = 'h';
-#if 0
-	header.total_frames = movie.recorded_tail;
+	// メタ情報
+	f.write(movie.cam1);
+	f.write(movie.cam2);
+	f.write(movie.dot_size);
+	f.write(movie.player_color);
 
-	fwrite(&header, sizeof(header), 1, fp);
-	for (size_t i=0; i<movie.recorded_tail; ++i)
+	// フレーム情報
+	printf("Save %d frames.\n", TOTAL_FRAMES);
+	for (int i=0; i<TOTAL_FRAMES; ++i)
 	{
-		const auto& frame = movie.frames[i];
-		uint32 frame_size = (uint32)frame.size();
-		fwrite(&frame_size, sizeof(frame_size), 1, fp);
-		fwrite(frame.data(), frame_size, 1, fp);
+		// map[i]はnon-constなのでfindする
+		const auto itr = movie.frames.find(i);
+		if (itr==movie.frames.end())
+		{
+			// Paranoia!
+			Msg::ErrorMessage("Error in saveToFile, movie.frames.find(i)");
+			f.put32(0);  // no voxels
+			f.put32(0);  // no bytedata
+			continue;
+		}
+		const auto& frame = itr->second;
+		
+		f.put32(frame.voxel_count);
+		
+		const std::vector<uint8>& bytedata = frame.compressed;
+		f.put32(bytedata.size());
+		f.write(bytedata.data(), bytedata.size());
+		printf("Frame %d/%d: %d bytes\n", 1+i, TOTAL_FRAMES, bytedata.size());
 	}
-#endif
-	puts("未実装です");
 
-	// for human
-	fputs("//END", fp);
+	// eof mark
+	f.write("[EOF]");
 }
 
-bool checkMagic(const unsigned __int8* data, const char* str)
+template<typename T>
+bool checkMagic(const T& field, const char* str)
 {
-	return
-		data[0]==str[0] &&
-		data[1]==str[1] &&
-		data[2]==str[2] &&
-		data[3]==str[3];
+	return memcmp(&field, str, sizeof(field))==0;
 }
 
-bool loadFromFile(FILE* fp, MovieData& movie)
+static void load_ver1_0(File& f, const FileHeader& header, MovieData& movie)
 {
-	FileHeader header;
-	fread(&header, sizeof(header), 1, fp);
+	// メタ情報
+	f.read(movie.cam1);
+	f.read(movie.cam2);
+	f.read(movie.dot_size);
+	f.read(movie.player_color);
 
-	if (!checkMagic(header.signature, "stm "))
+	printf("Total frames: %d\n", header.total_frames);
+
+	for (uint32 i=0; i<header.total_frames; ++i)
 	{
-		fprintf(stderr, "File is not STM format.\n");
+		MovieData::Frame& frame = movie.frames[i];
+
+		frame.voxel_count = f.get32();
+
+		uint32 bytedata_size = f.get32();
+		printf("Frame %d/%d, %d voxels, %d bytes (%08X)\n",
+			i,
+			header.total_frames,
+			frame.voxel_count,
+			bytedata_size,
+			bytedata_size);
+		frame.compressed.resize(bytedata_size);
+		f.read(frame.compressed.data(), bytedata_size);
+	}
+}
+
+
+bool MovieData::load(const string& id)
+{
+	string name = GameInfo::GetFolderName(id) + id + ".stmov";
+	File f;
+	if (!f.open(name.c_str()))
+	{
+		Msg::ErrorMessage("Cannot open file", name);
 		return false;
 	}
-	if (!checkMagic(header.compress, "zip "))
+
+	FileHeader header;
+	f.read(header);
+
+	if (!checkMagic(header.signature, STMOVIE_MAGIC_ID))
 	{
-		fprintf(stderr, "Unsupport compress format.\n");
+		fprintf(stderr, "File is not ST-Movie format.\n");
 		return false;
 	}
-	if (!checkMagic(header.graphic, "dpth"))
+	if (!checkMagic(header.format, DEPTH_2D_10B6B))
 	{
-		fprintf(stderr, "Unsupport graphic format.\n");
+		fprintf(stderr, "Unsupport format.\n");
 		return false;
 	}
-	if (header.total_frames<=0 || header.total_frames>=30*60*5)
+	if (header.total_frames<=0 || header.total_frames>=MAX_TOTAL_FRAMES)
 	{
 		fprintf(stderr, "Invalid total frames.\n");
 		return false;
 	}
 
-#if 0
-	movie.recorded_tail = header.total_frames;
-	printf("Total %d frames\n", header.total_frames);
-
-	movie.frames.clear();
-	movie.frames.resize(header.total_frames);
-	for (int i=0; i<header.total_frames; ++i)
+	if (header.ver_major==1 && header.ver_minor==0)
 	{
-		auto& frame = movie.frames[i];
-		unsigned __int32 frame_size;
-		fread(&frame_size, sizeof(frame_size), 1, fp);
-
-		frame.resize(frame_size);
-		fread(frame.data(), frame_size, 1, fp);
+		load_ver1_0(f, header, *this);
 	}
-#endif
-	puts("未実装です");
+	else
+	{
+		fprintf(stderr, "Unsupport movie version: stmovie ver %d.%d.\n",
+			header.ver_major,
+			header.ver_minor);
+		return false;
+	}
 
 	return true;
 }

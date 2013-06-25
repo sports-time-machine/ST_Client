@@ -21,7 +21,7 @@ void Lib::splitByChars(const std::string& rawstring, const char* chars, std::vec
 
 	while (*src!='\0')
 	{
-		if (strchr(chars,*src)==nullptr)
+		if (strchr(chars,*src)!=nullptr)
 		{
 			++src;
 			continue;

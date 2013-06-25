@@ -47,13 +47,30 @@ void StClient::display3dSection()
 	}
 
 
-#if 1
 	{
 		static Dots dots;
 		DrawVoxels(dots);
 		CreateAtari(dots);
 	}
-#endif
+
+	// パートナー1
+	{
+		auto& mov = global.gameinfo.partner1;
+		if (global.frame_index < (int)mov.frames.size())
+		{
+			static Dots dots;
+			dots.init();
+			static RawDepthImage depth1, depth2;
+			Depth10b6b::playback(depth1, depth2, mov.frames[global.frame_index]);
+			MixDepth(dots, depth1, mov.cam1);
+			MixDepth(dots, depth2, mov.cam2);
+			drawVoxels(dots,
+				global_config.color.movie1,	
+				glRGBA(50,50,50),
+				DRAW_VOXELS_HALF);
+		}
+	}
+
 
 	if (global.clientStatus()==STATUS_REPLAY)
 	{
@@ -322,6 +339,7 @@ void StClient::displayDebugInfo()
 	{
 		x = 20;
 		h1("Camera A:");
+		(active_camera==CAM_A) ? em() : text();
 		pr(monospace, x, y+=H, "pos x = %9.5f", cal_cam1.curr.x);
 		pr(monospace, x, y+=H, "pos y = %9.5f", cal_cam1.curr.y);
 		pr(monospace, x, y+=H, "pos z = %9.5f", cal_cam1.curr.z);
@@ -350,6 +368,7 @@ void StClient::displayDebugInfo()
 	{
 		x = 20;
 		h1("Camera B:");
+		(active_camera==CAM_B) ? em() : text();
 		pr(monospace, x, y+=H, "pos x = %9.5f", cal_cam2.curr.x);
 		pr(monospace, x, y+=H, "pos y = %9.5f", cal_cam2.curr.y);
 		pr(monospace, x, y+=H, "pos z = %9.5f", cal_cam2.curr.z);
@@ -360,9 +379,12 @@ void StClient::displayDebugInfo()
 		nl();
 	}
 
+	text();
 	pr(monospace, 20, y+=H,
-		"#%d [hit-id:%d][%s] [%s] [fl=%d] (%.5f,%.5f)",
+		"#%d [frame-index:%d](%s)[hit-id:%d][%s] [%s] [fl=%d] (%.5f,%.5f)",
 			config.client_number,
+			global.frame_index,
+			global.frame_auto_increment ? "auto" : "-",
 			global.hit_stage,
 			global.hit_objects.size() ? global.hit_objects[0].text.c_str() : "-",
 			eye.fast_set ? "fast" : "slow",
@@ -394,13 +416,15 @@ void StClient::displayDebugInfo()
 	
 	dt(); pr(monospace, x, y+=H, " Atari        %6.2f", time_profile.atari);
 	
-	dt(); pr(monospace, x, y+=H, " Recording    %6.2f [%d]", time_profile.record.total, global.gameinfo.movie.total_frames);
-	dd(); pr(monospace, x, y+=H, "  enc_stage1  %6.2f", time_profile.record.enc_stage1);
-	dd(); pr(monospace, x, y+=H, "  enc_stage2  %6.2f", time_profile.record.enc_stage2);
-	dd(); pr(monospace, x, y+=H, "  enc_stage3  %6.2f", time_profile.record.enc_stage3);
+	const bool REC = recordingNow();
+	REC?em():dt(); pr(monospace, x, y+=H, " Recording    %6.2f [%d]", time_profile.record.total, global.gameinfo.movie.total_frames);
+	REC?em():dd(); pr(monospace, x, y+=H, "  enc_stage1  %6.2f", time_profile.record.enc_stage1);
+	REC?em():dd(); pr(monospace, x, y+=H, "  enc_stage2  %6.2f", time_profile.record.enc_stage2);
+	REC?em():dd(); pr(monospace, x, y+=H, "  enc_stage3  %6.2f", time_profile.record.enc_stage3);
 
-	dt(); pr(monospace, x, y+=H, " Playback     %6.2f [%d]", time_profile.playback.total, global.frame_index);
-	dd(); pr(monospace, x, y+=H, "  dec_stage1  %6.2f", time_profile.playback.dec_stage1);
-	dd(); pr(monospace, x, y+=H, "  dec_stage2  %6.2f", time_profile.playback.dec_stage2);
-	dd(); pr(monospace, x, y+=H, "  draw        %6.2f", time_profile.playback.draw);
+	const bool PLAY = replayingNow();
+	PLAY?em():dt(); pr(monospace, x, y+=H, " Playback     %6.2f [%d]", time_profile.playback.total, global.frame_index);
+	PLAY?em():dd(); pr(monospace, x, y+=H, "  dec_stage1  %6.2f", time_profile.playback.dec_stage1);
+	PLAY?em():dd(); pr(monospace, x, y+=H, "  dec_stage2  %6.2f", time_profile.playback.dec_stage2);
+	PLAY?em():dd(); pr(monospace, x, y+=H, "  draw        %6.2f", time_profile.playback.draw);
 }

@@ -33,7 +33,7 @@ public:
 	static void pushColor(int color);
 	static void popColor();
 	static void printf(int color, const char* f, ...);
-	static void puts(int color, const char* s);
+	static void puts(int color, const std::string& s);
 	static void nl();
 };
 

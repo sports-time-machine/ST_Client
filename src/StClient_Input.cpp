@@ -70,6 +70,8 @@ void StClient::processKeyInput_BothMode(const bool* down)
 
 void StClient::processKeyInput_RunMode(const bool* down)
 {
+	(void)down;
+
 	if (global_config.auto_snapshot_interval>0)
 	{
 		static int frame_count;
@@ -224,11 +226,34 @@ void StClient::processKeyInput()
 		}
 		break;
 #endif
-	case SK_CTRL + VK_F1:
-		recordingStart();
+	case SK_CTRL + 'S'://Ctrl+S
+		if (!recordingNow())
+		{
+			global.frame_auto_increment = true;
+			global.frame_index = 0;
+			recordingStart();
+		}
+		else
+		{
+			global.frame_auto_increment = false;
+			global.frame_index = 0;
+			recordingStop();
+		}
 		break;
-	case SK_CTRL + VK_F2:
+	case SK_CTRL + 'R'://Ctrl+R
+		global.frame_auto_increment = true;
+		global.frame_index = 0;
 		recordingReplay();
+		break;
+	case SK_CTRL + 'L'://Ctrl+L
+		global.frame_auto_increment = false;
+		global.frame_index = 0;
+		global.gameinfo.partner1.load("0000054321");
+		break;
+
+	case 'J':
+		global.gameinfo.movie.run_id = "0000054321";
+		global.gameinfo.save();
 		break;
 
 	case VK_F9:

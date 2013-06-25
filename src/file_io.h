@@ -68,25 +68,56 @@ struct CamParam
 
 struct FileHeader
 {
-	unsigned __int8
-		signature[4],  // "stm "
-		compress[4],   // "zip "
-		graphic[4];    // "dpth"
-	int total_frames;
+	unsigned char        // "1234567890123456"
+		signature[6];    // "STMV  "
+	uint8  ver_major;
+	uint8  ver_minor;
+	uint32 total_frames;
+	uint32 total_msec;
+	//----16bytes---
+	unsigned char
+		format[16];      // "depth 2d 10b/6b "
+	//----16bytes---
+};
+
+enum StColor
+{
+	STCOLOR_RED,
+	STCOLOR_GREEN,
+	STCOLOR_BLUE,
+	STCOLOR_ORANGE,
+	STCOLOR_LIME,
+	STCOLOR_AQUA,
+	STCOLOR_PINK,
+	STCOLOR_VIOLET,
+	STCOLOR_WHITE,
+	STCOLOR_BLACK,
 };
 
 struct MovieData
 {
+	typedef std::string string;
+
+	static const char* non_id()
+	{
+		return "NON-ID";
+	}
+
 	struct Frame
 	{
 		int voxel_count;
 		std::vector<uint8> compressed;
 	};
 
-	CamParam cam1;
-	CamParam cam2;
-	int total_frames;
-	std::map<int,Frame> frames;
+	typedef std::map<int,Frame> Frames;
+
+	string    run_id;
+	float     dot_size;
+	StColor   player_color;
+	CamParam  cam1;
+	CamParam  cam2;
+	int       total_frames;
+	Frames    frames;
 
 	MovieData()
 	{
@@ -95,10 +126,16 @@ struct MovieData
 
 	void clear()
 	{
-		total_frames = 0;
 		frames.clear();
+		total_frames = 0;
+		run_id       = non_id();
+		dot_size     = 1.0f;
+		player_color = STCOLOR_WHITE;
 	}
+
+	void save();
+	bool load(const string& id);
 };
 
-extern void saveToFile(FILE* fp, const MovieData& movie);
-extern bool loadFromFile(FILE* fp, MovieData& movie);
+extern void saveToFile(mi::File& f, const MovieData& movie);
+extern bool loadFromFile(mi::File& f, MovieData& movie);

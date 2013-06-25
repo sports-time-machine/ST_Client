@@ -40,17 +40,17 @@ GlobalConfig::GlobalConfig()
 
 Config::Config()
 {
-	client_number = -1;
-	initial_window_x = 50;
-	initial_window_y = 50;
+	client_number      = -1;
+	initial_window_x   = 50;
+	initial_window_y   = 50;
 	initial_fullscreen = false;
-	mirroring = false;
-	hit_threshold = 10;
-	
-	metrics.ground_px = 480;
-	metrics.left_mm   = 0;
-	metrics.right_mm  = 4000;
-	metrics.top_mm    = 2500;
+	mirroring          = false;
+	hit_threshold      = 10;
+	ignore_udp         = false;
+	metrics.ground_px  = 480;
+	metrics.left_mm    = 0;
+	metrics.right_mm   = 4000;
+	metrics.top_mm     = 2500;
 }
 
 
@@ -175,6 +175,7 @@ void load_config()
 	CONFIG_INT(config, person_inc);
 	CONFIG_INT(config, movie_inc);
 	CONFIG_INT(config, hit_threshold);
+	CONFIG_BOOL(config, ignore_udp);
 	set_camera_param(config.cam1, "camera1");
 	set_camera_param(config.cam2, "camera2");
 
@@ -330,11 +331,6 @@ static void init_kinect(const char* uri, Kdev& k)
 
 int main()
 {
-	mi::Folder::createFolder("C:/ST/Movie/8/7/6/5/4/3/2/1/");
-
-
-
-
 	mi::Console::setTitle("スポーツタイムマシン コンソール");
 
 	load_config();

@@ -93,8 +93,10 @@ void Depth10b6b::record(const RawDepthImage& depth1, const RawDepthImage& depth2
 
 void Depth10b6b::playback(RawDepthImage& dest1, RawDepthImage& dest2, const MovieData::Frame& frame)
 {
-#define CHECK 1
+#define CHECK 0
+#if CHECK
 	int dest_index_save[2] = {};
+#endif
 
 	mi::Timer tm(&time_profile.playback.total);
 	{
@@ -139,7 +141,7 @@ void Depth10b6b::playback(RawDepthImage& dest1, RawDepthImage& dest2, const Movi
 	}
 
 #if CHECK
-	printf("<REC> [dev1=%d][dev2=%d][src=%d]\r",
+	printf("<PLAY> [dev1=%d][dev2=%d][src=%d]\r",
 		dest_index_save[0],
 		dest_index_save[1],
 		frame.compressed.size());

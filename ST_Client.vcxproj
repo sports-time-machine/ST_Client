@@ -21,7 +21,7 @@
   <ItemGroup>
     <ClCompile Include="src\depth.cpp" />
     <ClCompile Include="src\Depth10b6b.cpp" />
-    <ClCompile Include="src\eye.cpp" />
+    <ClCompile Include="src\StClient_Eye.cpp" />
     <ClCompile Include="src\file_io.cpp" />
     <ClCompile Include="src\FreeType.cpp" />
     <ClCompile Include="src\gl.cpp" />

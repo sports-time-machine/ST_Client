@@ -23,6 +23,8 @@ const int MAX_TOTAL_SECOND  = 50;
 const int MAX_TOTAL_FRAMES  = MAX_TOTAL_SECOND * FRAMES_PER_SECOND;
 
 
+#define MOVIE_ROOT_FOLDER    "C:/ST/Movie/"
+
 
 
 
@@ -61,6 +63,17 @@ const int MOVIE_MAX_FRAMES = MOVIE_MAX_SECS * MOVIE_FPS;
 
 
 
+static void _Msg(int color, const string& s, const string& param)
+{
+	Console::printf(color, "%s - %s\n", s.c_str(), param.c_str());
+}
+
+void Msg::Notice       (const string& s)                       { Console::puts(CON_CYAN,  s); }
+void Msg::SystemMessage(const string& s)                       { Console::puts(CON_GREEN, s); }
+void Msg::ErrorMessage (const string& s)                       { Console::puts(CON_RED,   s); }
+void Msg::Notice       (const string& s, const string& param)  { _Msg(CON_CYAN,  s, param); }
+void Msg::SystemMessage(const string& s, const string& param)  { _Msg(CON_GREEN, s, param); }
+void Msg::ErrorMessage (const string& s, const string& param)  { _Msg(CON_RED,   s, param); }
 
 
 
@@ -115,7 +128,7 @@ StClient::~StClient()
 
 bool StClient::init()
 {
-	Console::puts(CON_GREEN, "Init StClient");
+	Msg::SystemMessage("Init StClient");
 
 #if 0//#
 	if (global_config.enable_kinect)
@@ -154,7 +167,7 @@ bool StClient::init()
 
 	reloadResources();
 
-	Console::puts(CON_GREEN, "Init done!");
+	Msg::SystemMessage("Init done!");
 	Console::nl();
 
 	return true;
@@ -174,20 +187,33 @@ static void window_resized(int width, int height)
 	glViewport(0, 0, width, height);
 }
 
+bool StClient::recordingNow() const
+{
+	return global.clientStatus()==STATUS_GAME;
+}
+
+bool StClient::replayingNow() const
+{
+	return global.clientStatus()==STATUS_REPLAY;
+}
+
 void StClient::recordingStart()
 {
+	Msg::SystemMessage("Recording start!");
 	global.setStatus(STATUS_GAME);
+	global.gameinfo.movie.clear();
 }
 
 void StClient::recordingStop()
 {
+	Msg::SystemMessage("Recording stop!");
 	global.setStatus(STATUS_READY);
 }
 
 void StClient::recordingReplay()
 {
+	Msg::SystemMessage("Replay!");
 	global.setStatus(STATUS_REPLAY);
-	global.frame_index = 0;
 }
 
 
@@ -253,10 +279,19 @@ void StClient::processOneFrame()
 	}
 
 	glfwSwapBuffers();
+
+	// デバッグ用のフレームオートインクリメント
+	if (global.frame_auto_increment)
+	{
+		++global.frame_index;
+	}
 }
 
-void StClient::initHitObjects()
+void StClient::initGameInfo()
 {
+	startMovieRecordSettings();
+	global.gameinfo.init();
+
 	// 最初の当たり判定を作る
 	const int FIRST_HIT_NUMBER = 0;
 	global.hit_stage = FIRST_HIT_NUMBER;
@@ -472,7 +507,7 @@ void StClient::drawWall()
 }
 
 
-void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam)
+void stclient::MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam)
 {
 	const mat4x4 trans = mat4x4::create(
 			cam.rotx, cam.roty, cam.rotz,
@@ -512,14 +547,7 @@ void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam)
 	}
 }
 
-enum DrawVoxelsStyle
-{
-	DRAW_VOXELS_NORMAL = 0,
-	DRAW_VOXELS_HALF = 1,
-	DRAW_VOXELS_QUAD = 2,
-};
-
-void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style = DRAW_VOXELS_NORMAL, float add_z=0.0f)
+void stclient::drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style, float add_z)
 {
 	// @voxel @dot
 	if (style & DRAW_VOXELS_QUAD)
@@ -589,7 +617,7 @@ void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVo
 void GameInfo::init()
 {
 	player_id = "NO-ID";
-	self.clear();
+	movie.clear();
 	partner1.clear();
 	partner2.clear();
 	partner3.clear();
@@ -648,7 +676,7 @@ void StClient::DrawVoxels(Dots& dots)
 {
 	const glRGBA color_cam1(80,190,250);
 	const glRGBA color_cam2(250,190,80);
-	const glRGBA color_other(120,120,120);
+	const glRGBA color_other(170,170,170);
 	const glRGBA color_outer(120,130,200);
 	
 	CamParam cam1 = cal_cam1.curr;
@@ -827,29 +855,83 @@ void StClient::MovieRecord()
 
 
 
-void StClient::saveAgent(int slot)
+string GameInfo::GetFolderName(const string& id)
 {
-	printf("Save to file slot %d...", slot);
+	string folder = MOVIE_ROOT_FOLDER;
 
-	char buf[100];
-	sprintf_s(buf, "file%d", slot);
-	FILE* fp = fopen(buf, "wb");
-	if (fp==nullptr)
+	// 逆順で追加
+	// 0000012345 => '5/4/3/2/1/0/0/0/0/0/'
+	const size_t LEN = id.size();	
+	for (size_t i=0; i<LEN; ++i)
 	{
-
-		puts("invalid!!");
+		folder += id[LEN-1-i];
+		folder += '/';
 	}
-	else
-	{
-		saveToFile(fp, global.gameinfo.movie);
-		fclose(fp);
-		puts("done!");
-	}	
+
+	return folder;
 }
 
-void StClient::loadAgent(int slot)
+void GameInfo::save_Movie(const string& basename)
 {
-	printf("Load from file slot %d...", slot);
+	string path = basename + ".stmov";
+
+	File f;
+	if (!f.openForWrite(path.c_str()))
+	{
+		Console::printf(CON_RED, "Cannot open file '%s'\n", path.c_str());
+		return;
+	}
+	
+	saveToFile(f, global.gameinfo.movie);
+	Msg::Notice("Saved!");
+}
+
+// サムネ保存
+//  - ファイル名: "0000012345-1.jpg"
+void GameInfo::save_Thumbnail(const string& basename, const string& suffix, int)
+{
+	string path = basename + "-" + suffix + ".jpg";
+
+	File f;
+	if (!f.openForWrite(path.c_str()))
+	{
+		Console::printf(CON_RED, "Cannot open file '%s'\n", path.c_str());
+		return;
+	}
+
+}
+
+void GameInfo::save()
+{
+	Msg::SystemMessage("Save to file!");
+	printf("Game-ID: %s\n", movie.run_id.c_str());
+
+	// Folder name: ${BaseFolder}/A/B/C/
+	string folder = GetFolderName(movie.run_id);
+	mi::Folder::createFolder(folder.c_str());
+	printf("Folder: %s\n", folder.c_str());
+
+	// Base name: ${BaseFolder}/A/B/C/cba
+	string basename = folder + movie.run_id;
+
+	// Save Movie
+	save_Movie(basename);
+
+	// Save Thumbnail
+	save_Thumbnail(basename,"1",0);
+	save_Thumbnail(basename,"2",0);
+	save_Thumbnail(basename,"3",0);
+	save_Thumbnail(basename,"4",0);
+	save_Thumbnail(basename,"5",0);
+	save_Thumbnail(basename,"6",0);
+}
+
+#if 0
+void StClient::load()
+{
+	Msg::SystemMessage("Load from file!");
+	printf("Game-ID: %s\n", movie.run_id.c_str());
+
 	char buf[100];
 	sprintf_s(buf, "file%d", slot);
 	FILE* fp = fopen(buf, "rb");
@@ -870,7 +952,7 @@ void StClient::loadAgent(int slot)
 		}
 	}
 }
-
+#endif
 
 static void CreateDummyDepth(RawDepthImage& depth)
 {
