@@ -95,7 +95,7 @@ void StClient::processKeyInput_CalibrateMode(const bool* down)
 
 	if (key_left || key_right || key_up || key_down)
 	{
-		const float U = shift ? 0.001 : 0.01;
+		const float U = shift ? 0.004 : 0.001;
 		const float mx =
 				(key_left  ? -U : 0.0f) +
 				(key_right ? +U : 0.0f);
@@ -328,8 +328,8 @@ void StClient::processMouseInput_aux()
 			cal_cam2.prev = cal_cam2.curr;
 		}
 
-		const float mx = (mouse.diff.x) * 0.01f * (shift ? 0.1f : 1.0f);
-		const float my = (mouse.diff.y) * 0.01f * (shift ? 0.1f : 1.0f);
+		const float mx = (mouse.diff.x) * 0.01f * (shift ? 0.4f : 0.1f);
+		const float my = (mouse.diff.y) * 0.01f * (shift ? 0.4f : 0.1f);
 		do_calibration(mx, my);
 	}
 

@@ -246,9 +246,7 @@ void CreateHitWall(float meter, int id, const char* text)
 void StClient::processOneFrame()
 {
 	// フレーム開始時にUDPコマンドの処理をする
-	while (doCommand())
-	{
-	}
+	this->processUdpCommands();
 
 	// カメラ移動の適用
 	eye.updateCameraMove();
@@ -748,8 +746,9 @@ void StClient::DrawVoxels(Dots& dots)
 			avg_y = 0.0f;
 			avg_z = 0.0f;
 		}
-		global.person_center_x = avg_x;
-		global.person_center_y = avg_y;
+		global.person_center.x = avg_x;
+		global.person_center.y = avg_y;
+		global.person_center.z = avg_z;
 		
 		{
 			Timer tm(&time_profile.drawing.drawvoxels);
@@ -782,8 +781,8 @@ void StClient::DrawVoxels(Dots& dots)
 void StClient::CreateAtariFromBodyCenter()
 {
 	// 体幹アタリ
-	int body_x = (-GROUND_LEFT  + global.person_center_x * 1.15f) / GROUND_WIDTH  * HitData::CEL_W;
-	int body_y = (GROUND_HEIGHT - global.person_center_y        ) / GROUND_HEIGHT * HitData::CEL_H;
+	int body_x = (-GROUND_LEFT  + global.person_center.x * 1.15f) / GROUND_WIDTH  * HitData::CEL_W;
+	int body_y = (GROUND_HEIGHT - global.person_center.y        ) / GROUND_HEIGHT * HitData::CEL_H;
 
 	body_x = minmax(body_x, 0, HitData::CEL_W);
 	body_y = minmax(body_y, 0, HitData::CEL_H);
@@ -1016,16 +1015,16 @@ static void change_cal_param(Calset& set, float mx, float my, const ChangeCalPar
 
 	if (keys.scale)
 	{
-		curr.scale = prev.scale - mx + my;
+		curr.scale = prev.scale - 0.2*(mx + my);
 	}
 	else if (keys.rot_xy)
 	{
-		curr.rotx = prev.rotx + my;
-		curr.roty = prev.roty + mx;
+		curr.rotx = prev.rotx + 0.2*my;
+		curr.roty = prev.roty + 0.2*mx;
 	}
 	else if (keys.rot_z)
 	{
-		curr.rotz = prev.rotz - mx + my;
+		curr.rotz = prev.rotz - 0.2*(mx + my);
 	}
 	else
 	{

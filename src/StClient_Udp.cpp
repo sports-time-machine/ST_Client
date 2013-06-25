@@ -259,6 +259,7 @@ static void SetFileNameFromGameId(string& dest, const char* s)
 
 
 // IDENT <player> <game>
+// IDENT命令の前にさまざまなパラメーターがおくられている予定
 void Command::ident(Args& arg)
 {
 	arg_check(arg, 2);
@@ -545,28 +546,29 @@ bool Command::command(const string& line)
 	return false;
 }
 
-bool StClient::doCommand()
+void StClient::processUdpCommands()
 {
-	string rawstring;
-	if (udp_recv.receive(rawstring)<=0)
+	for (;;)
 	{
-		return false;
-	}
+		string rawstring;
+		if (udp_recv.receive(rawstring)<=0)
+		{
+			break;
+		}
 
-	std::vector<string> lines;
-	Lib::splitStringToLines(rawstring, lines);
-
-	for (size_t i=0; i<lines.size(); ++i)
-	{
 		if (config.ignore_udp)
 		{
-			Msg::Notice("UDP処理を無視します", lines[0].c_str());
+			// ignore udp command
+			continue;
 		}
-		else
+		
+		// Process commands
+		std::vector<string> lines;
+		Lib::splitStringToLines(rawstring, lines);
+		for (size_t i=0; i<lines.size(); ++i)
 		{
 			Command cmd(this, udp_send);
 			cmd.command(lines[i]);
 		}
 	}
-	return true;
 }

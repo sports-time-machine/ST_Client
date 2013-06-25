@@ -345,8 +345,7 @@ struct Global
 	mi::Image    background_image;
 	mi::Image    dot_image;
 	mi::File     save_file;
-	float        person_center_x;
-	float        person_center_y;
+	Point3D      person_center;
 	int          frame_index;
 	bool         frame_auto_increment;
 	ClientStatus _client_status;
@@ -503,6 +502,9 @@ private:
 	void processKeyInput_RunMode(const bool* down);
 	void processMouseInput();
 	void processMouseInput_aux();
+	void processUdpCommands();
+
+	void drawPartner(MovieData& mov);
 
 	void displayBlackScreen();
 	void displayPictureScreen();
@@ -514,9 +516,6 @@ private:
 	bool replayingNow() const;
 
 	void createSnapshot();
-
-	bool doCommand();
-	bool doCommand2(const std::string& line);
 
 	void BuildDepthImage(uint8* dest);
 	void do_calibration(float mx, float my);

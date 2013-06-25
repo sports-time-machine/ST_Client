@@ -34,6 +34,35 @@ void StClient::display3dSectionPrepare()
 	gl::LoadIdentity();
 }
 
+
+// 人物の中心とみなしている点の描画
+static void DrawCenterOfPerson()
+{
+	glRGBA(255,0,0)();
+	gl::DrawSphere(
+		global.person_center.x,
+		global.person_center.y,
+		global.person_center.z,
+		0.25f);
+}
+
+void StClient::drawPartner(MovieData& mov)
+{
+	if (global.frame_index < (int)mov.frames.size())
+	{
+		static Dots dots;
+		dots.init();
+		static RawDepthImage depth1, depth2;
+		Depth10b6b::playback(depth1, depth2, mov.frames[global.frame_index]);
+		MixDepth(dots, depth1, mov.cam1);
+		MixDepth(dots, depth2, mov.cam2);
+		drawVoxels(dots,
+			global_config.color.movie1,	
+			glRGBA(50,50,50),
+			DRAW_VOXELS_HALF);
+	}
+}
+
 //========================
 // 3D描画メイン
 //========================
@@ -47,93 +76,40 @@ void StClient::display3dSection()
 	}
 
 
+	// 　　　　　　 START REPLAY OTHER
+	// 実映像　       X    ---     X     リプレイ以外表示
+	// 動画リプレイ  ---    X     --- 
+	// 並走表示　　   X     X     ---    スタートとリプレイ
+	const auto st = global.clientStatus();
+	const bool recording      = (st==STATUS_GAME);
+	const bool show_realmovie = (st!=STATUS_REPLAY);
+	const bool show_replay    = (st==STATUS_REPLAY);
+	const bool show_partner   = (st==STATUS_GAME || st==STATUS_REPLAY);
+
+	// 実映像の表示
+	if (show_realmovie)
 	{
 		static Dots dots;
 		DrawVoxels(dots);
 		CreateAtari(dots);
+		DrawCenterOfPerson();
 	}
 
-	// パートナー1
+	// 並走者
+	if (show_partner)
 	{
-		auto& mov = global.gameinfo.partner1;
-		if (global.frame_index < (int)mov.frames.size())
-		{
-			static Dots dots;
-			dots.init();
-			static RawDepthImage depth1, depth2;
-			Depth10b6b::playback(depth1, depth2, mov.frames[global.frame_index]);
-			MixDepth(dots, depth1, mov.cam1);
-			MixDepth(dots, depth2, mov.cam2);
-			drawVoxels(dots,
-				global_config.color.movie1,	
-				glRGBA(50,50,50),
-				DRAW_VOXELS_HALF);
-		}
+		this->drawPartner(global.gameinfo.partner1);
 	}
 
-
-	if (global.clientStatus()==STATUS_REPLAY)
+	if (show_replay)
 	{
 		MoviePlayback();
 	}
 
-
-
-#if 0
-	// 記録と即時再生のテスト
-	{
-		Dots dots;
-		dots.init();
-		MovieData::Frame f;
-		VoxelRecorder::record(dots, f);
-		
-		dots.init();
-		VoxelRecorder::playback(dots, f);
-		drawVoxels(dots, glRGBA(200,240,255), glRGBA(200,70,30),
-			DRAW_VOXELS_NORMAL);
-//			DRAW_VOXELS_HALF_AND_QUAD);
-	}
-#endif
-
-
-	// 記録と即時再生のテスト
-#if 0
-	{
-		MovieData::Frame f;
-		Depth10b6b::record(dev1.raw_depth, dev2.raw_depth, f);
-		Depth10b6b::playback(dev1.raw_depth, dev2.raw_depth, f);
-
-		{
-			CamParam cam = cal_cam1.curr;
-			cam.scale = 2.0f;
-
-
-			Dots dots;
-			dots.init();
-			dots.push(Point3D( 0, 0, 0));
-			dots.push(Point3D(-1, 0, 0));
-			dots.push(Point3D(-2, 0, 0));
-
-			MixDepth(dots, dev1.raw_depth, cam);
-			MixDepth(dots, dev2.raw_depth, cam);
-			//drawVoxels(dots, glRGBA(200,240,255), glRGBA(200,70,30));
-			drawVoxels(dots, glRGBA(255,255,255), glRGBA(200,70,30));
-		}
-	}
-#endif
-
-	if (global.clientStatus()==STATUS_GAME)
+	if (recording)
 	{
 		MovieRecord();
 	}
-
-
-	glRGBA(255,0,0)();
-	gl::DrawSphere(
-		global.person_center_x,
-		global.person_center_y,
-		0.0f,
-		0.25f);
 }
 
 //========================
@@ -389,8 +365,8 @@ void StClient::displayDebugInfo()
 			global.hit_objects.size() ? global.hit_objects[0].text.c_str() : "-",
 			eye.fast_set ? "fast" : "slow",
 			flashing,
-			global.person_center_x,
-			global.person_center_y);
+			global.person_center.x,
+			global.person_center.y);
 
 	// @fps
 	pr(monospace, 20, y+=H, "%d, %.2ffps",

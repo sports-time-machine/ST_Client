@@ -3,26 +3,8 @@
 
 using namespace mi;
 
-void Clipboard::setText(const std::string& s)
+static void ClipboardAux(const std::string& s)
 {
-	// クリップボード開きたい
-	int tries = 0;
-	for (;;)
-	{
-		if (OpenClipboard(NULL))
-		{
-			// okay
-			break;
-		}
-		++tries;
-		if (tries>=20)
-		{
-			puts("Can't open clipboard!");;
-			return;
-		}
-		Sleep(1);
-	}
-
 	HGLOBAL mem = ::GlobalAlloc(GMEM_DDESHARE | GMEM_MOVEABLE, s.length()+1);
 	if (mem==NULL)
 	{
@@ -39,9 +21,34 @@ void Clipboard::setText(const std::string& s)
 
 	::lstrcpyA(text, s.c_str());
 	::GlobalUnlock(mem);
-
 	::SetClipboardData(CF_TEXT, text);
+	::GlobalFree(mem);
+}
+
+void Clipboard::setText(const std::string& s)
+{
+	// クリップボード開きたい
+	int tries = 0;
+	for (;;)
+	{
+		if (OpenClipboard(NULL)!=0)
+		{
+			puts("Open clipboard");
+			// okay
+			break;
+		}
+		++tries;
+		if (tries>=20)
+		{
+			puts("Can't open clipboard!");;
+			return;
+		}
+		Sleep(1);
+	}
+
+	::EmptyClipboard();
+	ClipboardAux(s);
 	::CloseClipboard();
 
-	::GlobalFree(mem);
+	puts("Close Clipboard");
 }
