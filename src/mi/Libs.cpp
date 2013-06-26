@@ -9,7 +9,7 @@ VariantType::VariantType(const std::string& s)
 	strvalue = s;
 	char* endptr = nullptr;
 	intvalue = (int)strtol(s.c_str(), &endptr, 0);
-	is_intvalue = intvalue!=0 || (intvalue==0 && strvalue[0]=='0');
+	is_intvalue = (*endptr=='\0');
 }
 
 

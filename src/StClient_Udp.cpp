@@ -106,9 +106,11 @@ static inline void arg_check(Args& arg, size_t min, size_t max)
 		throw INVALID_FORMAT;
 }
 
+// PING <server-addr> <server-port>
 void Command::ping(Args& arg)
 {
-	arg_check(arg, 1);
+//	arg_check(arg, 1);
+	arg_check(arg, 2);
 
 	printf("PING received: server is '%s'\n", arg[0].to_s());
 
