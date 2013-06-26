@@ -58,6 +58,7 @@ private:
 	void ping(Args& arg);
 
 	// ÉÇÅ[ÉhêÿÇËë÷Ç¶
+	void idle(Args& arg);
 	void black(Args& arg);
 	void pict(Args& arg);
 	void ident(Args& arg);
@@ -87,10 +88,21 @@ private:
 	void status(Args& arg);
 	void colorOverlay(Args& arg);
 
+	void changeStatus(ClientStatus status);
+
 private:
 	StClient* client;
 	mi::UdpSender* udp_send;
 };
+
+void Command::changeStatus(ClientStatus status)
+{
+	global.setStatus(status);
+	sendStatus();
+}
+#define setStatus @dont_use@
+
+
 
 
 
@@ -109,8 +121,7 @@ static inline void arg_check(Args& arg, size_t min, size_t max)
 // PING <server-addr> <server-port>
 void Command::ping(Args& arg)
 {
-//	arg_check(arg, 1);
-	arg_check(arg, 2);
+	arg_check(arg, 1);
 
 	printf("PING received: server is '%s'\n", arg[0].to_s());
 
@@ -124,7 +135,7 @@ void Command::ping(Args& arg)
 
 	udp_send->init(arg[0].to_s(), UDP_CLIENT_TO_CONTROLLER);
 	udp_send->send(s);
-	global.setStatus(STATUS_IDLE);
+	changeStatus(STATUS_IDLE);
 }
 
 void Command::mirror(Args& arg)
@@ -188,6 +199,7 @@ static const char* getStatusName(int present=-1)
 	case STATUS_GAME:        return "GAME";
 	case STATUS_REPLAY:      return "REPLAY";
 	case STATUS_SAVING:      return "SAVING";
+	case STATUS_LOADING:     return "LOADING";
 	case STATUS_INIT_FLOOR:  return "INIT-FLOOR";
 	}
 	return "UNKNOWN-STATUS";
@@ -230,18 +242,18 @@ void Command::status(Args& arg)
 {
 	arg_check(arg, 0);
 	sendStatus();
+	Msg::Notice("Current status", getStatusName());
 }
 
 // BEGIN-INIT-FLOOR
 void Command::beginInitFloor(Args& arg)
 {
 	arg_check(arg, 0);
-	status_check(STATUS_IDLE);
+	no_check_status();
 	
 	Msg::SystemMessage("Begin init floor");
 	client->clearFloorDepth();
-	global.setStatus(STATUS_INIT_FLOOR);
-	sendStatus();
+	changeStatus(STATUS_INIT_FLOOR);
 }
 
 // END-INIT-FLOOR
@@ -251,8 +263,7 @@ void Command::endInitFloor(Args& arg)
 	status_check(STATUS_INIT_FLOOR);
 	
 	Msg::SystemMessage("End of init floor");
-	global.setStatus(STATUS_IDLE);
-	sendStatus();
+	changeStatus(STATUS_IDLE);
 }
 
 // COLOR-OVERLAY <r> <g> <b> <a>
@@ -264,24 +275,6 @@ void Command::colorOverlay(Args& arg)
 	const int b = minmax(arg[2].to_i(), 0, 255);
 	const int a = minmax(arg[3].to_i(), 0, 255);
 	global.color_overlay.set(r, g, b, a);
-}
-
-
-// 0123456789 => 9/8/7/6/5/4/3/2/1/0/0123456789
-static void SetFileNameFromGameId(string& dest, const char* s)
-{
-#if 1
-	dest = s;
-#else
-	dest.clear();
-	int length = strlen(s);
-	for (int i=0; i<length; ++i)
-	{
-		dest += s[length-1-i];
-		dest += '/';
-	}
-	dest += s;
-#endif
 }
 
 
@@ -348,7 +341,7 @@ static string normalize(char prefix, const string& untaint, int length)
 void Command::ident(Args& arg)
 {
 	arg_check(arg, 2);
-	status_check(STATUS_IDLE);
+	no_check_status();
 
 	// IDÇÃê≥ãKâª
 	string player_id = normalize('P', arg[0].to_s(),  8);
@@ -369,41 +362,49 @@ void Command::ident(Args& arg)
 	printf("PLAYER:%s, GAME:%s\n",
 		player_id.c_str(),
 		game_id.c_str());
-	
-	string filename;
-	SetFileNameFromGameId(filename, game_id.c_str());
+
+	// folder: ${BaseFolder}/D/C/B/A/0/0/0/0/
+	string folder = GameInfo::GetFolderName(game_id);
+
+	// basename: ${BaseFolder}/D/C/B/A/0/0/0/0/0000ABCD.stmov
+	global.gameinfo.basename = folder + game_id;
+	mi::Folder::createFolder(folder.c_str());
+	printf("Folder: %s\n", folder.c_str());
+
+	// filename
+	string filename = global.gameinfo.basename + ".stmov";
 	if (!global.save_file.openForWrite(filename.c_str()))
 	{
-		puts("Open error (savefile)");
+		Msg::ErrorMessage("Open error (savefile)", filename.c_str());
 		return;
 	}
 
 	printf("Filename %s ok\n", filename.c_str());
 
-	global.setStatus(STATUS_READY);
-	sendStatus();
+	changeStatus(STATUS_READY);
 }
 
 // PARTNER <game>
 void Command::partner(Args& arg)
 {
 	arg_check(arg, 1);
-	status_check(STATUS_READY);
+	status_check(STATUS_IDLE);
 
-	printf("PARTNER:%s\n", arg[0].to_s());
-	
-	string filename;
-	SetFileNameFromGameId(filename, arg[0].to_s());
-	if (!global.save_file.openForWrite(filename.c_str()))
+	const string partner_game = normalize('G', arg[0].to_s(), 10);
+	printf("PARTNER:%s\n", partner_game.c_str());
+
+	changeStatus(STATUS_LOADING);
+
 	{
-		puts("Open error (savefile)");
-		return;
+		Msg::Notice("Loading partner movie", partner_game);
+		mi::File f;
+		if (!global.gameinfo.partner1.load(partner_game))
+		{
+			Msg::ErrorMessage("Cannot open partner movie", partner_game);
+		}
 	}
 
-	printf("Filename %s ok\n", filename.c_str());
-
-	global.setStatus(STATUS_GAME);
-	sendStatus();
+	changeStatus(STATUS_IDLE);
 }
 
 // BACKGROUND <name>
@@ -443,8 +444,7 @@ void Command::start(Args& arg)
 	// ÉQÅ[ÉÄèÓïÒÇÃîjä¸
 	client->initGameInfo();
 
-	global.setStatus(STATUS_GAME);
-	sendStatus();
+	changeStatus(STATUS_GAME);
 }
 
 // STOP
@@ -452,9 +452,7 @@ void Command::stop(Args& arg)
 {
 	arg_check(arg, 0);
 	status_check(STATUS_GAME);
-
-	global.setStatus(STATUS_READY);
-	sendStatus();
+	changeStatus(STATUS_READY);
 }
 
 // REPLAY
@@ -462,7 +460,7 @@ void Command::replay(Args& arg)
 {
 	arg_check(arg, 0);
 	status_check(STATUS_READY);
-	global.setStatus(STATUS_REPLAY);
+	changeStatus(STATUS_REPLAY);
 }
 
 // HIT <int>
@@ -489,7 +487,7 @@ void Command::frame(Args& arg)
 	}
 	else
 	{
-		printf("frame recvd: %d\n", frame);
+		printf("\rframe recvd: %5d", frame);
 		global.frame_index = frame;
 	}
 }
@@ -501,14 +499,12 @@ void Command::save(Args& arg)
 	status_check(STATUS_READY);
 
 	Msg::SystemMessage("Saving...");
-	global.setStatus(STATUS_SAVING);
-	sendStatus();
+	changeStatus(STATUS_SAVING);
 
-	global.gameinfo.save();
+	global.gameinfo.save(global.save_file);
 
 	Msg::SystemMessage("Saved!");
-	global.setStatus(STATUS_READY);
-	sendStatus();
+	changeStatus(STATUS_READY);
 }
 
 // INIT
@@ -517,38 +513,45 @@ void Command::init(Args& arg)
 	arg_check(arg, 0);
 	no_check_status();
 
-	Msg::SystemMessage("Init!");
-	global.setStatus(STATUS_IDLE);
-
 	// ÉQÅ[ÉÄèÓïÒÇÃîjä¸
 	client->initGameInfo();
+
+	Msg::SystemMessage("Init!");
+	changeStatus(STATUS_IDLE);
+}
+
+// IDLE
+void Command::idle(Args& arg)
+{
+	arg_check(arg, 0);
+	no_check_status();
+	changeStatus(STATUS_IDLE);
 }
 
 // BLACK
 void Command::black(Args& arg)
 {
 	arg_check(arg, 0);
-	status_check(STATUS_IDLE);
-	global.setStatus(STATUS_BLACK);
+	no_check_status();
+	changeStatus(STATUS_BLACK);
 }
 
 // PICT <filename>
 void Command::pict(Args& arg)
 {
 	arg_check(arg, 1);
-	status_check(STATUS_IDLE);
-
-	string path;
-	path += "//STMX64/ST/Picture/";
-	path += arg[0].to_s();
-	if (global.pic.createFromImageA(path.c_str()))
+	no_check_status();
+	
+	const int pic_no = arg[0].to_i();
+	
+	if (pic_no<1 || pic_no>MAX_PICT_NUMBER)
 	{
-		global.setStatus(STATUS_PICT);
-		return;
+		printf("Invalid picuture number %s\n", arg[0].to_i());
 	}
 	else
 	{
-		printf("picture load error. %s\n", arg[0].to_s());
+		printf("Picuture number %d\n", pic_no);
+		global.picture_number = pic_no;
 	}
 }
 
@@ -578,24 +581,27 @@ bool Command::command(const string& line)
 	// UI command
 	if (cmd.substr(0,3)=="UI_")
 	{
-		Console::printf(CON_DARKCYAN, "[UI COMMAND] '%s' -- ignore\n", cmd.c_str());
+//#		Console::printf(CON_DARKCYAN, "[UI COMMAND] '%s' -- ignore\n", cmd.c_str());
 		return true;
 	}
 
 
-	Console::printf(CON_CYAN, "Command: %s ", cmd.c_str());
-	for (size_t i=0; i<arg.size(); ++i)
+	if (cmd!="FRAME")
 	{
-		if (arg[i].is_int())
+		Console::printf(CON_CYAN, "Command: %s ", cmd.c_str());
+		for (size_t i=0; i<arg.size(); ++i)
 		{
-			printf("[int:%d]", arg[i].to_i());
+			if (arg[i].is_int())
+			{
+				printf("[int:%d]", arg[i].to_i());
+			}
+			else
+			{
+				printf("[str:%s]", arg[i].to_s());
+			}
 		}
-		else
-		{
-			printf("[str:%s]", arg[i].to_s());
-		}
+		printf("\n");
 	}
-	printf("\n");
 
 	const int argc = arg.size();
 
@@ -608,6 +614,7 @@ bool Command::command(const string& line)
 
 		// ÉÇÅ[ÉhêÿÇËë÷Ç¶
 		COMMAND("PICT",              pict);
+		COMMAND("IDLE",              idle);
 		COMMAND("BLACK",             black);
 		COMMAND("IDENT",             ident);
 		COMMAND("BEGIN-INIT-FLOOR",  beginInitFloor);

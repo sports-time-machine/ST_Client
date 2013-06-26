@@ -98,6 +98,7 @@ public:
 	static void Line3D(vec p1, vec p2);
 	static void Line2D(Point2i p1, Point2i p2);
 	static void DrawSphere(float x, float y, float z, float r);
+	static void DrawSphere(float x, float y, float z, float r, float ra, float rx, float ry, float rz);
 
 private:
 	struct Data

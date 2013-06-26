@@ -47,16 +47,16 @@ public:
 	File(const char* path) : fp(nullptr) { open(path); }
 	~File() { close(); }
 
-	bool open(const char* path)
+	bool open(const std::string& path)
 	{
 		close();
-		return fopen_s(&fp, path, "rb")==0;
+		return fopen_s(&fp, path.c_str(), "rb")==0;
 	}
 
-	bool openForWrite(const char* path)
+	bool openForWrite(const std::string& path)
 	{
 		close();
-		return fopen_s(&fp, path, "wb")==0;
+		return fopen_s(&fp, path.c_str(), "wb")==0;
 	}
 
 	void close()

@@ -57,10 +57,6 @@ const int INITIAL_WIN_SIZE_X = 1024;
 const int INITIAL_WIN_SIZE_Y = 768;
 const int TEXTURE_SIZE = 512;
 
-const int MOVIE_MAX_SECS = 50;
-const int MOVIE_FPS = 30;
-const int MOVIE_MAX_FRAMES = MOVIE_MAX_SECS * MOVIE_FPS;
-
 
 
 static void _Msg(int color, const string& s, const string& param)
@@ -75,6 +71,19 @@ void Msg::Notice       (const string& s, const string& param)  { _Msg(CON_CYAN, 
 void Msg::SystemMessage(const string& s, const string& param)  { _Msg(CON_GREEN, s, param); }
 void Msg::ErrorMessage (const string& s, const string& param)  { _Msg(CON_RED,   s, param); }
 
+
+
+void stclient::myGetKeyboardState(BYTE* kbd)
+{
+	if (glfwGetWindowParam(GLFW_ACTIVE))
+	{
+		GetKeyboardState(kbd);
+	}
+	else
+	{
+		memset(kbd, 0, 256);
+	}
+}
 
 
 
@@ -176,8 +185,15 @@ bool StClient::init()
 void StClient::reloadResources()
 {
 	// @init @image @png @jpg
-	global.background_image.createFromImageA(global_config.background_image.c_str());
-	global.dot_image.createFromImageA("C:/ST/Picture/dot.png");
+#define LOAD_IMAGE(NAME) global.images.NAME.createFromImageA(config.images.NAME)
+	LOAD_IMAGE(idle);
+	LOAD_IMAGE(background);
+	LOAD_IMAGE(sleep);
+	LOAD_IMAGE(dot);
+	for (int i=0; i<MAX_PICT_NUMBER; ++i)
+	{
+		LOAD_IMAGE(pic[i]);
+	}
 }
 
 static void window_resized(int width, int height)
@@ -242,6 +258,18 @@ void CreateHitWall(float meter, int id, const char* text)
 
 
 
+// @gcls
+static void glClearGraphics(int r, int g, int b)
+{
+	glClearColor(
+		r / 255.0f,
+		g / 255.0f,
+		b / 255.0f,
+		1.00f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+
 // 1フレで実行する内容
 void StClient::processOneFrame()
 {
@@ -254,11 +282,48 @@ void StClient::processOneFrame()
 	this->processKeyInput();
 	this->processMouseInput();
 
+	// キネクト情報はつねにもらっておく
 	this->displayEnvironment();
-	
-	if (global.clientStatus()==STATUS_INIT_FLOOR)
+
+	// クライアントステータスによる描画の分岐
+	// VRAMのクリア(glClearGraphics)はそれぞれに行う
+	switch (global.clientStatus())
 	{
+	case STATUS_SLEEP:
+		// 2Dアイドル画像
+		glClearGraphics(255,255,255);
+		this->display2dSectionPrepare();
+		global.images.sleep.draw(0,0,640,480);
+		break;
+
+	case STATUS_BLACK:
+		glClearGraphics(0,0,0);
+		break;
+
+	case STATUS_IDLE:{
+		// 2Dアイドル画像
+		glClearGraphics(255,255,255);
+		this->display2dSectionPrepare();
+		global.images.idle.draw(0,0,640,480);
+
 		// 実映像の表示
+		this->display3dSectionPrepare();
+		this->display3dSection();
+		static Dots dots;
+		DrawVoxels(dots);
+		break;}
+
+	case STATUS_PICT:{
+		// 画像
+		puts("pict");
+		glClearGraphics(255,255,255);
+		this->display2dSectionPrepare();
+		global.images.pic[global.picture_number].draw(0,0,640,480);
+		break;}
+
+	case STATUS_INIT_FLOOR:{
+		// 実映像の表示
+		glClearGraphics(255,255,255);
 		this->display3dSectionPrepare();
 		this->display3dSection();
 		static Dots dots;
@@ -271,13 +336,24 @@ void StClient::processOneFrame()
 		// テキスト
 		this->display2dSectionPrepare();
 		this->display2dSection();
-		auto pr = freetype::print;
 		glRGBA::black();
-		pr(monospace, 100, 100, "Initializing floor image...");
-	}
-	else
-	{
+		freetype::print(monospace, 100, 100, "Initializing floor image...");
+		break;}
+
+	default:
+		glClearGraphics(
+			global_config.color.ground.r,
+			global_config.color.ground.g,
+			global_config.color.ground.b);
 		this->display3dSectionPrepare();
+		{
+			mi::Timer tm(&time_profile.drawing.wall);
+			this->drawWall();
+		}
+		{
+			mi::Timer tm(&time_profile.drawing.grid);
+			this->drawFieldGrid(500);
+		}
 		this->display3dSection();
 		this->display2dSectionPrepare();
 		this->display2dSection();
@@ -291,11 +367,13 @@ void StClient::processOneFrame()
 			glVertex2i(0,480);
 			glEnd();
 		}
-	
-		if (global.show_debug_info)
-		{
-			this->displayDebugInfo();
-		}
+		break;
+	}
+		
+	if (global.show_debug_info)
+	{
+		this->display2dSectionPrepare();
+		this->displayDebugInfo();
 	}
 
 	glfwSwapBuffers();
@@ -403,18 +481,17 @@ void StClient::displayBlackScreen()
 
 void StClient::displayPictureScreen()
 {
-	if (global.pic.enabled())
+	if (global.picture_number>=1 && global.picture_number<=MAX_PICT_NUMBER)
 	{
-		global.pic.draw(0,0, 640,480, 255);
+		mi::Image& img = global.images.pic[global.picture_number-1];
+		img.draw(0,0, 640,480, 255);
 	}
 }
 
-
-
 void ChangeCalParamKeys::init()
 {
-	BYTE kbd[256];
-	GetKeyboardState(kbd);
+	BYTE kbd[256]={};
+	myGetKeyboardState(kbd);
 
 	this->ctrl   = (kbd[VK_CONTROL] & 0x80)!=0;
 	this->rot_xy = (kbd['T'] & 0x80)!=0;
@@ -501,7 +578,7 @@ void StClient::drawFieldGrid(int size_cm)
 
 void StClient::drawWall()
 {
-	auto& img = global.background_image;
+	auto& img = global.images.background;
 
 	// @wall
 	const float Z = global_config.wall_depth;
@@ -573,7 +650,7 @@ void stclient::drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_col
 	if (style & DRAW_VOXELS_QUAD)
 	{
 		gl::Texture(true);
-		glBindTexture(GL_TEXTURE_2D, global.dot_image);
+		glBindTexture(GL_TEXTURE_2D, global.images.dot);
 		glBegin(GL_QUADS);
 	}
 	else
@@ -642,7 +719,6 @@ void GameInfo::init()
 	partner2.clear();
 	partner3.clear();
 	movie.frames.clear();
-	movie.total_frames = 0;
 	movie.cam1 = CamParam();
 	movie.cam2 = CamParam();
 }
@@ -675,13 +751,17 @@ void StClient::MoviePlayback()
 	dots.init();
 
 	// @playback
-	Depth10b6b::playback(dev1.raw_depth, dev2.raw_depth, mov.frames[global.frame_index]);
-	MixDepth(dots, dev1.raw_depth, mov.cam1);
-	MixDepth(dots, dev2.raw_depth, mov.cam2);
-	drawVoxels(dots,
-		global_config.color.movie1,	
-		glRGBA(50,50,50),
-		DRAW_VOXELS_HALF);
+	const int frame = mov.getValidFrame(global.frame_index);
+	if (frame>=0)
+	{
+		Depth10b6b::playback(dev1.raw_depth, dev2.raw_depth, mov.frames.find(frame)->second);
+		MixDepth(dots, dev1.raw_depth, mov.cam1);
+		MixDepth(dots, dev2.raw_depth, mov.cam2);
+		drawVoxels(dots,
+			global_config.color.movie1,	
+			glRGBA(50,50,50),
+			DRAW_VOXELS_HALF);
+	}
 }
 
 void StClient::createSnapshot()
@@ -869,7 +949,8 @@ void StClient::MovieRecord()
 #else
 		mov.cam1 = cal_cam1.curr;
 		mov.cam2 = cal_cam2.curr;
-		Depth10b6b::record(dev1.raw_depth, dev2.raw_depth, mov.frames[mov.total_frames++]);
+		Depth10b6b::record(dev1.raw_depth, dev2.raw_depth, mov.frames[global.frame_index]);
+		mov.total_frames = max(mov.total_frames, global.frame_index);
 #endif
 	}
 }
@@ -892,19 +973,9 @@ string GameInfo::GetFolderName(const string& id)
 	return folder;
 }
 
-void GameInfo::save_Movie(const string& basename)
+string GameInfo::GetMovieFileName(const string& id)
 {
-	string path = basename + ".stmov";
-
-	File f;
-	if (!f.openForWrite(path.c_str()))
-	{
-		Console::printf(CON_RED, "Cannot open file '%s'\n", path.c_str());
-		return;
-	}
-	
-	saveToFile(f, global.gameinfo.movie);
-	Msg::Notice("Saved!");
+	return GetFolderName(id) + id + ".stmov";
 }
 
 // サムネ保存
@@ -922,7 +993,7 @@ void GameInfo::save_Thumbnail(const string& basename, const string& suffix, int)
 
 }
 
-void GameInfo::save()
+void GameInfo::save(mi::File& f)
 {
 	Msg::SystemMessage("Save to file!");
 	printf("Game-ID: %s\n", movie.run_id.c_str());
@@ -936,7 +1007,9 @@ void GameInfo::save()
 	string basename = folder + movie.run_id;
 
 	// Save Movie
-	save_Movie(basename);
+	saveToFile(f, global.gameinfo.movie);
+	f.close();
+	Msg::Notice("Saved!");
 
 	// Save Thumbnail
 	save_Thumbnail(basename,"1",0);
@@ -946,34 +1019,6 @@ void GameInfo::save()
 	save_Thumbnail(basename,"5",0);
 	save_Thumbnail(basename,"6",0);
 }
-
-#if 0
-void StClient::load()
-{
-	Msg::SystemMessage("Load from file!");
-	printf("Game-ID: %s\n", movie.run_id.c_str());
-
-	char buf[100];
-	sprintf_s(buf, "file%d", slot);
-	FILE* fp = fopen(buf, "rb");
-	if (fp==nullptr)
-	{
-		puts("file not found!");
-	}
-	else
-	{
-		if (loadFromFile(fp, global.gameinfo.movie))
-		{
-			fclose(fp);
-			puts("done!");
-		}
-		else
-		{
-			puts("load error!");
-		}
-	}
-}
-#endif
 
 static void CreateDummyDepth(RawDepthImage& depth)
 {
@@ -999,14 +1044,6 @@ void StClient::displayEnvironment()
 
 	// @fps
 	this->fps_counter.update();
-
-	// @display
-	glClearColor(
-		global_config.color.ground.r / 255.0f,
-		global_config.color.ground.g / 255.0f,
-		global_config.color.ground.b / 255.0f,
-		1.00f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// Kinectから情報をもらう
 	if (dev1.device.isValid())

@@ -9,10 +9,21 @@
 #define GROUND_HEIGHT      (2.75f)
 #define GROUND_DEPTH       (3.00f)
 
+enum
+{
+	MOVIE_MAX_SECS       = 50,
+	MOVIE_FPS            = 30,
+	MOVIE_MAX_FRAMES     = MOVIE_MAX_SECS * MOVIE_FPS,
+	MIN_VOXEL_INC        = 16,
+	MAX_VOXEL_INC        = 128,
+	ATARI_INC            = 20,
+	SNAPSHOT_LIFE_FRAMES = 100,
+	MAX_PICT_NUMBER      = 10,        // PICT numコマンドで送れるピクチャの数
+};
+
 
 struct GlobalConfig
 {
-	std::string   background_image;
 	bool          enable_kinect;
 	bool          enable_color;
 	float         wall_depth;
@@ -36,15 +47,25 @@ struct GlobalConfig
 
 struct Config
 {
-	int   person_inc;
-	int   movie_inc;
-	int   client_number;
-	int   initial_window_x;
-	int   initial_window_y;
-	bool  initial_fullscreen;
-	bool  mirroring;
-	int   hit_threshold;
-	bool  ignore_udp;
+	struct Images
+	{
+		string background;
+		string dot;
+		string sleep;
+		string pic[MAX_PICT_NUMBER];
+		string idle;
+	};
+
+	Images  images;
+	int     person_inc;
+	int     movie_inc;
+	int     client_number;
+	int     initial_window_x;
+	int     initial_window_y;
+	bool    initial_fullscreen;
+	bool    mirroring;
+	int     hit_threshold;
+	bool    ignore_udp;
 
 	float getScreenLeftMeter() const
 	{

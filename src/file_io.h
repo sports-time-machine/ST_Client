@@ -96,8 +96,6 @@ enum StColor
 
 struct MovieData
 {
-	typedef std::string string;
-
 	static const char* non_id()
 	{
 		return "NON-ID";
@@ -109,7 +107,13 @@ struct MovieData
 		std::vector<uint8> compressed;
 	};
 
+	// フレームスキップがないかぎりには0～(total_frames-1)までのインデクスの
+	// 動画が収められる。フレームスキップがあった場合、そのFrameはインデクスが存在しない。
 	typedef std::map<int,Frame> Frames;
+
+	// frame以前の正常なフレームを得る
+	// 失敗したら負
+	int getValidFrame(int frame) const;
 
 	string    run_id;
 	float     dot_size;
@@ -133,7 +137,6 @@ struct MovieData
 		player_color = STCOLOR_WHITE;
 	}
 
-	void save();
 	bool load(const string& id);
 };
 

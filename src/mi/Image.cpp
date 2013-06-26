@@ -22,23 +22,29 @@ static inline int getBestTexSize(int value)
 
 
 
-bool Image::createFromImageA(const char* filename)
+bool Image::createFromImageA(const std::string& filename)
 {
 	this->_tex_h = 0;
 	this->_tex_w = 0;
 	this->_gl_tex = 0u;
 
-	auto format = FreeImage_GetFIFFromFilename(filename);
-	if (format==FIF_UNKNOWN)
+	if (filename.empty())
 	{
-		fprintf(stderr, "createFromImage format error: path('%s')\n", filename);
+		fprintf(stderr, "[createFromImage] file name is null string\n");
 		return false;
 	}
 
-	FIBITMAP* bitmap = FreeImage_Load(format, filename);
+	auto format = FreeImage_GetFIFFromFilename(filename.c_str());
+	if (format==FIF_UNKNOWN)
+	{
+		fprintf(stderr, "[createFromImage] format error: path('%s')\n", filename.c_str());
+		return false;
+	}
+
+	FIBITMAP* bitmap = FreeImage_Load(format, filename.c_str());
 	if (bitmap==nullptr)
 	{
-		fprintf(stderr, "createFromImage load error: path('%s')\n", filename);
+		fprintf(stderr, "[createFromImage] load error: path('%s')\n", filename.c_str());
 		return false;
 	}
 

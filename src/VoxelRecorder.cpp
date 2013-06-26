@@ -231,7 +231,6 @@ void VoxelRecorder::playback(Dots& dots, const MovieData::Frame& frame)
 		return;
 	}
 
-
 	mi::Timer tm(&time_profile.playback.total);
 
 	dots.init(frame.voxel_count);

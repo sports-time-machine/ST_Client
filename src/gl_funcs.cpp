@@ -138,7 +138,7 @@ void gl::ToggleFullScreen()
 	is_fullscreen = !is_fullscreen;
 }
 
-void gl::DrawSphere(float x, float y, float z, float r)
+void gl::DrawSphere(float x, float y, float z, float r, float ra, float rx, float ry, float rz)
 {
 	static GLUquadricObj *sphere = nullptr;
 	if (sphere==nullptr)
@@ -152,6 +152,13 @@ void gl::DrawSphere(float x, float y, float z, float r)
 	glPushMatrix();
 		glLoadIdentity();
 		glTranslatef(x,y,z);
+		glScalef(1.0f, 1.0f, 1.0f);
+		glRotatef(ra,rx,ry,rz);
 		gluSphere(sphere, r, SLICES, STACKS);
 	glPopMatrix();
+}
+
+void gl::DrawSphere(float x, float y, float z, float r)
+{
+	DrawSphere(x,y,z,r);
 }

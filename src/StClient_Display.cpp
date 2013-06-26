@@ -38,22 +38,36 @@ void StClient::display3dSectionPrepare()
 // 人物の中心とみなしている点の描画
 static void DrawCenterOfPerson()
 {
+	static float inc = 0;
+	inc += 1.0f;
 	glRGBA(255,0,0)();
 	gl::DrawSphere(
 		global.person_center.x,
 		global.person_center.y,
 		global.person_center.z,
-		0.25f);
+		0.25f,
+		inc * 2.25f,
+		sinf(inc*0.013f),
+		cosf(inc*0.009f),
+		1.0f);
 }
 
-void StClient::drawPartner(MovieData& mov)
+bool StClient::drawPartner(const MovieData& mov)
 {
-	if (global.frame_index < (int)mov.frames.size())
+	if (global.frame_index >= (int)mov.frames.size())
 	{
-		static Dots dots;
-		dots.init();
-		static RawDepthImage depth1, depth2;
-		Depth10b6b::playback(depth1, depth2, mov.frames[global.frame_index]);
+		return false;
+	}
+
+	static Dots dots;
+	dots.init();
+	static RawDepthImage depth1, depth2;
+	
+	// 有効なフレームを探す
+	int disp_frame = mov.getValidFrame(global.frame_index);
+	if (disp_frame>=0)
+	{
+		Depth10b6b::playback(depth1, depth2, mov.frames.find(disp_frame)->second);
 		MixDepth(dots, depth1, mov.cam1);
 		MixDepth(dots, depth2, mov.cam2);
 		drawVoxels(dots,
@@ -61,6 +75,7 @@ void StClient::drawPartner(MovieData& mov)
 			glRGBA(50,50,50),
 			DRAW_VOXELS_HALF);
 	}
+	return true;
 }
 
 //========================
@@ -68,14 +83,6 @@ void StClient::drawPartner(MovieData& mov)
 //========================
 void StClient::display3dSection()
 {
-	{mi::Timer tm(&time_profile.drawing.wall);
-		drawWall();
-	}
-	{mi::Timer tm(&time_profile.drawing.grid);
-		drawFieldGrid(500);
-	}
-
-
 	// 　　　　　　 SLEEP START REPLAY OTHER
 	// 実映像　       X     X    ---     X     リプレイ以外表示
 	// 動画リプレイ  ---   ---    X     --- 
@@ -86,13 +93,19 @@ void StClient::display3dSection()
 	const bool show_replay    = (st==STATUS_REPLAY);
 	const bool show_partner   = (st==STATUS_GAME || st==STATUS_REPLAY);
 
+	global.debug.recording      = recording;
+	global.debug.show_realmovie = show_realmovie;
+	global.debug.show_replay    = show_replay;
+	global.debug.show_partner   = show_partner;
+
+
 	// 実映像の表示
 	if (show_realmovie)
 	{
 		static Dots dots;
-		DrawVoxels(dots);
-		CreateAtari(dots);
-		DrawCenterOfPerson();
+		this->DrawVoxels(dots);
+		this->CreateAtari(dots);
+		::DrawCenterOfPerson();
 	}
 
 	// 並走者
@@ -103,12 +116,12 @@ void StClient::display3dSection()
 
 	if (show_replay)
 	{
-		MoviePlayback();
+		this->MoviePlayback();
 	}
 
 	if (recording)
 	{
-		MovieRecord();
+		this->MovieRecord();
 	}
 }
 
@@ -205,7 +218,7 @@ void StClient::display2dSection()
 			// 10cm3にNドット以上あったらヒットとする
 			if (value>=config.hit_threshold)
 			{
-				std::string s;
+				string s;
 				s += "HIT ";
 				s += ho.text;
 				s += " ";
@@ -255,6 +268,15 @@ void StClient::displayDebugInfo()
 		freetype::print(monospace, x, y+=H, s);
 		text();	
 	};
+
+	{
+		text();
+		pr(monospace, 700, 300, "[%s][%s][%s][%s]",
+			(global.debug.recording)      ? "REC" : "---",
+			(global.debug.show_realmovie) ? "RM"  : "--",
+			(global.debug.show_replay)    ? "REP" : "---",
+			(global.debug.show_partner)   ? "PA"  : "--");
+	}
 
 	{
 		ChangeCalParamKeys keys;
@@ -393,7 +415,7 @@ void StClient::displayDebugInfo()
 	dt(); pr(monospace, x, y+=H, " Atari        %6.2f", time_profile.atari);
 	
 	const bool REC = recordingNow();
-	REC?em():dt(); pr(monospace, x, y+=H, " Recording    %6.2f [%d]", time_profile.record.total, global.gameinfo.movie.total_frames);
+	REC?em():dt(); pr(monospace, x, y+=H, " Recording    %6.2f [%d]", time_profile.record.total, global.gameinfo.movie.frames.size());
 	REC?em():dd(); pr(monospace, x, y+=H, "  enc_stage1  %6.2f", time_profile.record.enc_stage1);
 	REC?em():dd(); pr(monospace, x, y+=H, "  enc_stage2  %6.2f", time_profile.record.enc_stage2);
 	REC?em():dd(); pr(monospace, x, y+=H, "  enc_stage3  %6.2f", time_profile.record.enc_stage3);

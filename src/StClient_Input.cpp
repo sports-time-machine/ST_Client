@@ -122,7 +122,7 @@ void StClient::processKeyInput()
 		const int KEYS = 256;
 		static bool prev[KEYS] = {};
 		BYTE curr_kbd[KEYS] = {};
-		GetKeyboardState(curr_kbd);
+		myGetKeyboardState(curr_kbd);
 		for (int i=0; i<KEYS; ++i)
 		{
 			down[i] = ((curr_kbd[i] & 0x80)!=0);
@@ -206,26 +206,6 @@ void StClient::processKeyInput()
 		dev1.device.close();
 		openni::OpenNI::shutdown();
 		exit(1);
-#if 0//#!
-	case SK_CTRL + VK_F1:
-		if (movie_mode!=MOVIE_RECORD)
-		{
-			startMovieRecordSettings();
-		}
-		else
-		{
-			printf("recoding stop. %d frames recorded.\n", curr_movie.total_frames);
-
-			size_t total_bytes = 0;
-			for (int i=0; i<curr_movie.total_frames; ++i)
-			{
-			//s	total_bytes += curr_movie.frames[i].getFrameBytes();
-			}
-			printf("total %d Kbytes.\n", total_bytes/1000);
-			movie_mode = MOVIE_READY;
-		}
-		break;
-#endif
 	case SK_CTRL + 'S'://Ctrl+S
 		if (!recordingNow())
 		{
@@ -245,6 +225,8 @@ void StClient::processKeyInput()
 		global.frame_index = 0;
 		recordingReplay();
 		break;
+
+#if 0
 	case SK_CTRL + 'L'://Ctrl+L
 		global.frame_auto_increment = false;
 		global.frame_index = 0;
@@ -255,6 +237,7 @@ void StClient::processKeyInput()
 		global.gameinfo.movie.run_id = "0000054321";
 		global.gameinfo.save();
 		break;
+#endif
 
 	case VK_F9:
 		load_config();
@@ -309,7 +292,7 @@ void StClient::processMouseInput_aux()
 		cal_cam2.prev = cal_cam2.curr;		
 	}
 	BYTE kbd[256];
-	GetKeyboardState(kbd);
+	myGetKeyboardState(kbd);
 
 	const bool shift = (kbd[VK_SHIFT  ] & 0x80)!=0;
 

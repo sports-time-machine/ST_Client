@@ -117,8 +117,6 @@ void load_config()
 
 	psl.run();
 
-	using namespace PSL;
-
 #define CONFIG_LET2(DEST,NAME,C,FUNC)   if(var_exist(psl,#NAME)){ DEST=(C)PSL::variable(psl.get(#NAME)).FUNC(); }
 #define CONFIG_LET(DEST,NAME,C,FUNC)   CONFIG_LET2(DEST.NAME, NAME, C, FUNC)
 #define CONFIG_INT(DEST,NAME)          CONFIG_LET(DEST,NAME,int,toInt)
@@ -164,6 +162,13 @@ void load_config()
 		cam.rotz  = (float)var["rotz"];
 		cam.scale = (float)var["scale"];
 	};
+	auto toString = [&](PSLv var)->const char*{
+		if (var==PSLv(PSLv::NIL))
+		{
+			return "";
+		}
+		return var.toString().c_str();
+	};
 	auto pslString = [&](const char* name)->const char*{
 		return PSL::variable(psl.get(name)).toString().c_str();
 	};
@@ -178,17 +183,31 @@ void load_config()
 	CONFIG_BOOL(config, ignore_udp);
 	set_camera_param(config.cam1, "camera1");
 	set_camera_param(config.cam2, "camera2");
+	{
+#define DEF_IMAGE(NAME) dest.NAME = toString(src[#NAME])
+		// Images
+		PSLv src = psl.get("images");
+		auto& dest = config.images;
+		DEF_IMAGE(background);
+		DEF_IMAGE(sleep);
+		DEF_IMAGE(idle);
+		for (int i=0; i<MAX_PICT_NUMBER; ++i)
+		{
+			string pic_no = (string("pic") + to_s(i));
+			config.images.pic[i] = toString(src[pic_no.c_str()]);
+		}
+#undef DEF_IMAGE
+	}
 
 	//=== GLOBAL SETTINGS ===
 	auto& gc = global_config;
 	CONFIG_BOOL(gc, enable_kinect);
 	CONFIG_BOOL(gc, enable_color);
 	CONFIG_FLOAT(gc, wall_depth);
-	gc.background_image = pslString("background_image");
 
 	//=== COLORS ===
 	{
-		variable colors = psl.get("colors");
+		PSLv colors = psl.get("colors");
 		set_rgb(colors["ground"],   gc.color.ground);
 		set_rgb(colors["grid"],     gc.color.grid);
 		set_rgb(colors["person"],   gc.color.person);
@@ -223,7 +242,7 @@ static void init_kinect()
 	}
 }
 
-static void get_kinect_devices(std::string& first, std::string& second)
+static void get_kinect_devices(string& first, string& second)
 {
 	openni::Array<openni::DeviceInfo> devices;
 	openni::OpenNI::enumerateDevices(&devices);
@@ -341,7 +360,7 @@ int main()
 	{
 		init_kinect();
 
-		std::string first, second;
+		string first, second;
 		get_kinect_devices(first, second);
 		
 		if (first.empty())

@@ -15,24 +15,12 @@ namespace stclient{
 using namespace mgl;
 
 
-typedef std::string string;
-
-
 const float PI = 3.141592653;
 
 #define WITHOUT_KINECT 1
 
 #define MIN_NUM_CHUNKS(data_size, chunk_size)	((((data_size)-1) / (chunk_size) + 1))
 #define MIN_CHUNKS_SIZE(data_size, chunk_size)	(MIN_NUM_CHUNKS(data_size, chunk_size) * (chunk_size))
-
-enum VariousConstants
-{
-	MIN_VOXEL_INC = 16,
-	MAX_VOXEL_INC = 128,
-	ATARI_INC = 20,
-	SNAPSHOT_LIFE_FRAMES = 100,
-};
-
 
 const int UDP_CLIENT_TO_CONTROLLER = 38702;
 const int UDP_CONTROLLER_TO_CLIENT = 38708;
@@ -59,6 +47,7 @@ enum ClientStatus
 	STATUS_GAME,
 	STATUS_REPLAY,
 	STATUS_SAVING,
+	STATUS_LOADING,
 	STATUS_INIT_FLOOR,
 };
 
@@ -304,7 +293,9 @@ enum ViewMode
 // ゲームひとつひとつの情報
 struct GameInfo
 {
-	string     player_id;
+	string     player_id;     // 0000ABCD
+	string     game_id;       // 00000XYZ23
+	string     basename;      // ${BaseFolder}/3/2/Z/Y/X/0/0/0/0/0/00000XYZ23
 	MovieData  movie;
 	MovieData  partner1;
 	MovieData  partner2;
@@ -319,7 +310,9 @@ struct GameInfo
 	}
 
 	static string GetFolderName(const string& id);
-	void save();
+	static string GetMovieFileName(const string& id);
+
+	void save(mi::File& f);
 
 private:
 	void save_Movie(const string& basename);
@@ -336,16 +329,31 @@ struct Global
 		} view2d;
 		bool is_2d_view;
 	};
+	struct Debug
+	{
+		bool recording;
+		bool show_realmovie;
+		bool show_replay;
+		bool show_partner;
+	};
+	struct Images
+	{
+		mi::Image idle;
+		mi::Image background;
+		mi::Image sleep;
+		mi::Image dot;
+		mi::Image pic[MAX_PICT_NUMBER];
+	};
 
+	Debug        debug;
 	GameInfo     gameinfo;
 	View         view;
 	ViewMode     view_mode;
 	int          window_w;
 	int          window_h;
-	mi::Image    pic;
-	mi::Image    background_image;
-	mi::Image    dot_image;
+	Images       images;
 	mi::File     save_file;
+	int          picture_number;          // PICTコマンドのときに表示するピクチャ番号
 	Point3D      person_center;
 	int          frame_index;
 	bool         frame_auto_increment;
@@ -511,7 +519,7 @@ private:
 	void processMouseInput_aux();
 	void processUdpCommands();
 
-	void drawPartner(MovieData& mov);
+	bool drawPartner(const MovieData& mov);
 
 	void displayBlackScreen();
 	void displayPictureScreen();
@@ -556,7 +564,7 @@ enum DrawVoxelsStyle
 
 void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam);
 void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style = DRAW_VOXELS_NORMAL, float add_z=0.0f);
-
+void myGetKeyboardState(BYTE* kbd);
 
 }//namespace stclient
 

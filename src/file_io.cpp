@@ -43,8 +43,7 @@ void saveToFile(File& f, const MovieData& movie)
 		const auto itr = movie.frames.find(i);
 		if (itr==movie.frames.end())
 		{
-			// Paranoia!
-			Msg::ErrorMessage("Error in saveToFile, movie.frames.find(i)");
+			// フレームスキップした分は保存されない
 			f.put32(0);  // no voxels
 			f.put32(0);  // no bytedata
 			continue;
@@ -97,12 +96,32 @@ static void load_ver1_0(File& f, const FileHeader& header, MovieData& movie)
 	}
 }
 
+int MovieData::getValidFrame(int frame) const
+{
+	for (;;)
+	{
+		if (frames.find(frame)!=frames.end())
+		{
+			// good!
+			return frame;
+		}
+
+		// 前のフレームを表示しようと試みる
+		--frame;
+		
+		// フレームがなくなったら表示を諦める
+		if (frame<0)
+		{
+			return -1;
+		}
+	}
+}
 
 bool MovieData::load(const string& id)
 {
 	string name = GameInfo::GetFolderName(id) + id + ".stmov";
 	File f;
-	if (!f.open(name.c_str()))
+	if (!f.open(name))
 	{
 		Msg::ErrorMessage("Cannot open file", name);
 		return false;
