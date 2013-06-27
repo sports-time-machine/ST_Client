@@ -76,8 +76,6 @@ struct Config
 	int     person_inc;
 	int     movie_inc;
 	int     client_number;
-	int     initial_window_x;
-	int     initial_window_y;
 	int     center_atari_voxel_threshould;     // アタリ中央をとるために必要なボクセル数（2500～とか）
 	bool    initial_fullscreen;
 	bool    mirroring;

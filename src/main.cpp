@@ -41,8 +41,6 @@ GlobalConfig::GlobalConfig()
 Config::Config()
 {
 	client_number      = -1;
-	initial_window_x   = 50;
-	initial_window_y   = 50;
 	initial_fullscreen = false;
 	mirroring          = false;
 	hit_threshold      = 10;
@@ -124,8 +122,6 @@ void load_config()
 #define CONFIG_BOOL(DEST,NAME)         CONFIG_LET(DEST,NAME,bool,toBool)
 #define CONFIG_FLOAT(DEST,NAME)        CONFIG_LET(DEST,NAME,float,toDouble)
 	CONFIG_INT(config, client_number);
-	CONFIG_INT(config, initial_window_x);
-	CONFIG_INT(config, initial_window_y);
 	CONFIG_INT(config, center_atari_voxel_threshould);
 	CONFIG_BOOL(config, initial_fullscreen);
 	CONFIG_BOOL(config, mirroring);

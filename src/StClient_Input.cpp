@@ -12,6 +12,24 @@ void toggle(bool& ref, const char* s)
 }
 
 
+#include <FreeImage.h>
+
+void saveScreenShot()
+{
+	FIBITMAP* bmp = FreeImage_Allocate(640, 480, 24);
+	
+	
+
+	FreeImage_Save(FIF_PNG, bmp, "C:/ST/picture.png");
+
+
+	FreeImage_Unload(bmp);
+}
+
+
+
+
+
 
 enum
 {
@@ -72,6 +90,10 @@ void StClient::processKeyInput()
 	}
 	switch (key)
 	{
+	case '0':
+		saveScreenShot();
+		break;
+
 	case VK_ESCAPE:
 		if (!global.calibration.enabled)
 		{
