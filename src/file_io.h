@@ -1,6 +1,7 @@
 #pragma once
 #include "mi/Core.h"
 #include "zlibpp.h"
+#include "gl_funcs.h"
 
 namespace stclient{
 
@@ -80,20 +81,6 @@ struct FileHeader
 	//----16bytes---
 };
 
-enum StColor
-{
-	STCOLOR_RED,
-	STCOLOR_GREEN,
-	STCOLOR_BLUE,
-	STCOLOR_ORANGE,
-	STCOLOR_LIME,
-	STCOLOR_AQUA,
-	STCOLOR_PINK,
-	STCOLOR_VIOLET,
-	STCOLOR_WHITE,
-	STCOLOR_BLACK,
-};
-
 struct MovieData
 {
 	struct Frame
@@ -110,27 +97,22 @@ struct MovieData
 	// Ž¸”s‚µ‚½‚ç•‰
 	int getValidFrame(int frame) const;
 
-	string    player_id;     // 0000ABCD
-	string    game_id;       // 00000XYZ23
-	float     dot_size;
-	StColor   player_color;
-	CamParam  cam1;
-	CamParam  cam2;
-	int       total_frames;
-	Frames    frames;
+	string      player_id;     // 0000ABCD
+	string      game_id;       // 00000XYZ23
+	float       dot_size;
+	string      player_color;
+	mgl::glRGBA player_color_rgba;
+	CamParam    cam1;
+	CamParam    cam2;
+	int         total_frames;
+	Frames      frames;
 
 	MovieData()
 	{
 		clear();
 	}
 
-	void clear()
-	{
-		frames.clear();
-		total_frames = 0;
-		dot_size     = 1.0f;
-		player_color = STCOLOR_WHITE;
-	}
+	void clear();
 
 	bool load(const string& id);
 };

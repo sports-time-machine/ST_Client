@@ -10,6 +10,21 @@ using namespace mi;
 using namespace stclient;
 
 
+// プレイヤー色名からRGBAを得る
+// 色はconfig.pslのcolorsセクションで指定しておくこと
+static glRGBA getPlayerColorFromString(const std::string& name)
+{
+	const auto itr = config.player_colors.find(name);
+	if (itr==config.player_colors.end())
+	{
+		// 見つからなかったときのデフォルト色
+		return global_config.color.default_player_color;
+	}
+	return itr->second;
+}
+
+
+
 const char* stclient::to_s(int x)
 {
 	static char to_s_buf[1000];
@@ -118,16 +133,19 @@ void Command::ping(Args& arg)
 
 	printf("PING received: server is '%s'\n", arg[0].to_s());
 
-	string s;
-	s += "PONG ";
-	s += Core::getComputerName();
-	s += " ";
-	s += mi::Udp::getIpAddress();
-	s += " ";
-	s += to_s(config.client_number);
+	{
+		string s;
+		s += "PONG ";
+		s += Core::getComputerName();
+		s += " ";
+		s += mi::Udp::getIpAddress();
+		s += " ";
+		s += to_s(config.client_number);
+		udp_send->init(arg[0].to_s(), UDP_CLIENT_TO_CONTROLLER);
+		udp_send->send(s);
+		Msg::Notice(s);
+	}
 
-	udp_send->init(arg[0].to_s(), UDP_CLIENT_TO_CONTROLLER);
-	udp_send->send(s);
 	client->changeStatus(STATUS_IDLE);
 }
 
@@ -376,7 +394,7 @@ void Command::partner(Args& arg)
 void Command::background(Args& arg)
 {
 	arg_check(arg, 1);
-	status_check(STATUS_READY);
+	status_check(STATUS_IDLE);
 
 	printf("BACKGROUND:%s\n", arg[0].to_s());
 }
@@ -385,7 +403,7 @@ void Command::background(Args& arg)
 void Command::playerStyle(Args& arg)
 {
 	arg_check(arg, 1);
-	status_check(STATUS_READY);
+	status_check(STATUS_IDLE);
 
 	printf("PLAYER-STYLE:%s\n", arg[0].to_s());
 }
@@ -394,9 +412,12 @@ void Command::playerStyle(Args& arg)
 void Command::playerColor(Args& arg)
 {
 	arg_check(arg, 1);
-	status_check(STATUS_READY);
+	status_check(STATUS_IDLE);
 
 	printf("PLAYER-COLOR:%s\n", arg[0].to_s());
+
+	global.gameinfo.movie.player_color = arg[0].to_s();
+	global.gameinfo.movie.player_color_rgba = getPlayerColorFromString(arg[0].to_s());
 }
 
 // START -- ゲーム開始

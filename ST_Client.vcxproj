@@ -49,7 +49,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Config.h" />
-    <ClInclude Include="src\depth.h" />
     <ClInclude Include="src\file_io.h" />
     <ClInclude Include="src\FreeType.h" />
     <ClInclude Include="src\gl_funcs.h" />

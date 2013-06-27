@@ -188,9 +188,16 @@ static void window_resized(int width, int height)
 void StClient::changeStatus(ClientStatus new_status)
 {
 	// ステータスチェンジとともにフレーム数もゼロにする
-	Msg::Notice("Change status to", getStatusName(new_status));		
+	Msg::Notice("Change status to", getStatusName(new_status));
 	global.frame_index = 0;
 	this->_private_client_status = new_status;
+
+	string s;
+	s += "STATUS ";
+	s += Core::getComputerName();
+	s += " ";
+	s += getStatusName(new_status);
+	this->udp_send.send(s);
 }
 
 const char* StClient::getStatusName(int present) const
@@ -253,14 +260,17 @@ void CreateHitWall(float meter, int id, const char* text)
 	{
 		Console::printf(CON_YELLOW, "Create hit wall %.1fm '%s'\n", meter, text);
 		const int x = (int)(HitData::CEL_W * point / GROUND_WIDTH);
-		for (int i=0; i<HitData::CEL_H; ++i)
+		for (int xdiff=-1; xdiff<=+1; ++xdiff)
 		{
-			HitObject ho;
-			ho.point   = Point(x, i);
-			ho.color   = glRGBA(255, 200, 120);
-			ho.next_id = id;
-			ho.text    = text;
-			global.hit_objects.push_back(ho);
+			for (int i=0; i<HitData::CEL_H; ++i)
+			{
+				HitObject ho;
+				ho.point   = Point(x + xdiff, i);
+				ho.color   = glRGBA(255, 200, 120);
+				ho.next_id = id;
+				ho.text    = text;
+				global.hit_objects.push_back(ho);
+			}
 		}
 	}
 }
@@ -316,8 +326,6 @@ void StClient::processOneFrame()
 			this->drawFieldGrid(500);
 		}
 		this->display3dSection();
-//##		static Dots dots;
-//###		DrawVoxels(dots);
 	}
 	else
 	{
@@ -346,7 +354,7 @@ void StClient::processOneFrame()
 			this->display3dSectionPrepare();
 			this->display3dSection();
 			static Dots dots;
-			DrawVoxels(dots);
+			DrawRealMovie(dots);
 			break;}
 
 		case STATUS_PICT:{
@@ -363,7 +371,7 @@ void StClient::processOneFrame()
 			this->display3dSectionPrepare();
 			this->display3dSection();
 			static Dots dots;
-			DrawVoxels(dots);
+			DrawRealMovie(dots);
 		
 			// 床消しのアップデート
 			dev1.updateFloorDepth();
@@ -381,11 +389,12 @@ void StClient::processOneFrame()
 				global_config.color.ground.r,
 				global_config.color.ground.g,
 				global_config.color.ground.b);
-			this->display3dSectionPrepare();
+			this->display2dSectionPrepare();
 			{
 				mi::Timer tm(&time_profile.drawing.wall);
-				this->drawWall();
+				this->draw2dWall();
 			}
+			this->display3dSectionPrepare();
 			{
 				mi::Timer tm(&time_profile.drawing.grid);
 				this->drawFieldGrid(500);
@@ -613,11 +622,26 @@ void StClient::drawFieldGrid(int size_cm)
 }
 
 
-void StClient::drawWall()
+// 平面に壁を描画する @wall
+void StClient::draw2dWall()
 {
 	auto& img = global.images.background;
 
-	// @wall
+	img.draw(0,0,640,480);
+	glColor3f(255,0,0);
+	glBegin(GL_QUADS);
+	glVertex2f(0,0);
+	glVertex2f(20,0);
+	glVertex2f(20,480);
+	glVertex2f(0,480);
+	glEnd();
+}
+
+// 三次元上に壁を描画する @wall
+void StClient::draw3dWall()
+{
+	auto& img = global.images.background;
+
 	const float Z = global_config.wall_depth;
 	gl::Texture(true);
 	glPushMatrix();
@@ -761,14 +785,15 @@ void GameInfo::init()
 
 void StClient::createSnapshot()
 {
-	this->snapshot_life = SNAPSHOT_LIFE_FRAMES;
+	this->snapshot_life = config.snapshot_life_frames;
 	dev1.raw_snapshot = dev1.raw_cooked;
 	dev2.raw_snapshot = dev2.raw_cooked;
 	puts("Create snapshot!");
 }
 
-void StClient::DrawVoxels(Dots& dots)
+void StClient::DrawRealMovie(Dots& dots)
 {
+	const glRGBA color_body = global.gameinfo.movie.player_color_rgba;
 	const glRGBA color_cam1(80,190,250);
 	const glRGBA color_cam2(250,190,80);
 	const glRGBA color_other(170,170,170);
@@ -794,7 +819,7 @@ void StClient::DrawVoxels(Dots& dots)
 			MixDepth(dots, dev2.raw_snapshot, cam2);
 
 			glRGBA color = global_config.color.snapshot;
-			color.a = color.a * snapshot_life / SNAPSHOT_LIFE_FRAMES;
+			color.a = color.a * snapshot_life / config.snapshot_life_frames;
 			drawVoxels(dots, color, color_outer, DRAW_VOXELS_NORMAL, +0.5f);
 		}
 	}
@@ -849,7 +874,7 @@ void StClient::DrawVoxels(Dots& dots)
 		
 		{
 			Timer tm(&time_profile.drawing.drawvoxels);
-			drawVoxels(dots, global_config.color.person, color_outer);
+			drawVoxels(dots, color_body, color_outer);
 		}
 	}
 	else

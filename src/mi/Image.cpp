@@ -126,7 +126,7 @@ void Image::_DibToPicture(void* void_dib)
 			px.b = colour.rgbBlue;
 			px.a = alpha ? colour.rgbReserved : 255;
 		};
-#if 1
+
 	for (int y=0; y<_img_h; ++y)
 	{
 		auto* px = &pixels[(_img_h-1-y) * _tex_w];
@@ -140,14 +140,9 @@ void Image::_DibToPicture(void* void_dib)
 			case 24:  conv_rgba(*px,x,y,false);  break;
 			case 32:  conv_rgba(*px,x,y,true);   break;
 			}
-			
-			px->a = y * 255 / _img_h;
-			px->a = 150;
-
 			++px;
 		}
 	}
-#endif
 
 	glEnable(GL_TEXTURE_2D);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);

@@ -14,11 +14,28 @@ void toggle(bool& ref, const char* s)
 
 #include <FreeImage.h>
 
-void saveScreenShot()
+static void quitApplication()
+{
+	puts("QUIT!!");
+	exit(0);
+}
+
+static void saveScreenShot()
 {
 	FIBITMAP* bmp = FreeImage_Allocate(640, 480, 24);
-	
-	
+
+	// バックバッファを読む
+	glReadBuffer(GL_BACK);
+
+	// バッファの内容を
+	// bmpオブジェクトのピクセルデータが格納されている領域に直接コピーする。
+#if 0 
+	glReadPixels(0, 0, 640, 480, GL_BGRA, GL_UNSIGNED_BYTE, 
+			GL_BGRA,           //取得したい色情報の形式
+			GL_UNSIGNED_BYTE,  //読み取ったデータを保存する配列の型
+			bmpData.Scan0      //ビットマップのピクセルデータ（実際にはバイト配列）へのポインタ
+			);
+#endif
 
 	FreeImage_Save(FIF_PNG, bmp, "C:/ST/picture.png");
 
@@ -90,10 +107,6 @@ void StClient::processKeyInput()
 	}
 	switch (key)
 	{
-	case '0':
-		saveScreenShot();
-		break;
-
 	case VK_ESCAPE:
 		if (!global.calibration.enabled)
 		{
@@ -108,16 +121,12 @@ void StClient::processKeyInput()
 			global.show_debug_info     = false;
 		}
 		return;
-	case VK_TAB:
-		toggle(global.calibration.fast, "高速キャリブレーションモード");
-		return;
-	case 'P':
-		toggle(global.show_debug_info, "デバッグ情報表示");
-		return;
-	case SK_CTRL | VK_F4:
-	case SK_ALT  | VK_F4:
-		puts("QUIT!!");
-		exit(0);
+	case '0':            saveScreenShot();  return;
+	case VK_TAB:         toggle(global.calibration.fast, "高速キャリブレーションモード");   return;
+	case 'P':            toggle(global.show_debug_info, "デバッグ情報表示");               return;
+	case VK_F9:          load_config(); reloadResources();         return;
+	case SK_CTRL|VK_F4:  quitApplication(); return;
+	case SK_ALT |VK_F4:  quitApplication(); return;
 	}
 
 	if (global.calibration.enabled)
@@ -229,7 +238,6 @@ bool StClient::processKeyInput_Calibration(int key)
 	case VK_END:                                                   break;
 	case 'I':            toggle(eye.fast_set,   "視点高速移動");    break;
 	case 'M':            toggle(mode.mirroring, "ミラー");         break;
-	case VK_F9:          load_config(); reloadResources();         break;
 	case SK_CTRL | 'C':  set_clipboard_text();                     break;
 	case VK_BACK:        this->clearFloorDepth();                  break;
 	case VK_RETURN:      gl::ToggleFullScreen();                   break;

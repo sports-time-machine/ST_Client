@@ -33,8 +33,10 @@ enum
 	MIN_VOXEL_INC        = 16,
 	MAX_VOXEL_INC        = 128,
 	ATARI_INC            = 20,
-	SNAPSHOT_LIFE_FRAMES = 100,
 	MAX_PICT_NUMBER      = 10,        // PICT numコマンドで送れるピクチャの数
+
+
+	DEFAULT_SNAPSHOT_LIFE_FRAMES = 100,
 };
 
 
@@ -42,14 +44,15 @@ struct GlobalConfig
 {
 	bool          enable_kinect;
 	bool          enable_color;
-	float         wall_depth;
+	float         wall_depth;//#del
 	int           auto_snapshot_interval;
 
 	struct Colors
 	{
 		mgl::glRGBA
+			default_player_color,
 			ground, grid,
-			person, movie1, movie2, movie3,
+			movie1, movie2, movie3,
 			snapshot,
 			text_h1, text_p, text_em, text_dt, text_dd;
 	};
@@ -63,6 +66,8 @@ struct GlobalConfig
 
 struct Config
 {
+	typedef std::map<string,mgl::glRGBA> PlayerColors;
+
 	struct Images
 	{
 		string background;
@@ -72,15 +77,17 @@ struct Config
 		string idle;
 	};
 
-	Images  images;
-	int     person_inc;
-	int     movie_inc;
-	int     client_number;
-	int     center_atari_voxel_threshould;     // アタリ中央をとるために必要なボクセル数（2500～とか）
-	bool    initial_fullscreen;
-	bool    mirroring;
-	int     hit_threshold;
-	bool    ignore_udp;
+	PlayerColors player_colors;
+	Images       images;
+	int          person_inc;
+	int          movie_inc;
+	int          client_number;
+	int          center_atari_voxel_threshould;     // アタリ中央をとるために必要なボクセル数（2500～とか）
+	bool         initial_fullscreen;
+	bool         mirroring;
+	int          hit_threshold;
+	int          snapshot_life_frames;
+	bool         ignore_udp;
 
 	float getScreenLeftMeter() const
 	{
@@ -91,7 +98,6 @@ struct Config
 	{
 		return getScreenLeftMeter() + GROUND_WIDTH;
 	}
-
 
 	CamParam cam1,cam2;
 

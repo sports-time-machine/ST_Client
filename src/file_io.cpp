@@ -119,6 +119,15 @@ int MovieData::getValidFrame(int frame) const
 	}
 }
 
+void MovieData::clear()
+{
+	frames.clear();
+	total_frames      = 0;
+	dot_size          = 1.0f;
+	player_color      = "default";
+	player_color_rgba = global_config.color.default_player_color;
+}
+
 bool MovieData::load(const string& id)
 {
 	string name = GameInfo::GetFolderName(id) + id + ".stmov";

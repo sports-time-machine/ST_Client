@@ -535,12 +535,13 @@ private:
 	void loadAgent(int slot);
 
 	void MovieRecord();
-	void DrawVoxels(Dots& dots);
+	void DrawRealMovie(Dots& dots);
 	void set_clipboard_text();
 
 	void reloadResources();
 
-	void drawWall();
+	void draw2dWall();
+	void draw3dWall();
 	void drawFieldGrid(int size_cm);
 
 	void CreateAtari(const Dots& dots);

@@ -114,7 +114,7 @@ void StClient::display3dSection()
 	if (gd.show_realmovie)
 	{
 		static Dots dots;
-		this->DrawVoxels(dots);
+		this->DrawRealMovie(dots);
 
 		// センター座標(@Center)の取得
 		this->CreateAtari(dots);
@@ -264,9 +264,6 @@ void StClient::display2dSection()
 
 void StClient::displayDebugInfo()
 {
-	static int frames = 0;
-	++frames;
-
 	const int H=15;
 	int x = 0;
 	int y = 10;
@@ -414,9 +411,7 @@ void StClient::displayDebugInfo()
 			global.person_center.y);
 
 	// @fps
-	pr(monospace, 20, y+=H, "%d, %.2ffps",
-			frames,
-			fps_counter.getFps());
+	pr(monospace, 20, y+=H, "%.2ffps", fps_counter.getFps());
 	nl();
 
 	// @profile

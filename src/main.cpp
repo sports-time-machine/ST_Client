@@ -22,10 +22,9 @@ GlobalConfig::GlobalConfig()
 {
 	enable_kinect = true;
 	enable_color  = false;
-	wall_depth    = 3.0f;
+	wall_depth    = 3.0f;//#del
 	color.ground .set( 80, 40, 20);
 	color.grid   .set(200,150,130);
-	color.person .set( 60, 60, 60,200);
 	color.movie1 .set(120, 50, 50,200);
 	color.movie2 .set( 50,120, 50,200);
 	color.movie3 .set( 50, 50,120,200);
@@ -40,15 +39,16 @@ GlobalConfig::GlobalConfig()
 
 Config::Config()
 {
-	client_number      = -1;
-	initial_fullscreen = false;
-	mirroring          = false;
-	hit_threshold      = 10;
-	ignore_udp         = false;
-	metrics.ground_px  = 480;
-	metrics.left_mm    = 0;
-	metrics.right_mm   = 4000;
-	metrics.top_mm     = 2500;
+	client_number        = -1;
+	initial_fullscreen   = false;
+	mirroring            = false;
+	hit_threshold        = 10;
+	ignore_udp           = false;
+	metrics.ground_px    = 480;
+	metrics.left_mm      = 0;
+	metrics.right_mm     = 4000;
+	metrics.top_mm       = 2500;
+	snapshot_life_frames = 0;
 	center_atari_voxel_threshould = 2500;
 }
 
@@ -178,6 +178,7 @@ void load_config()
 	CONFIG_INT(config, person_inc);
 	CONFIG_INT(config, movie_inc);
 	CONFIG_INT(config, hit_threshold);
+	CONFIG_INT(config, snapshot_life_frames);
 	CONFIG_BOOL(config, ignore_udp);
 	set_camera_param(config.cam1, "camera1");
 	set_camera_param(config.cam2, "camera2");
@@ -205,10 +206,19 @@ void load_config()
 
 	//=== COLORS ===
 	{
+		PSLv src = psl.get("player_colors");
+		PSLv names = src.keys();
+		for (size_t i=0; i<names.length(); ++i)
+		{
+			PSLv key = names[i];
+			set_rgb(src[key], config.player_colors[key.c_str()]);
+		}
+	}
+	{
 		PSLv colors = psl.get("colors");
+		set_rgb(colors["default_player_color"],   gc.color.default_player_color);
 		set_rgb(colors["ground"],   gc.color.ground);
 		set_rgb(colors["grid"],     gc.color.grid);
-		set_rgb(colors["person"],   gc.color.person);
 		set_rgb(colors["movie1"],   gc.color.movie1);
 		set_rgb(colors["movie2"],   gc.color.movie2);
 		set_rgb(colors["movie3"],   gc.color.movie3);
@@ -345,7 +355,7 @@ static void init_kinect(const char* uri, Kdev& k)
 #include "file_io.h"
 
 
-static int run_app()
+static bool run_app()
 {
 	Kdev dev1, dev2;
 
@@ -359,12 +369,12 @@ static int run_app()
 		if (first.empty())
 		{
 			Core::dialog("Kinectが見つかりません。起動を中止します。");
-			return -1;
+			return false;
 		}
 		if (second.empty())
 		{
 			Core::dialog("Kinectが2台見つかりません。起動を中止します。");
-			return -1;
+			return false;
 		}
 		
 
@@ -389,9 +399,10 @@ static int run_app()
 		{
 			openni::OpenNI::shutdown();
 		}
-		return 1;
+		return false;
 	}
 	st_client.run();
+	return true;
 }
 
 
@@ -399,5 +410,5 @@ int main()
 {
 	mi::Console::setTitle("スポーツタイムマシン コンソール");
 	load_config();
-	return run_app();
+	return run_app() ? EXIT_SUCCESS : EXIT_FAILURE;
 }
