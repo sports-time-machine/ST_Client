@@ -4,17 +4,106 @@
 using namespace mgl;
 using namespace stclient;
 
-bool narashi = false;
 
-// 「キャリブレーション」と「ラン」モード両方の入力
-void StClient::processKeyInput_BothMode(const bool* down)
+void toggle(bool& ref, const char* s)
 {
-	if (down[VK_TAB])
+	ref = !ref;
+	Msg::Notice(s, mi::boolToYesNo(ref));
+}
+
+
+
+enum
+{
+	SK_SHIFT=0x10000,
+	SK_CTRL =0x20000,
+	SK_ALT  =0x40000,
+};
+
+static float getCalibrationSpeed(bool shift)
+{
+	const float base = (global.calibration.fast) ? 0.1f : 0.01f;
+	return base * (shift ? 2.5f : 1.0f);
+}
+
+void StClient::startMovieRecordSettings()
+{
+	global.gameinfo.movie.clear();
+}
+
+void StClient::processKeyInput()
+{
+	static bool press[256] = {};
+	static bool down[256]  = {};
+	int key = 0;
+
+	{
+		const int KEYS = 256;
+		static bool prev[KEYS] = {};
+		BYTE curr_kbd[KEYS] = {};
+		myGetKeyboardState(curr_kbd);
+		for (int i=0; i<KEYS; ++i)
+		{
+			down[i] = ((curr_kbd[i] & 0x80)!=0);
+
+			if (!prev[i] && down[i])
+			{
+				press[i] = true;
+				key = i;
+			}
+
+			prev[i] = down[i];
+		}
+	}
+
+	if (down[VK_F12])
 	{
 		dev1.updateFloorDepth();
 		dev2.updateFloorDepth();
 		return;
 	}
+
+	// いつでも
+	if (key!=0)
+	{
+		key += (down[VK_SHIFT  ] ? SK_SHIFT : 0);
+		key += (down[VK_CONTROL] ? SK_CTRL  : 0);
+		key += (down[VK_MENU   ] ? SK_ALT   : 0);
+	}
+	switch (key)
+	{
+	case VK_ESCAPE:
+		if (!global.calibration.enabled)
+		{
+			Msg::Notice("キャリブレーションモードへの移行");
+			global.calibration.enabled = true;
+			global.show_debug_info     = true;
+		}
+		else
+		{
+			Msg::Notice("キャリブレーションモードの終了");
+			global.calibration.enabled = false;
+			global.show_debug_info     = false;
+		}
+		return;
+	case VK_TAB:
+		toggle(global.calibration.fast, "高速キャリブレーションモード");
+		return;
+	case 'P':
+		toggle(global.show_debug_info, "デバッグ情報表示");
+		return;
+	case SK_CTRL | VK_F4:
+	case SK_ALT  | VK_F4:
+		puts("QUIT!!");
+		exit(0);
+	}
+
+	if (global.calibration.enabled)
+	{
+		if (processKeyInput_Calibration(key))
+			return;
+	}
+
 
 	const bool G = down['G'];
 	const bool H = down['H'];
@@ -32,16 +121,16 @@ void StClient::processKeyInput_BothMode(const bool* down)
 	}
 
 	// ADSW move, QE, PageUp/Down
-	const bool A = down['A'];
-	const bool D = down['D'];
-	const bool S = down['S'];
-	const bool W = down['W'];
-	const bool Q = down['Q'];
-	const bool E = down['E'];
-	const bool PU = down[VK_NEXT];
-	const bool PD = down[VK_PRIOR];
-	const bool shift     = down[VK_SHIFT];
-	const float movespeed = shift ? 0.01 : 0.1;
+	const bool A     = down['A'];
+	const bool D     = down['D'];
+	const bool S     = down['S'];
+	const bool W     = down['W'];
+	const bool Q     = down['Q'];
+	const bool E     = down['E'];
+	const bool PU    = down[VK_NEXT];
+	const bool PD    = down[VK_PRIOR];
+	const bool shift = down[VK_SHIFT];
+	const float movespeed = getCalibrationSpeed(shift);
 	if (A || D || S || W || Q || E || PD || PU)
 	{
 		auto eye_move_xz = [&](float rad){
@@ -66,161 +155,91 @@ void StClient::processKeyInput_BothMode(const bool* down)
 		if (PU) eye_move_y ( -1.0f);
 		return;
 	}
-}
 
-void StClient::processKeyInput_RunMode(const bool* down)
-{
-	(void)down;
-
-	if (global_config.auto_snapshot_interval>0)
+	if (global.calibrating_now())
 	{
-		static int frame_count;
-		++frame_count;
-		if (frame_count%global_config.auto_snapshot_interval==0)
+		// ONLY calibrating
+		const bool shift     = down[VK_SHIFT];
+		const bool key_left  = down[VK_LEFT ];
+		const bool key_right = down[VK_RIGHT];
+		const bool key_up    = down[VK_UP   ];
+		const bool key_down  = down[VK_DOWN ];
+
+		if (key_left || key_right || key_up || key_down)
 		{
-			this->createSnapshot();
+			const float U = shift ? 0.004 : 0.001;
+			const float mx =
+					(key_left  ? -U : 0.0f) +
+					(key_right ? +U : 0.0f);
+			const float my =
+					(key_up   ? -U : 0.0f) +
+					(key_down ? +U : 0.0f);
+			do_calibration(mx, my);
 			return;
 		}
 	}
 }
 
-void StClient::processKeyInput_CalibrateMode(const bool* down)
+bool StClient::processKeyInput_Calibration(int key)
 {
-	const bool shift     = down[VK_SHIFT];
-	const bool key_left  = down[VK_LEFT ];
-	const bool key_right = down[VK_RIGHT];
-	const bool key_up    = down[VK_UP   ];
-	const bool key_down  = down[VK_DOWN ];
-//#	const float movespeed = shift ? 0.01 : 0.1;
-
-	if (key_left || key_right || key_up || key_down)
-	{
-		const float U = shift ? 0.004 : 0.001;
-		const float mx =
-				(key_left  ? -U : 0.0f) +
-				(key_right ? +U : 0.0f);
-		const float my =
-				(key_up   ? -U : 0.0f) +
-				(key_down ? +U : 0.0f);
-		do_calibration(mx, my);
-		return;
-	}
-}
-
-void StClient::startMovieRecordSettings()
-{
-	global.gameinfo.movie.clear();
-}
-
-void StClient::processKeyInput()
-{
-	static bool press[256] = {};
-	static bool down[256] = {};
-	int key = 0;
-
-	{
-		const int KEYS = 256;
-		static bool prev[KEYS] = {};
-		BYTE curr_kbd[KEYS] = {};
-		myGetKeyboardState(curr_kbd);
-		for (int i=0; i<KEYS; ++i)
-		{
-			down[i] = ((curr_kbd[i] & 0x80)!=0);
-
-			if (!prev[i] && down[i])
-			{
-				press[i] = true;
-				key = i;
-			}
-
-			prev[i] = down[i];
-		}
-	}
-
-
-	processKeyInput_BothMode(down);
-
-	if (global.calibrating_now())
-	{
-		// ONLY calibrating
-		processKeyInput_CalibrateMode(down);
-	}
-	else
-	{
-		// ONLY *NOT* calibrating
-		processKeyInput_RunMode(down);
-	}
-
-
-
-
-	enum { SK_SHIFT=0x10000 };
-	enum { SK_CTRL =0x20000 };
-
-	// A           'S'
-	// Shift+A     'A' | SHIFT
-	// F1          F1
-	// Shift+F1    F1 | SHIFT
-	key += (down[VK_SHIFT]   ? SK_SHIFT : 0);
-	key += (down[VK_CONTROL] ? SK_CTRL  : 0);
-
 	switch (key)
 	{
-	case '1':
-		active_camera = CAM_A;
-		break;
-	case '2':
-		active_camera = CAM_B;
-		break;
-	case '3':
-		active_camera = CAM_BOTH;
-		break;
+	case 0:
+		// nop
+		return false;
+	default:
+		printf("Key: %X\n", key);
+		return false;
 
-	case VK_F1: eye.view_2d_left();  break;
-	case VK_F2: eye.view_2d_top();   break;
-	case VK_F3: eye.view_2d_front(); break;
-	case VK_F4: break;
-	
-	case VK_F5: eye.view_2d_run();   break;
-	case VK_F6: eye.view_3d_left();  break;
-	case VK_F7: eye.view_3d_right(); break;
-	case VK_F8: eye.view_3d_front(); break;
+	case '1':    active_camera=CAM_A;     break;
+	case '2':    active_camera=CAM_B;     break;
+	case '3':    active_camera=CAM_BOTH;  break;
+	case VK_F1:  eye.view_2d_left();      break;
+	case VK_F2:  eye.view_2d_top();       break;
+	case VK_F3:  eye.view_2d_front();     break;
+	case VK_F5:  eye.view_2d_run();       break;
+	case VK_F6:  eye.view_3d_left();      break;
+	case VK_F7:  eye.view_3d_right();     break;
+	case VK_F8:  eye.view_3d_front();     break;
 
-	case VK_HOME:
-		break;
-	case VK_END:
-		break;
+	case VK_F12:         /* init-floor */                          break;
+	case VK_HOME:                                                  break;
+	case VK_END:                                                   break;
+	case 'I':            toggle(eye.fast_set,   "視点高速移動");    break;
+	case 'M':            toggle(mode.mirroring, "ミラー");         break;
+	case VK_F9:          load_config(); reloadResources();         break;
+	case SK_CTRL | 'C':  set_clipboard_text();                     break;
+	case VK_BACK:        this->clearFloorDepth();                  break;
+	case VK_RETURN:      gl::ToggleFullScreen();                   break;
 
-	case 'P':
-		global.show_debug_info = !global.show_debug_info;
-		break;
-	case 'I':
-		eye.fast_set = !eye.fast_set;
-		break;
-
-	case VK_ESCAPE:
-		dev1.depth.stop();
-		dev1.color.stop();
-		dev1.depth.destroy();
-		dev1.color.destroy();
-		dev1.device.close();
-		openni::OpenNI::shutdown();
-		exit(1);
 	case SK_CTRL + 'S'://Ctrl+S
 		if (!recordingNow())
 		{
+			Msg::Notice("録画スタート!!");
 			global.frame_auto_increment = true;
 			global.frame_index = 0;
 			recordingStart();
 		}
 		else
 		{
+			Msg::Notice("録画終了。");
 			global.frame_auto_increment = false;
 			global.frame_index = 0;
 			recordingStop();
 		}
 		break;
+	case SK_CTRL + 'T'://Ctrl+T
+		global.gameinfo.prepareForSave("0000ABCD", "00000QWERT");
+		global.gameinfo.save();
+		break;
+	case SK_CTRL + 'L'://Ctrl+L
+		global.gameinfo.movie.load("0000099N3B");
+		break;
+	case SK_CTRL + 'K'://Ctrl+K
+		global.gameinfo.partner1.load("0000099N3B");
+		break;
 	case SK_CTRL + 'R'://Ctrl+R
+		Msg::Notice("リプレイ!!");
 		global.frame_auto_increment = true;
 		global.frame_index = 0;
 		recordingReplay();
@@ -238,28 +257,9 @@ void StClient::processKeyInput()
 		global.gameinfo.save();
 		break;
 #endif
-
-	case VK_F9:
-		load_config();
-		reloadResources();
-		break;
-
-	case SK_CTRL | 'C':
-		set_clipboard_text();
-		break;
-
-	case 'M':  toggle(mode.mirroring);        break;
-
-	case VK_BACK:
-		dev1.clearFloorDepth();
-		break;
-	case VK_RETURN:
-		gl::ToggleFullScreen();
-		break;
 	}
+	return true;
 }
-
-
 
 struct MousePos
 {
@@ -276,8 +276,36 @@ struct MousePos
 	Button left,right;
 } mouse;
 
-void StClient::processMouseInput_aux()
+void StClient::processMouseInput()
 {
+	// Update button
+	{
+		mouse.left.prev  = mouse.left.down;
+		mouse.right.prev = mouse.right.down;
+
+		mouse.left.down   = (glfwGetMouseButton(GLFW_MOUSE_BUTTON_1)==GLFW_PRESS);
+		mouse.right.down  = (glfwGetMouseButton(GLFW_MOUSE_BUTTON_2)==GLFW_PRESS);
+		mouse.left.press  = (mouse.left.down  && !mouse.left.prev);
+		mouse.right.press = (mouse.right.down && !mouse.right.prev);
+	}
+
+	// Update position
+	{
+		// update old mouse pos
+		mouse.old = mouse.pos;
+
+		// Convert screen position to internal position
+		int x = 0;
+		int y = 0;
+		glfwGetMousePos(&x, &y);
+		mouse.pos.x = x * 640 / global.window_w;
+		mouse.pos.y = y * 480 / global.window_h;
+
+		// Diff
+		mouse.diff.x = mouse.pos.x - mouse.old.x;
+		mouse.diff.y = mouse.pos.y - mouse.old.y;
+	}
+
 	static float eye_rh_base, eye_rv_base, eye_y_base;
 
 	if (mouse.right.press)
@@ -311,28 +339,17 @@ void StClient::processMouseInput_aux()
 			cal_cam2.prev = cal_cam2.curr;
 		}
 
-		const float mx = (mouse.diff.x) * 0.01f * (shift ? 0.4f : 0.1f);
-		const float my = (mouse.diff.y) * 0.01f * (shift ? 0.4f : 0.1f);
+		const float spd = getCalibrationSpeed(shift);
+		const float mx = (mouse.diff.x) * spd;
+		const float my = (mouse.diff.y) * spd;
 		do_calibration(mx, my);
 	}
 
-	// キャリブレーションのときは視点移動ができない
-	switch (global.view_mode)
-	{
-	case VM_2D_TOP:
-	case VM_2D_LEFT:
-	case VM_2D_FRONT:
-		//move_eye = false;
-		break;
-	case VM_2D_RUN:
-		// ゲーム画面等倍時はOK
-		break;
-	}
-
+	// 視点移動
 	if (move_eye)
 	{
-		const float x_move = mouse.diff.x * 0.0010;
-		const float y_move = mouse.diff.y * 0.0050;
+		const float x_move = mouse.diff.x * 0.001f;
+		const float y_move = mouse.diff.y * 0.005f;
 		eye.rh -= x_move;
 		eye. v += y_move;
 		
@@ -341,38 +358,4 @@ void StClient::processMouseInput_aux()
 			eye. y = eye_y_base  - y_move;
 		}
 	}
-}
-
-void StClient::processMouseInput()
-{
-	// Update button
-	{
-		mouse.left.prev  = mouse.left.down;
-		mouse.right.prev = mouse.right.down;
-
-		mouse.left.down   = (glfwGetMouseButton(GLFW_MOUSE_BUTTON_1)==GLFW_PRESS);
-		mouse.right.down  = (glfwGetMouseButton(GLFW_MOUSE_BUTTON_2)==GLFW_PRESS);
-		mouse.left.press  = (mouse.left.down  && !mouse.left.prev);
-		mouse.right.press = (mouse.right.down && !mouse.right.prev);
-	}
-
-	// Update position
-	{
-		// update old mouse pos
-		mouse.old = mouse.pos;
-
-		// Convert screen position to internal position
-		int x = 0;
-		int y = 0;
-		glfwGetMousePos(&x, &y);
-		mouse.pos.x = x * 640 / global.window_w;
-		mouse.pos.y = y * 480 / global.window_h;
-
-		// Diff
-		mouse.diff.x = mouse.pos.x - mouse.old.x;
-		mouse.diff.y = mouse.pos.y - mouse.old.y;
-	}
-
-	// main
-	processMouseInput_aux();
 }

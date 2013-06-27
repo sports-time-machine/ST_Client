@@ -64,3 +64,9 @@ void Folder::createFolder(const char* full_folder_name)
 		}
 	}
 }
+
+
+const char* mi::boolToYesNo(bool x)
+{
+	return x ? "YES" : "NO";
+}

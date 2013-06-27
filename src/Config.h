@@ -3,14 +3,30 @@
 #include "file_io.h"
 #include "psl_if.h"
 
+namespace stclient{
+
 #define GROUND_WIDTH       (4.00f)
 #define GROUND_LEFT        (-GROUND_WIDTH/2)
 #define GROUND_RIGHT       (+GROUND_WIDTH/2)
-#define GROUND_HEIGHT      (2.75f)
+#define GROUND_HEIGHT      (2.40f)
 #define GROUND_DEPTH       (3.00f)
+#define GROUND_NEAR        (0.00f)
+#define GROUND_FAR         (GROUND_DEPTH)
+
+// 床付近はノイズが多いので膝丈ぐらいからのみ有効
+// 画面の左右にマージンを設けることで、画面外にいきつつある場合であっても、
+// 人物の中央をとることができるようにする
+// 人の肩幅はせいぜい50cmであるので、50cmマージンがあれば概ね問題ないと判断する
+#define ATARI_MARGIN       (0.50f)
+#define ATARI_LEFT         (GROUND_LEFT  - ATARI_MARGIN)
+#define ATARI_RIGHT        (GROUND_RIGHT + ATARI_MARGIN)
+#define ATARI_BOTTOM       (0.50f)
+#define ATARI_TOP          (GROUND_HEIGHT)
 
 enum
 {
+	INITIAL_WIN_SIZE_X   = 640,
+	INITIAL_WIN_SIZE_Y   = 480,
 	MOVIE_MAX_SECS       = 50,
 	MOVIE_FPS            = 30,
 	MOVIE_MAX_FRAMES     = MOVIE_MAX_SECS * MOVIE_FPS,
@@ -62,6 +78,7 @@ struct Config
 	int     client_number;
 	int     initial_window_x;
 	int     initial_window_y;
+	int     center_atari_voxel_threshould;     // アタリ中央をとるために必要なボクセル数（2500～とか）
 	bool    initial_fullscreen;
 	bool    mirroring;
 	int     hit_threshold;
@@ -99,3 +116,5 @@ struct Config
 
 SmartExtern GlobalConfig  global_config;
 SmartExtern Config        config;
+
+}//namespace stclient

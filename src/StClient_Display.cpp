@@ -52,28 +52,43 @@ static void DrawCenterOfPerson()
 		1.0f);
 }
 
-bool StClient::drawPartner(const MovieData& mov)
+// 単発ムービーの描画
+static bool drawMovieFrame(const MovieData& mov, glRGBA inner, glRGBA outer, const char* movie_type)
 {
-	if (global.frame_index >= (int)mov.frames.size())
+	if (mov.total_frames==0)
 	{
+		// Empty movie.
 		return false;
 	}
 
+	if (global.frame_index >= mov.total_frames)
+	{
+		printf("movie is end. [%s] %d/%d\n",
+			movie_type,
+			global.frame_index,
+			mov.total_frames);
+
+		// ムービーおわり
+		return false;
+	}
+
+	// 描画用の独立したドット空間、デプスイメージをもっておく
+	static RawDepthImage depth1, depth2;
 	static Dots dots;
 	dots.init();
-	static RawDepthImage depth1, depth2;
 	
 	// 有効なフレームを探す
 	int disp_frame = mov.getValidFrame(global.frame_index);
+	if (global.frame_index != disp_frame)
+	{
+		printf("フレーム補正 frame %d => %d\n",  global.frame_index, disp_frame);
+	}
 	if (disp_frame>=0)
 	{
 		Depth10b6b::playback(depth1, depth2, mov.frames.find(disp_frame)->second);
 		MixDepth(dots, depth1, mov.cam1);
 		MixDepth(dots, depth2, mov.cam2);
-		drawVoxels(dots,
-			global_config.color.movie1,	
-			glRGBA(50,50,50),
-			DRAW_VOXELS_HALF);
+		drawVoxels(dots, inner, outer, DRAW_VOXELS_HALF);
 	}
 	return true;
 }
@@ -87,39 +102,46 @@ void StClient::display3dSection()
 	// 実映像　       X     X    ---     X     リプレイ以外表示
 	// 動画リプレイ  ---   ---    X     --- 
 	// 並走表示　　  ---    X     X     ---    スタートとリプレイ
-	const auto st = global.clientStatus();
-	const bool recording      = (st==STATUS_GAME);
-	const bool show_realmovie = (st!=STATUS_REPLAY);
-	const bool show_replay    = (st==STATUS_REPLAY);
-	const bool show_partner   = (st==STATUS_GAME || st==STATUS_REPLAY);
-
-	global.debug.recording      = recording;
-	global.debug.show_realmovie = show_realmovie;
-	global.debug.show_replay    = show_replay;
-	global.debug.show_partner   = show_partner;
+	const auto st = clientStatus();
+	auto& gd = global.debug;
+	gd.recording      = (st==STATUS_GAME);
+	gd.show_realmovie = (st!=STATUS_REPLAY);
+	gd.show_replay    = (st==STATUS_REPLAY);
+	gd.show_partner   = (st==STATUS_GAME || st==STATUS_REPLAY);
 
 
 	// 実映像の表示
-	if (show_realmovie)
+	if (gd.show_realmovie)
 	{
 		static Dots dots;
 		this->DrawVoxels(dots);
+
+		// センター座標(@Center)の取得
 		this->CreateAtari(dots);
 		::DrawCenterOfPerson();
 	}
 
 	// 並走者
-	if (show_partner)
+	if (gd.show_partner)
 	{
-		this->drawPartner(global.gameinfo.partner1);
+		drawMovieFrame(
+			global.gameinfo.partner1,
+			global_config.color.movie1,
+			glRGBA(50,50,50),
+			"partner1");
 	}
 
-	if (show_replay)
+	if (gd.show_replay)
 	{
-		this->MoviePlayback();
+		if (!drawMovieFrame(global.gameinfo.movie, glRGBA(255,0,0), glRGBA(50,200,0), "replay"))
+		{
+			// リプレイ終わり
+			Msg::Notice("End replay");
+			changeStatus(STATUS_READY);
+		}
 	}
 
-	if (recording)
+	if (gd.recording)
 	{
 		this->MovieRecord();
 	}
@@ -208,7 +230,7 @@ void StClient::display2dSection()
 	}
 
 	// ゲーム中のみ「当たり判定」
-	if (global.clientStatus()==STATUS_GAME)
+	if (clientStatus()==STATUS_GAME)
 	{
 		for (size_t i=0; i<global.hit_objects.size(); ++i)
 		{
@@ -271,11 +293,12 @@ void StClient::displayDebugInfo()
 
 	{
 		text();
-		pr(monospace, 700, 300, "[%s][%s][%s][%s]",
-			(global.debug.recording)      ? "REC" : "---",
-			(global.debug.show_realmovie) ? "RM"  : "--",
-			(global.debug.show_replay)    ? "REP" : "---",
-			(global.debug.show_partner)   ? "PA"  : "--");
+		pr(monospace, 700, 300, "[%s][%s][%s][%s][%s]",
+			(global.debug.recording)      ? "recoding" : "-",
+			(global.debug.show_realmovie) ? "realmovie"  : "",
+			(global.debug.show_replay)    ? "replay" : "",
+			(global.debug.show_partner)   ? "partner"  : "",
+			getStatusName());
 	}
 
 	{
@@ -310,7 +333,7 @@ void StClient::displayDebugInfo()
 		color(vm==VM_2D_LEFT);  pr(monospace, x, y+=H, "[F1] 2D left");
 		color(vm==VM_2D_TOP);   pr(monospace, x, y+=H, "[F2] 2D top");
 		color(vm==VM_2D_FRONT); pr(monospace, x, y+=H, "[F3] 2D front");
-		color(false);           pr(monospace, x, y+=H, "[F4] ----");
+		color(false);           pr(monospace, x, y+=H, "[F4] ChangeSpeed");
 		color(vm==VM_2D_RUN);   pr(monospace, x, y+=H, "[F5] 2D run");
 		color(vm==VM_3D_LEFT);  pr(monospace, x, y+=H, "[F6] 3D left");
 		color(vm==VM_3D_RIGHT); pr(monospace, x, y+=H, "[F7] 3D right");

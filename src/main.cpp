@@ -51,6 +51,7 @@ Config::Config()
 	metrics.left_mm    = 0;
 	metrics.right_mm   = 4000;
 	metrics.top_mm     = 2500;
+	center_atari_voxel_threshould = 2500;
 }
 
 
@@ -125,6 +126,7 @@ void load_config()
 	CONFIG_INT(config, client_number);
 	CONFIG_INT(config, initial_window_x);
 	CONFIG_INT(config, initial_window_y);
+	CONFIG_INT(config, center_atari_voxel_threshould);
 	CONFIG_BOOL(config, initial_fullscreen);
 	CONFIG_BOOL(config, mirroring);
 	printf("mirroring: %d\n", config.mirroring);
@@ -344,16 +346,11 @@ static void init_kinect(const char* uri, Kdev& k)
 
 #include "mi/Timer.h"
 #include "mi/Console.h"
-
 #include "file_io.h"
 
 
-int main()
+static int run_app()
 {
-	mi::Console::setTitle("スポーツタイムマシン コンソール");
-
-	load_config();
-
 	Kdev dev1, dev2;
 
 	if (global_config.enable_kinect)
@@ -399,4 +396,12 @@ int main()
 		return 1;
 	}
 	st_client.run();
+}
+
+
+int main()
+{
+	mi::Console::setTitle("スポーツタイムマシン コンソール");
+	load_config();
+	return run_app();
 }

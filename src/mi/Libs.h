@@ -61,6 +61,8 @@ public:
 	static void splitByChars(const std::string& rawstring, const char* chars, std::vector<std::string>& lines);
 	static void splitStringToLines(const std::string& rawstring, std::vector<std::string>& lines);
 	static bool splitString(const std::string& rawstring, std::string& cmd, std::vector<VariantType>& arg);
+
+	static void toggle(bool& ref)     { ref = !ref; }
 };
 
 }//namespace mi

@@ -15,7 +15,7 @@ namespace stclient{
 using namespace mgl;
 
 
-const float PI = 3.141592653;
+const float PI = 3.14159265f;
 
 #define WITHOUT_KINECT 1
 
@@ -293,13 +293,12 @@ enum ViewMode
 // ゲームひとつひとつの情報
 struct GameInfo
 {
-	string     player_id;     // 0000ABCD
-	string     game_id;       // 00000XYZ23
 	string     basename;      // ${BaseFolder}/3/2/Z/Y/X/0/0/0/0/0/00000XYZ23
 	MovieData  movie;
 	MovieData  partner1;
 	MovieData  partner2;
 	MovieData  partner3;
+	mi::File   movie_file;
 
 	// ゲーム情報の破棄、初期化
 	void init();
@@ -312,7 +311,8 @@ struct GameInfo
 	static string GetFolderName(const string& id);
 	static string GetMovieFileName(const string& id);
 
-	void save(mi::File& f);
+	bool prepareForSave(const string& player_id, const string& game_id);
+	void save();
 
 private:
 	void save_Movie(const string& basename);
@@ -344,7 +344,13 @@ struct Global
 		mi::Image dot;
 		mi::Image pic[MAX_PICT_NUMBER];
 	};
+	struct Calibration
+	{
+		bool fast;               // キャリブレーションのときの移動・回転速度
+		bool enabled;            // キャリブレーション可能
+	};
 
+	Calibration  calibration;
 	Debug        debug;
 	GameInfo     gameinfo;
 	View         view;
@@ -352,28 +358,16 @@ struct Global
 	int          window_w;
 	int          window_h;
 	Images       images;
-	mi::File     save_file;
 	int          picture_number;          // PICTコマンドのときに表示するピクチャ番号
 	Point3D      person_center;
 	int          frame_index;
 	bool         frame_auto_increment;
-	ClientStatus _client_status;
 	PSL::PSLVM   pslvm;
 	int          hit_stage;
 	PSLv         on_hit_setup;
 	HitObjects   hit_objects;
 	bool         show_debug_info;
 	mgl::glRGBA  color_overlay;
-
-	ClientStatus clientStatus() const
-	{
-		return this->_client_status;
-	}
-
-	void setStatus(ClientStatus st)
-	{
-		this->_client_status = st;
-	}
 
 	bool calibrating_now() const
 	{
@@ -396,7 +390,8 @@ struct Global
 		frame_auto_increment = false;
 		hit_stage            = 0;
 		show_debug_info      = false;
-		setStatus(STATUS_SLEEP);
+		calibration.fast     = false;
+		calibration.enabled  = false;
 		color_overlay.set(0,0,0,0);  // transparent
 	}
 };
@@ -477,6 +472,10 @@ public:
 		dev2.clearFloorDepth();
 	}
 
+	const char* getStatusName(int present=-1) const;
+	void changeStatus(ClientStatus st);
+	ClientStatus clientStatus() const      { return this->_private_client_status; }
+
 private:
 	StClient(const StClient&);           // disable
 	StClient& operator=(StClient&);      // disable
@@ -499,6 +498,7 @@ private:
 	HitData               hitdata;
 	int                   flashing;
 	int                   snapshot_life;
+	ClientStatus          _private_client_status;
 
 
 	bool initGraphics();
@@ -511,15 +511,12 @@ private:
 	void display2dSection();
 	void displayDebugInfo();
 	void processOneFrame();
-	void processKeyInput();
-	void processKeyInput_BothMode(const bool* down);
-	void processKeyInput_CalibrateMode(const bool* down);
-	void processKeyInput_RunMode(const bool* down);
-	void processMouseInput();
-	void processMouseInput_aux();
-	void processUdpCommands();
 
-	bool drawPartner(const MovieData& mov);
+	void processKeyInput();
+	bool processKeyInput_Calibration(int key);
+	void processMouseInput();
+
+	void processUdpCommands();
 
 	void displayBlackScreen();
 	void displayPictureScreen();
@@ -537,12 +534,12 @@ private:
 
 	void loadAgent(int slot);
 
-	void MoviePlayback();
 	void MovieRecord();
 	void DrawVoxels(Dots& dots);
 	void set_clipboard_text();
 
 	void reloadResources();
+
 	void drawWall();
 	void drawFieldGrid(int size_cm);
 
@@ -570,5 +567,4 @@ void myGetKeyboardState(BYTE* kbd);
 
 
 
-extern void toggle(bool& ref);
 extern void load_config();

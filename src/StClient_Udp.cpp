@@ -88,19 +88,12 @@ private:
 	void status(Args& arg);
 	void colorOverlay(Args& arg);
 
-	void changeStatus(ClientStatus status);
+	void status_check(ClientStatus st);
 
 private:
 	StClient* client;
 	mi::UdpSender* udp_send;
 };
-
-void Command::changeStatus(ClientStatus status)
-{
-	global.setStatus(status);
-	sendStatus();
-}
-#define setStatus @dont_use@
 
 
 
@@ -135,13 +128,13 @@ void Command::ping(Args& arg)
 
 	udp_send->init(arg[0].to_s(), UDP_CLIENT_TO_CONTROLLER);
 	udp_send->send(s);
-	changeStatus(STATUS_IDLE);
+	client->changeStatus(STATUS_IDLE);
 }
 
 void Command::mirror(Args& arg)
 {
 	arg_check(arg, 0);
-	toggle(mode.mirroring);
+	Lib::toggle(mode.mirroring);
 }
 
 // DISKINFO
@@ -186,25 +179,6 @@ void Command::reloadConfig(Args& arg)
 	load_config();
 }
 
-static const char* getStatusName(int present=-1)
-{
-	const auto st = (present==-1) ? global.clientStatus() : (ClientStatus)present;
-	switch (st)
-	{
-	case STATUS_SLEEP:       return "SLEEP";
-	case STATUS_IDLE:        return "IDLE";
-	case STATUS_PICT:        return "PICT";
-	case STATUS_BLACK:       return "BLACK";
-	case STATUS_READY:       return "READY";
-	case STATUS_GAME:        return "GAME";
-	case STATUS_REPLAY:      return "REPLAY";
-	case STATUS_SAVING:      return "SAVING";
-	case STATUS_LOADING:     return "LOADING";
-	case STATUS_INIT_FLOOR:  return "INIT-FLOOR";
-	}
-	return "UNKNOWN-STATUS";
-}
-
 // ステータスチェックをしない
 static void no_check_status()
 {
@@ -214,14 +188,14 @@ static void no_check_status()
 
 
 // ClientStatusをチェックして規定値以外であれば弾く
-static void status_check(ClientStatus st)
+void Command::status_check(ClientStatus st)
 {
-	if (global.clientStatus()!=st)
+	if (client->clientStatus()!=st)
 	{
 		Console::pushColor(CON_RED); 
 		fprintf(stderr, "INVALID STATUS: status is not <%s>, current status is <%s>\n",
-			getStatusName(st),
-			getStatusName());
+			client->getStatusName(st),
+			client->getStatusName());
 		Console::popColor();
 		throw INVALID_STATUS;
 	}
@@ -233,7 +207,7 @@ void Command::sendStatus()
 	s += "STATUS ";
 	s += Core::getComputerName();
 	s += " ";
-	s += getStatusName();
+	s += client->getStatusName();
 	udp_send->send(s);
 }
 
@@ -242,7 +216,7 @@ void Command::status(Args& arg)
 {
 	arg_check(arg, 0);
 	sendStatus();
-	Msg::Notice("Current status", getStatusName());
+	Msg::Notice("Current status", client->getStatusName());
 }
 
 // BEGIN-INIT-FLOOR
@@ -253,7 +227,7 @@ void Command::beginInitFloor(Args& arg)
 	
 	Msg::SystemMessage("Begin init floor");
 	client->clearFloorDepth();
-	changeStatus(STATUS_INIT_FLOOR);
+	client->changeStatus(STATUS_INIT_FLOOR);
 }
 
 // END-INIT-FLOOR
@@ -263,7 +237,7 @@ void Command::endInitFloor(Args& arg)
 	status_check(STATUS_INIT_FLOOR);
 	
 	Msg::SystemMessage("End of init floor");
-	changeStatus(STATUS_IDLE);
+	client->changeStatus(STATUS_IDLE);
 }
 
 // COLOR-OVERLAY <r> <g> <b> <a>
@@ -358,30 +332,17 @@ void Command::ident(Args& arg)
 		return;
 	}
 
-
 	printf("PLAYER:%s, GAME:%s\n",
 		player_id.c_str(),
 		game_id.c_str());
 
-	// folder: ${BaseFolder}/D/C/B/A/0/0/0/0/
-	string folder = GameInfo::GetFolderName(game_id);
-
-	// basename: ${BaseFolder}/D/C/B/A/0/0/0/0/0000ABCD.stmov
-	global.gameinfo.basename = folder + game_id;
-	mi::Folder::createFolder(folder.c_str());
-	printf("Folder: %s\n", folder.c_str());
-
-	// filename
-	string filename = global.gameinfo.basename + ".stmov";
-	if (!global.save_file.openForWrite(filename.c_str()))
+	if (!global.gameinfo.prepareForSave(player_id, game_id))
 	{
-		Msg::ErrorMessage("Open error (savefile)", filename.c_str());
+		Msg::ErrorMessage("Open error (savefile)");
 		return;
 	}
 
-	printf("Filename %s ok\n", filename.c_str());
-
-	changeStatus(STATUS_READY);
+	client->changeStatus(STATUS_READY);
 }
 
 // PARTNER <game>
@@ -393,7 +354,7 @@ void Command::partner(Args& arg)
 	const string partner_game = normalize('G', arg[0].to_s(), 10);
 	printf("PARTNER:%s\n", partner_game.c_str());
 
-	changeStatus(STATUS_LOADING);
+	client->changeStatus(STATUS_LOADING);
 
 	{
 		Msg::Notice("Loading partner movie", partner_game);
@@ -402,9 +363,13 @@ void Command::partner(Args& arg)
 		{
 			Msg::ErrorMessage("Cannot open partner movie", partner_game);
 		}
+		else
+		{
+			printf("Partner 1: %d frames\n", global.gameinfo.partner1.total_frames);
+		}
 	}
 
-	changeStatus(STATUS_IDLE);
+	client->changeStatus(STATUS_IDLE);
 }
 
 // BACKGROUND <name>
@@ -444,7 +409,7 @@ void Command::start(Args& arg)
 	// ゲーム情報の破棄
 	client->initGameInfo();
 
-	changeStatus(STATUS_GAME);
+	client->changeStatus(STATUS_GAME);
 }
 
 // STOP
@@ -452,7 +417,7 @@ void Command::stop(Args& arg)
 {
 	arg_check(arg, 0);
 	status_check(STATUS_GAME);
-	changeStatus(STATUS_READY);
+	client->changeStatus(STATUS_READY);
 }
 
 // REPLAY
@@ -460,7 +425,7 @@ void Command::replay(Args& arg)
 {
 	arg_check(arg, 0);
 	status_check(STATUS_READY);
-	changeStatus(STATUS_REPLAY);
+	client->changeStatus(STATUS_REPLAY);
 }
 
 // HIT <int>
@@ -487,7 +452,7 @@ void Command::frame(Args& arg)
 	}
 	else
 	{
-		printf("\rframe recvd: %5d", frame);
+//#		printf("\rframe recvd: %5d", frame);
 		global.frame_index = frame;
 	}
 }
@@ -499,12 +464,13 @@ void Command::save(Args& arg)
 	status_check(STATUS_READY);
 
 	Msg::SystemMessage("Saving...");
-	changeStatus(STATUS_SAVING);
+	client->changeStatus(STATUS_SAVING);
 
-	global.gameinfo.save(global.save_file);
+	// prepareForSave()はIDENT時にやっています
+	global.gameinfo.save();
 
 	Msg::SystemMessage("Saved!");
-	changeStatus(STATUS_READY);
+	client->changeStatus(STATUS_READY);
 }
 
 // INIT
@@ -516,8 +482,13 @@ void Command::init(Args& arg)
 	// ゲーム情報の破棄
 	client->initGameInfo();
 
+	// 並走者の削除
+	global.gameinfo.partner1.clear();
+	global.gameinfo.partner2.clear();
+	global.gameinfo.partner3.clear();
+
 	Msg::SystemMessage("Init!");
-	changeStatus(STATUS_IDLE);
+	client->changeStatus(STATUS_IDLE);
 }
 
 // IDLE
@@ -525,7 +496,7 @@ void Command::idle(Args& arg)
 {
 	arg_check(arg, 0);
 	no_check_status();
-	changeStatus(STATUS_IDLE);
+	client->changeStatus(STATUS_IDLE);
 }
 
 // BLACK
@@ -533,7 +504,7 @@ void Command::black(Args& arg)
 {
 	arg_check(arg, 0);
 	no_check_status();
-	changeStatus(STATUS_BLACK);
+	client->changeStatus(STATUS_BLACK);
 }
 
 // PICT <filename>
@@ -588,7 +559,7 @@ bool Command::command(const string& line)
 
 	if (cmd!="FRAME")
 	{
-		Console::printf(CON_CYAN, "Command: %s ", cmd.c_str());
+		Console::printf(CON_CYAN, "\nCommand: %s ", cmd.c_str());
 		for (size_t i=0; i<arg.size(); ++i)
 		{
 			if (arg[i].is_int())

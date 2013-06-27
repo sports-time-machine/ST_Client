@@ -1,7 +1,6 @@
 #include "mi/mi.h"
 #include "file_io.h"
 #include "Config.h"
-#include <map>
 #pragma warning(disable:4366)
 #define GL_GENERATE_MIPMAP_SGIS 0x8191
 #include "StClient.h"
@@ -53,8 +52,6 @@ local VodyInfo vody;
 
 
 
-const int INITIAL_WIN_SIZE_X = 1024;
-const int INITIAL_WIN_SIZE_Y = 768;
 const int TEXTURE_SIZE = 512;
 
 
@@ -86,23 +83,6 @@ void stclient::myGetKeyboardState(BYTE* kbd)
 }
 
 
-
-void toggle(bool& ref)
-{
-	auto log = [&](bool state, int key, const char* text){
-		printf("%12s (%c): %s\n",
-			text,
-			key,
-			state ? "YES" : "NO");
-	};
-
-	ref = !ref;
-	puts("-----------------------------");
-	log(mode.mirroring,        '?', "mirroring");
-	puts("-----------------------------");
-}
-
-
 typedef std::vector<openni::RGB888Pixel> RgbScreen;
 typedef std::map<int,RgbScreen> RgbScreenMovie;
 
@@ -115,7 +95,8 @@ StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 	dev2(dev2_),
 	active_camera(CAM_BOTH),
 	snapshot_life(0),
-	flashing(0)
+	flashing(0),
+	_private_client_status(STATUS_SLEEP)
 {
 	eye.view_2d_run();
 
@@ -203,33 +184,61 @@ static void window_resized(int width, int height)
 	glViewport(0, 0, width, height);
 }
 
+
+void StClient::changeStatus(ClientStatus new_status)
+{
+	// ステータスチェンジとともにフレーム数もゼロにする
+	Msg::Notice("Change status to", getStatusName(new_status));		
+	global.frame_index = 0;
+	this->_private_client_status = new_status;
+}
+
+const char* StClient::getStatusName(int present) const
+{
+	const auto st = (present==-1) ? clientStatus() : (ClientStatus)present;
+	switch (st)
+	{
+	case STATUS_SLEEP:       return "SLEEP";
+	case STATUS_IDLE:        return "IDLE";
+	case STATUS_PICT:        return "PICT";
+	case STATUS_BLACK:       return "BLACK";
+	case STATUS_READY:       return "READY";
+	case STATUS_GAME:        return "GAME";
+	case STATUS_REPLAY:      return "REPLAY";
+	case STATUS_SAVING:      return "SAVING";
+	case STATUS_LOADING:     return "LOADING";
+	case STATUS_INIT_FLOOR:  return "INIT-FLOOR";
+	}
+	return "UNKNOWN-STATUS";
+}
+
 bool StClient::recordingNow() const
 {
-	return global.clientStatus()==STATUS_GAME;
+	return clientStatus()==STATUS_GAME;
 }
 
 bool StClient::replayingNow() const
 {
-	return global.clientStatus()==STATUS_REPLAY;
+	return clientStatus()==STATUS_REPLAY;
 }
 
 void StClient::recordingStart()
 {
 	Msg::SystemMessage("Recording start!");
-	global.setStatus(STATUS_GAME);
+	changeStatus(STATUS_GAME);
 	global.gameinfo.movie.clear();
 }
 
 void StClient::recordingStop()
 {
 	Msg::SystemMessage("Recording stop!");
-	global.setStatus(STATUS_READY);
+	changeStatus(STATUS_READY);
 }
 
 void StClient::recordingReplay()
 {
 	Msg::SystemMessage("Replay!");
-	global.setStatus(STATUS_REPLAY);
+	changeStatus(STATUS_REPLAY);
 }
 
 
@@ -276,6 +285,17 @@ void StClient::processOneFrame()
 	// フレーム開始時にUDPコマンドの処理をする
 	this->processUdpCommands();
 
+	// Nフレでのスナップショット
+	if (global_config.auto_snapshot_interval>0)
+	{
+		static int frame_count;
+		++frame_count;
+		if (frame_count%global_config.auto_snapshot_interval==0)
+		{
+			this->createSnapshot();
+		}
+	}
+
 	// カメラ移動の適用
 	eye.updateCameraMove();
 
@@ -285,91 +305,108 @@ void StClient::processOneFrame()
 	// キネクト情報はつねにもらっておく
 	this->displayEnvironment();
 
-	// クライアントステータスによる描画の分岐
-	// VRAMのクリア(glClearGraphics)はそれぞれに行う
-	switch (global.clientStatus())
+	if (global.calibration.enabled)
 	{
-	case STATUS_SLEEP:
-		// 2Dアイドル画像
-		glClearGraphics(255,255,255);
-		this->display2dSectionPrepare();
-		global.images.sleep.draw(0,0,640,480);
-		break;
+		// スーパーモードとしてのキャリブレーションモード
 
-	case STATUS_BLACK:
-		glClearGraphics(0,0,0);
-		break;
-
-	case STATUS_IDLE:{
-		// 2Dアイドル画像
-		glClearGraphics(255,255,255);
-		this->display2dSectionPrepare();
-		global.images.idle.draw(0,0,640,480);
-
-		// 実映像の表示
-		this->display3dSectionPrepare();
-		this->display3dSection();
-		static Dots dots;
-		DrawVoxels(dots);
-		break;}
-
-	case STATUS_PICT:{
-		// 画像
-		puts("pict");
-		glClearGraphics(255,255,255);
-		this->display2dSectionPrepare();
-		global.images.pic[global.picture_number].draw(0,0,640,480);
-		break;}
-
-	case STATUS_INIT_FLOOR:{
-		// 実映像の表示
 		glClearGraphics(255,255,255);
 		this->display3dSectionPrepare();
-		this->display3dSection();
-		static Dots dots;
-		DrawVoxels(dots);
-		
-		// 床消しのアップデート
-		dev1.updateFloorDepth();
-		dev2.updateFloorDepth();
-
-		// テキスト
-		this->display2dSectionPrepare();
-		this->display2dSection();
-		glRGBA::black();
-		freetype::print(monospace, 100, 100, "Initializing floor image...");
-		break;}
-
-	default:
-		glClearGraphics(
-			global_config.color.ground.r,
-			global_config.color.ground.g,
-			global_config.color.ground.b);
-		this->display3dSectionPrepare();
-		{
-			mi::Timer tm(&time_profile.drawing.wall);
-			this->drawWall();
-		}
 		{
 			mi::Timer tm(&time_profile.drawing.grid);
 			this->drawFieldGrid(500);
 		}
 		this->display3dSection();
-		this->display2dSectionPrepare();
-		this->display2dSection();
-		if (global.color_overlay.a>0)
-		{
-			global.color_overlay();
-			glBegin(GL_QUADS);
-			glVertex2i(0,0);
-			glVertex2i(640,0);
-			glVertex2i(640,480);
-			glVertex2i(0,480);
-			glEnd();
-		}
-		break;
+//##		static Dots dots;
+//###		DrawVoxels(dots);
 	}
+	else
+	{
+		// クライアントステータスによる描画の分岐
+		// VRAMのクリア(glClearGraphics)はそれぞれに行う
+		switch (clientStatus())
+		{
+		case STATUS_SLEEP:
+			// 2Dアイドル画像
+			glClearGraphics(255,255,255);
+			this->display2dSectionPrepare();
+			global.images.sleep.draw(0,0,640,480);
+			break;
+
+		case STATUS_BLACK:
+			glClearGraphics(0,0,0);
+			break;
+
+		case STATUS_IDLE:{
+			// 2Dアイドル画像
+			glClearGraphics(255,255,255);
+			this->display2dSectionPrepare();
+			global.images.idle.draw(0,0,640,480);
+
+			// 実映像の表示
+			this->display3dSectionPrepare();
+			this->display3dSection();
+			static Dots dots;
+			DrawVoxels(dots);
+			break;}
+
+		case STATUS_PICT:{
+			// 画像
+			puts("pict");
+			glClearGraphics(255,255,255);
+			this->display2dSectionPrepare();
+			global.images.pic[global.picture_number].draw(0,0,640,480);
+			break;}
+
+		case STATUS_INIT_FLOOR:{
+			// 実映像の表示
+			glClearGraphics(255,255,255);
+			this->display3dSectionPrepare();
+			this->display3dSection();
+			static Dots dots;
+			DrawVoxels(dots);
 		
+			// 床消しのアップデート
+			dev1.updateFloorDepth();
+			dev2.updateFloorDepth();
+
+			// テキスト
+			this->display2dSectionPrepare();
+			this->display2dSection();
+			glRGBA::black();
+			freetype::print(monospace, 100, 100, "Initializing floor image...");
+			break;}
+
+		default:
+			glClearGraphics(
+				global_config.color.ground.r,
+				global_config.color.ground.g,
+				global_config.color.ground.b);
+			this->display3dSectionPrepare();
+			{
+				mi::Timer tm(&time_profile.drawing.wall);
+				this->drawWall();
+			}
+			{
+				mi::Timer tm(&time_profile.drawing.grid);
+				this->drawFieldGrid(500);
+			}
+			this->display3dSection();
+			this->display2dSectionPrepare();
+			this->display2dSection();
+			if (global.color_overlay.a>0)
+			{
+				global.color_overlay();
+				glBegin(GL_QUADS);
+				glVertex2i(0,0);
+				glVertex2i(640,0);
+				glVertex2i(640,480);
+				glVertex2i(0,480);
+				glEnd();
+			}
+			break;
+		}
+	}
+
 	if (global.show_debug_info)
 	{
 		this->display2dSectionPrepare();
@@ -388,7 +425,7 @@ void StClient::processOneFrame()
 void StClient::initGameInfo()
 {
 	startMovieRecordSettings();
-	global.gameinfo.init();
+//######	global.gameinfo.init();
 
 	// 最初の当たり判定を作る
 	const int FIRST_HIT_NUMBER = 0;
@@ -406,15 +443,15 @@ bool StClient::run()
 	glfwGetWindowSize(&window_w, &window_h);
 	window_resized(window_w, window_h);
 
-	// @main
+	// @main @loop
 	for (;;)
 	{
 		mi::Timer mi(&time_profile.frame);
-
 		glfwPollEvents();
 
 		if (!glfwGetWindowParam(GLFW_OPENED))
 		{
+			// WM_CLOSE
 			break;
 		}
 		
@@ -695,7 +732,7 @@ void stclient::drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_col
 
 		if (style & DRAW_VOXELS_QUAD)
 		{
-			const float K = 0.01;
+			const float K = 0.01f;
 			glTexCoord2f(0,0); glVertex3f(x-K,y-K,-z);
 			glTexCoord2f(1,0); glVertex3f(x+K,y-K,-z);
 			glTexCoord2f(1,1); glVertex3f(x+K,y+K,-z);
@@ -713,7 +750,6 @@ void stclient::drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_col
 // ゲーム情報の破棄、初期化
 void GameInfo::init()
 {
-	player_id = "NO-ID";
 	movie.clear();
 	partner1.clear();
 	partner2.clear();
@@ -721,47 +757,6 @@ void GameInfo::init()
 	movie.frames.clear();
 	movie.cam1 = CamParam();
 	movie.cam2 = CamParam();
-}
-
-
-void StClient::MoviePlayback()
-{
-	if (global.gameinfo.movie.total_frames==0)
-	{
-		global.setStatus(STATUS_READY);
-		puts("Movie empty.");
-		return;
-	}
-
-	if (global.frame_index >= global.gameinfo.movie.total_frames)
-	{
-#if 1
-		global.setStatus(STATUS_READY);
-		puts("Movie end.");
-		return;
-#else
-		// rewind!
-		puts("Rewind!");
-		global.frame_index = 0;
-#endif
-	}
-
-	auto& mov = global.gameinfo.movie;
-	static Dots dots;
-	dots.init();
-
-	// @playback
-	const int frame = mov.getValidFrame(global.frame_index);
-	if (frame>=0)
-	{
-		Depth10b6b::playback(dev1.raw_depth, dev2.raw_depth, mov.frames.find(frame)->second);
-		MixDepth(dots, dev1.raw_depth, mov.cam1);
-		MixDepth(dots, dev2.raw_depth, mov.cam2);
-		drawVoxels(dots,
-			global_config.color.movie1,	
-			glRGBA(50,50,50),
-			DRAW_VOXELS_HALF);
-	}
 }
 
 void StClient::createSnapshot()
@@ -825,7 +820,7 @@ void StClient::DrawVoxels(Dots& dots)
 		for (int i=0; i<dots.size(); ++i)
 		{
 			Point3D p = dots[i];
-			if (p.x>=-2.0f && p.x<=2.0f && p.y>=0.0f && p.y<=2.75f && p.z>=0.0f && p.z<=3.0f)
+			if (p.x>=ATARI_LEFT && p.x<=ATARI_RIGHT && p.y>=ATARI_BOTTOM && p.y<=ATARI_TOP && p.z>=GROUND_NEAR && p.z<=GROUND_FAR)
 			{
 				++count;
 				avg_x += p.x;
@@ -834,8 +829,8 @@ void StClient::DrawVoxels(Dots& dots)
 			}
 		}
 
-		// 1万以上は安定して捉えていると判断する
-		if (count>=10000)
+		// 安定して捉えていると判断するボクセルの数
+		if (count>=config.center_atari_voxel_threshould)
 		{
 			avg_x = avg_x/count;
 			avg_y = avg_y/count;
@@ -939,7 +934,7 @@ void StClient::MovieRecord()
 	if (global.gameinfo.movie.total_frames >= MAX_TOTAL_FRAMES)
 	{
 		puts("time over! record stop.");
-		global.setStatus(STATUS_READY);
+		changeStatus(STATUS_READY);
 	}
 	else
 	{
@@ -949,7 +944,7 @@ void StClient::MovieRecord()
 #else
 		mov.cam1 = cal_cam1.curr;
 		mov.cam2 = cal_cam2.curr;
-		Depth10b6b::record(dev1.raw_depth, dev2.raw_depth, mov.frames[global.frame_index]);
+		Depth10b6b::record(dev1.raw_cooked, dev2.raw_cooked, mov.frames[global.frame_index]);
 		mov.total_frames = max(mov.total_frames, global.frame_index);
 #endif
 	}
@@ -990,25 +985,42 @@ void GameInfo::save_Thumbnail(const string& basename, const string& suffix, int)
 		Console::printf(CON_RED, "Cannot open file '%s'\n", path.c_str());
 		return;
 	}
-
 }
 
-void GameInfo::save(mi::File& f)
+bool GameInfo::prepareForSave(const string& player_id, const string& game_id)
 {
-	Msg::SystemMessage("Save to file!");
-	printf("Game-ID: %s\n", movie.run_id.c_str());
+	this->movie.game_id   = game_id;
+	this->movie.player_id = player_id;
 
-	// Folder name: ${BaseFolder}/A/B/C/
-	string folder = GetFolderName(movie.run_id);
+	Msg::SystemMessage("Prepare for save!");
+	printf("Game-ID: %s\n", game_id.c_str());
+
+	// Folder name: ${BaseFolder}/E/D/C/B/A/0/0/0/0/0/
+	const string folder = GetFolderName(game_id);
 	mi::Folder::createFolder(folder.c_str());
 	printf("Folder: %s\n", folder.c_str());
 
-	// Base name: ${BaseFolder}/A/B/C/cba
-	string basename = folder + movie.run_id;
+	// Base name: ${BaseFolder}/E/D/C/B/A/0/0/0/0/0/00000ABCDE
+	this->basename = folder + game_id;
+
+	// Open!
+	const string filename = this->basename + ".stmov";
+	if (!movie_file.openForWrite(filename))
+	{
+		Msg::ErrorMessage("Cannot open file", filename);
+		return false;
+	}
+
+	return true;
+}
+
+void GameInfo::save()
+{
+	Msg::SystemMessage("Save to file!");
 
 	// Save Movie
-	saveToFile(f, global.gameinfo.movie);
-	f.close();
+	saveToFile(movie_file, global.gameinfo.movie);
+	movie_file.close();
 	Msg::Notice("Saved!");
 
 	// Save Thumbnail
@@ -1206,9 +1218,11 @@ static void init_open_gl_params()
 bool StClient::initGraphics()
 {
 	auto open_window = [&]()->int{
+		//# glfwOpenWindowHint(GLFW_WINDOW_NO_RESIZE, GL_TRUE);
+		printf("Initial Fullscreen: %d\n", config.initial_fullscreen);
 		return glfwOpenWindow(
-			INITIAL_WIN_SIZE_X,
-			INITIAL_WIN_SIZE_Y,
+			640,
+			480,
 			0, 0, 0,
 			0, 0, 0,
 			(config.initial_fullscreen ? GLFW_FULLSCREEN : GLFW_WINDOW));
@@ -1218,14 +1232,13 @@ bool StClient::initGraphics()
 	{
 		return false;
 	}
-
 	if (open_window()==GL_FALSE)
 	{
 		return false;
 	}
 
 	glfwEnable(GLFW_MOUSE_CURSOR);
-
+	
 	{
 		string name;
 		name += "スポーツタイムマシン クライアント";

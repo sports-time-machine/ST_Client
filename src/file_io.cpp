@@ -15,9 +15,9 @@ static const char
 const int MAX_TOTAL_FRAMES = 30 * 60 * 5; // 5 minute
 
 
-void saveToFile(File& f, const MovieData& movie)
+void stclient::saveToFile(File& f, const MovieData& movie)
 {
-	const int TOTAL_FRAMES = movie.frames.size();
+	const int TOTAL_FRAMES = movie.total_frames;
 
 	// ファイルヘッダ
 	FileHeader header;
@@ -55,8 +55,9 @@ void saveToFile(File& f, const MovieData& movie)
 		const std::vector<uint8>& bytedata = frame.compressed;
 		f.put32(bytedata.size());
 		f.write(bytedata.data(), bytedata.size());
-		printf("Frame %d/%d: %d bytes\n", 1+i, TOTAL_FRAMES, bytedata.size());
+		printf("\rFrame %d/%d: %d bytes", 1+i, TOTAL_FRAMES, bytedata.size());
 	}
+	printf("\n");
 
 	// eof mark
 	f.write("[EOF]");
@@ -76,8 +77,8 @@ static void load_ver1_0(File& f, const FileHeader& header, MovieData& movie)
 	f.read(movie.dot_size);
 	f.read(movie.player_color);
 
+	// 実映像
 	printf("Total frames: %d\n", header.total_frames);
-
 	for (uint32 i=0; i<header.total_frames; ++i)
 	{
 		MovieData::Frame& frame = movie.frames[i];
@@ -85,8 +86,8 @@ static void load_ver1_0(File& f, const FileHeader& header, MovieData& movie)
 		frame.voxel_count = f.get32();
 
 		uint32 bytedata_size = f.get32();
-		printf("Frame %d/%d, %d voxels, %d bytes (%08X)\n",
-			i,
+		printf("\rFrame %d/%d, %d voxels, %d bytes (%08X)",
+			1+i,
 			header.total_frames,
 			frame.voxel_count,
 			bytedata_size,
@@ -94,6 +95,7 @@ static void load_ver1_0(File& f, const FileHeader& header, MovieData& movie)
 		frame.compressed.resize(bytedata_size);
 		f.read(frame.compressed.data(), bytedata_size);
 	}
+	printf("\n");
 }
 
 int MovieData::getValidFrame(int frame) const
@@ -145,6 +147,8 @@ bool MovieData::load(const string& id)
 		fprintf(stderr, "Invalid total frames.\n");
 		return false;
 	}
+
+	this->total_frames = header.total_frames;
 
 	if (header.ver_major==1 && header.ver_minor==0)
 	{

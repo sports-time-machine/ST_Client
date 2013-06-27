@@ -1,8 +1,8 @@
 #pragma once
 #include "mi/Core.h"
 #include "zlibpp.h"
-#include <map>
 
+namespace stclient{
 
 struct Point3D
 {
@@ -96,11 +96,6 @@ enum StColor
 
 struct MovieData
 {
-	static const char* non_id()
-	{
-		return "NON-ID";
-	}
-
 	struct Frame
 	{
 		int voxel_count;
@@ -115,7 +110,8 @@ struct MovieData
 	// Ž¸”s‚µ‚½‚ç•‰
 	int getValidFrame(int frame) const;
 
-	string    run_id;
+	string    player_id;     // 0000ABCD
+	string    game_id;       // 00000XYZ23
 	float     dot_size;
 	StColor   player_color;
 	CamParam  cam1;
@@ -132,7 +128,6 @@ struct MovieData
 	{
 		frames.clear();
 		total_frames = 0;
-		run_id       = non_id();
 		dot_size     = 1.0f;
 		player_color = STCOLOR_WHITE;
 	}
@@ -142,3 +137,5 @@ struct MovieData
 
 extern void saveToFile(mi::File& f, const MovieData& movie);
 extern bool loadFromFile(mi::File& f, MovieData& movie);
+
+}//namespace stclient

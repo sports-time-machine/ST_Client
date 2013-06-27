@@ -1,6 +1,8 @@
 #pragma once
 #include <vector>
+#include <map>
 #include <cstdio>
+#include <string>
 
 typedef __int8  int8;
 typedef __int16 int16;
@@ -145,6 +147,10 @@ public:
 	static void abort(const char* title, const char* text=nullptr);
 	static const std::string& getComputerName();
 };
+
+
+const char* boolToYesNo(bool x);
+
 
 }//namespace mi
 

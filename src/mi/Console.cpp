@@ -49,8 +49,11 @@ void Console::popColor()
 void Console::setColor(int col)
 {
 	auto cout = GetStdHandle(STD_OUTPUT_HANDLE);
-	SetConsoleTextAttribute(cout, (WORD)col);
-	last_attrib.color = col;
+	if (cout!=nullptr)
+	{
+		SetConsoleTextAttribute(cout, (WORD)col);
+		last_attrib.color = col;
+	}
 }
 
 void Console::printf(int color, const char* f, ...)

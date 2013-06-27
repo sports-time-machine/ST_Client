@@ -160,5 +160,5 @@ void gl::DrawSphere(float x, float y, float z, float r, float ra, float rx, floa
 
 void gl::DrawSphere(float x, float y, float z, float r)
 {
-	DrawSphere(x,y,z,r);
+	DrawSphere(x,y,z,r, 0.0f, 0.0f, 0.0f, 0.0f);
 }

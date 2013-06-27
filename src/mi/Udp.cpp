@@ -161,6 +161,43 @@ UdpSender::~UdpSender()
 	delete self;
 }
 
+
+unsigned long GetInetAddress(const char* src)
+{
+	typedef std::map<std::string,int> Cache;
+	static Cache cache;
+
+	// キャッシュしていればそのアドレスを使う
+	std::string s = src;
+	Cache::const_iterator itr = cache.find(s);
+	if (itr!=cache.end())
+	{
+		return itr->second;
+	}
+
+	const auto ipv4 = inet_addr(src);
+	if (ipv4==-1u)
+	{
+		// 名前を引く
+		const hostent* host = gethostbyname(src);
+		if (host!=nullptr)
+		{
+			for (int i=0; host->h_addr_list[i]!=nullptr; ++i)
+			{
+				const BYTE* addr = (const BYTE*)host->h_addr_list[i];
+				fprintf(stderr, "GetInetAddress: %s is %d.%d.%d.%d\n",
+					src, addr[0], addr[1], addr[2], addr[3]);
+				const unsigned long ipa = (addr[0]) + (addr[1]<<8) + (addr[2]<<16) + (addr[3]<<24);
+				cache[src] = ipa;
+				return ipa;
+			}
+		}
+	}
+
+	cache[src] = ipv4;
+	return ipv4;
+}
+
 void UdpSender::init(const char* address, int port)
 {
 	Udp::get().init();
@@ -168,10 +205,9 @@ void UdpSender::init(const char* address, int port)
 	destroy();
 
 	self->sock = ::socket(AF_INET, SOCK_DGRAM, 0);
-
 	self->send_addr.sin_family = AF_INET;
 	self->send_addr.sin_port = ::htons((WORD)port);
-	self->send_addr.sin_addr.S_un.S_addr = ::inet_addr(address);
+	self->send_addr.sin_addr.S_un.S_addr = GetInetAddress(address);
 }
 
 void UdpSender::destroy()
@@ -189,6 +225,7 @@ bool UdpSender::send(const std::string& src)
 			NO_FLAGS,  (const struct sockaddr*)&self->send_addr, sizeof(self->send_addr));
 	if (bytes==SOCKET_ERROR)
 	{
+		fprintf(stderr, "send error, msg:[%s]\n", src.c_str());
 		return false;
 	}
 	return true;
