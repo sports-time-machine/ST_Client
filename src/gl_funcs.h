@@ -89,7 +89,6 @@ public:
 	static void AlphaBlending(bool state);
 
 	// Full Screen
-	static void ToggleFullScreen();
 	static bool IsFullScreen();
 
 	// Drawing functions

@@ -296,6 +296,8 @@ void StClient::displayDebugInfo()
 			(global.debug.show_replay)    ? "replay" : "",
 			(global.debug.show_partner)   ? "partner"  : "",
 			getStatusName());
+		pr(monospace, 700, 320, "[Atari=%5d]",
+			global.debug.atari_voxels);
 	}
 
 	{

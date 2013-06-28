@@ -6,7 +6,7 @@ using namespace stclient;
 
 void Eye::gluLookAt()
 {
-	const float eye_depth = 4.0f;//#
+	const float eye_depth = LOOKAT_EYE_DEPTH;
 	const float ex = x + cos(rh) * eye_depth;
 	const float ez = z + sin(rh) * eye_depth;
 	const float ey = y + v;

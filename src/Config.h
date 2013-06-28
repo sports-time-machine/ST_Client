@@ -23,6 +23,10 @@ namespace stclient{
 #define ATARI_BOTTOM       (0.50f)
 #define ATARI_TOP          (GROUND_HEIGHT)
 
+#define LOOKAT_EYE_DEPTH   (4.0f)
+
+
+
 enum
 {
 	// これ以外についてはConfig.cppのConfig::Config()に記述してあります
@@ -84,8 +88,8 @@ struct Config
 	int          person_inc;
 	int          movie_inc;
 	int          client_number;
-	bool         enable_kinect;
-	bool         enable_color;
+	bool         enable_kinect;  //Kinectを使う
+	bool         enable_color;   //Kinectのカラーを初期化する
 	bool         initial_fullscreen;
 	bool         mirroring;
 	bool         ignore_udp;

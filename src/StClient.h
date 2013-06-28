@@ -335,6 +335,7 @@ struct Global
 		bool show_realmovie;
 		bool show_replay;
 		bool show_partner;
+		int  atari_voxels;
 	};
 	struct Images
 	{

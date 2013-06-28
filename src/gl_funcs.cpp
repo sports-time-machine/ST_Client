@@ -124,20 +124,6 @@ void gl::LoadIdentity()
 	glLoadIdentity();
 }
 
-void gl::ToggleFullScreen()
-{
-	bool& is_fullscreen = data().fullscreen;
-	if (is_fullscreen)
-	{
-//#		glutReshapeWindow(640,480);
-	}
-	else
-	{
-//#		glutFullScreen();
-	}
-	is_fullscreen = !is_fullscreen;
-}
-
 void gl::DrawSphere(float x, float y, float z, float r, float ra, float rx, float ry, float rz)
 {
 	static GLUquadricObj *sphere = nullptr;

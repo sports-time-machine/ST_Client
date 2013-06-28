@@ -240,7 +240,6 @@ bool StClient::processKeyInput_Calibration(int key)
 	case 'M':            toggle(mode.mirroring, "ƒ~ƒ‰[");         break;
 	case SK_CTRL | 'C':  set_clipboard_text();                     break;
 	case VK_BACK:        this->clearFloorDepth();                  break;
-	case VK_RETURN:      gl::ToggleFullScreen();                   break;
 
 	case SK_CTRL + 'S'://Ctrl+S
 		if (!recordingNow())

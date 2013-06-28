@@ -17,9 +17,9 @@ using namespace mi;
 using namespace stclient;
 using namespace vector_and_matrix;
 
-const int FRAMES_PER_SECOND = 30;
-const int MAX_TOTAL_SECOND  = 50;
-const int MAX_TOTAL_FRAMES  = MAX_TOTAL_SECOND * FRAMES_PER_SECOND;
+//const int FRAMES_PER_SECOND = 30;
+//const int MAX_TOTAL_SECOND  = 50;
+//const int MAX_TOTAL_FRAMES  = MAX_TOTAL_SECOND * FRAMES_PER_SECOND;
 
 
 
@@ -866,6 +866,7 @@ void StClient::DrawRealMovie(Dots& dots)
 		global.person_center.x = avg_x;
 		global.person_center.y = avg_y;
 		global.person_center.z = avg_z;
+		global.debug.atari_voxels = count;
 		
 		{
 			Timer tm(&time_profile.drawing.drawvoxels);
@@ -951,7 +952,7 @@ void StClient::CreateAtari(const Dots& dots)
 
 void StClient::MovieRecord()
 {
-	if (global.gameinfo.movie.total_frames >= MAX_TOTAL_FRAMES)
+	if (global.gameinfo.movie.total_frames >= MOVIE_MAX_FRAMES)
 	{
 		puts("time over! record stop.");
 		changeStatus(STATUS_READY);
@@ -1238,7 +1239,6 @@ static void init_open_gl_params()
 bool StClient::initGraphics()
 {
 	auto open_window = [&]()->int{
-		//# glfwOpenWindowHint(GLFW_WINDOW_NO_RESIZE, GL_TRUE);
 		printf("Initial Fullscreen: %d\n", config.initial_fullscreen);
 		return glfwOpenWindow(
 			640,

@@ -12,8 +12,6 @@ static const char
 		' ','1','0','b',
 		'/','6','b',' '};
 
-const int MAX_TOTAL_FRAMES = 30 * 60 * 5; // 5 minute
-
 
 void stclient::saveToFile(File& f, const MovieData& movie)
 {
@@ -156,7 +154,7 @@ bool MovieData::load(const string& id)
 		fprintf(stderr, "Unsupport format.\n");
 		return false;
 	}
-	if (header.total_frames<=0 || header.total_frames>=MAX_TOTAL_FRAMES)
+	if (header.total_frames<=0 || header.total_frames>=MOVIE_MAX_FRAMES)
 	{
 		fprintf(stderr, "Invalid total frames.\n");
 		return false;
