@@ -85,7 +85,7 @@ void Depth10b6b::record(const RawDepthImage& depth1, const RawDepthImage& depth2
 	}
 
 #if 0
-	printf("<REC> [%d]bytes (%.1fMbytes)\r",
+	printf("\r<REC> [%d]bytes (%.1fMbytes)",
 		store_bytes,
 		store_bytes/1000000.0);
 #endif

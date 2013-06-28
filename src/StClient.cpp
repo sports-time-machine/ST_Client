@@ -356,7 +356,7 @@ void StClient::processOneFrame()
 	{
 		// クライアントステータスによる描画の分岐
 		// VRAMのクリア(glClearGraphics)はそれぞれに行う
-		switch (STATUS_IDLE)
+		switch (clientStatus())
 		{
 		case STATUS_SLEEP:
 			// 2Dスリープ画像
@@ -675,7 +675,7 @@ void StClient::drawIdleImage()
 	auto itr = config.idle_images.find(curr_image);
 	if (itr!=config.idle_images.end())
 	{
-		itr->second.image.draw(0.0f, 0.0f, 640.0f, 480.0f, -IDLE_IMAGE_Z);
+		itr->second.image.drawDepth(0,0,640,480, IDLE_IMAGE_Z);
 	}
 #else
 	// 製作時間がなくてタイムアウト

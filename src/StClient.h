@@ -479,6 +479,7 @@ public:
 	const char* getStatusName(int present=-1) const;
 	void changeStatus(ClientStatus st);
 	ClientStatus clientStatus() const      { return this->_private_client_status; }
+	void reloadResources();
 
 private:
 	StClient(const StClient&);           // disable
@@ -541,8 +542,6 @@ private:
 	void MovieRecord();
 	void DrawRealMovie(Dots& dots, float dot_size);
 	void set_clipboard_text();
-
-	void reloadResources();
 
 	void drawRunEnv();
 	void draw3dWall();

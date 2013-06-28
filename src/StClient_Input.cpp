@@ -141,6 +141,38 @@ void StClient::processKeyInput()
 	case VK_F6:  eye.view_3d_left();      break;
 	case VK_F7:  eye.view_3d_right();     break;
 	case VK_F8:  eye.view_3d_front();     break;
+	case SK_CTRL + 'S'://Ctrl+S
+		if (!recordingNow())
+		{
+			Msg::Notice("録画スタート!!");
+			global.frame_auto_increment = true;
+			global.frame_index = 0;
+			recordingStart();
+		}
+		else
+		{
+			Msg::Notice("録画終了。");
+			global.frame_auto_increment = false;
+			global.frame_index = 0;
+			recordingStop();
+		}
+		break;
+	case SK_CTRL + 'T'://Ctrl+T
+		global.gameinfo.prepareForSave("0000ABCD", "00000QWERT");
+		global.gameinfo.save();
+		break;
+	case SK_CTRL + 'L'://Ctrl+L
+		global.gameinfo.movie.load("00000QWERT");
+		break;
+	case SK_CTRL + 'K'://Ctrl+K
+		global.gameinfo.partner1.load("00000QWERT");
+		break;
+	case SK_CTRL + 'R'://Ctrl+R
+		Msg::Notice("リプレイ!!");
+		global.frame_auto_increment = true;
+		global.frame_index = 0;
+		recordingReplay();
+		break;
 	}
 
 	if (global.calibration.enabled)
@@ -243,39 +275,6 @@ bool StClient::processKeyInput_Calibration(int key)
 	case 'I':            toggle(eye.fast_set,   "視点高速移動");    break;
 	case 'M':            toggle(mode.mirroring, "ミラー");         break;
 	case SK_CTRL | 'C':  set_clipboard_text();                     break;
-
-	case SK_CTRL + 'S'://Ctrl+S
-		if (!recordingNow())
-		{
-			Msg::Notice("録画スタート!!");
-			global.frame_auto_increment = true;
-			global.frame_index = 0;
-			recordingStart();
-		}
-		else
-		{
-			Msg::Notice("録画終了。");
-			global.frame_auto_increment = false;
-			global.frame_index = 0;
-			recordingStop();
-		}
-		break;
-	case SK_CTRL + 'T'://Ctrl+T
-		global.gameinfo.prepareForSave("0000ABCD", "00000QWERT");
-		global.gameinfo.save();
-		break;
-	case SK_CTRL + 'L'://Ctrl+L
-		global.gameinfo.movie.load("00000QWERT");
-		break;
-	case SK_CTRL + 'K'://Ctrl+K
-		global.gameinfo.partner1.load("00000QWERT");
-		break;
-	case SK_CTRL + 'R'://Ctrl+R
-		Msg::Notice("リプレイ!!");
-		global.frame_auto_increment = true;
-		global.frame_index = 0;
-		recordingReplay();
-		break;
 
 #if 0
 	case SK_CTRL + 'L'://Ctrl+L

@@ -133,7 +133,8 @@ void MovieData::clearAll()
 
 bool MovieData::load(const string& id)
 {
-	string name = GameInfo::GetFolderName(id) + id + ".stmov";
+	string name = GameInfo::GetFolderName(id) + id + "-" + to_s(config.client_number) + ".stmov";
+	Msg::Notice("Movie load", name.c_str());
 	File f;
 	if (!f.open(name))
 	{

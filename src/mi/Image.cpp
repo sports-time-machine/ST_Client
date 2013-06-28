@@ -184,7 +184,7 @@ void Image::draw(int x, int y, int w, int h, int alpha) const
 	glDisable(GL_TEXTURE_2D);
 }
 
-void Image::draw(float x, float y, float w, float h, float z, int alpha) const
+void Image::drawDepth(int x, int y, int w, int h, float z, int alpha) const
 {
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, this->_gl_tex);

@@ -33,20 +33,6 @@ const char* stclient::to_s(int x)
 }
 
 
-static inline bool commandIs(const string& cmd,
-		const char* cmd1,
-		const char* cmd2=nullptr,
-		const char* cmd3=nullptr)
-{
-	if (cmd1!=nullptr && cmd.compare(cmd1)==0)
-		return true;
-	if (cmd2!=nullptr && cmd.compare(cmd2)==0)
-		return true;
-	if (cmd3!=nullptr && cmd.compare(cmd3)==0)
-		return true;
-	return false;
-}
-
 enum Invalid
 {
 	INVALID_FORMAT,
@@ -195,6 +181,7 @@ void Command::reloadConfig(Args& arg)
 {
 	arg_check(arg, 0);
 	load_config();
+	client->reloadResources();
 }
 
 // ステータスチェックをしない
@@ -630,13 +617,13 @@ bool Command::command(const string& line)
 
 		// 随時
 		COMMAND("COLOR-OVERLAY", colorOverlay);
-		COMMAND("STATUS",  status);
-		COMMAND("DISKINFO", diskInfo);
-		COMMAND("MIRROR",   mirror);
+		COMMAND("STATUS",        status);
+		COMMAND("DISKINFO",      diskInfo);
+		COMMAND("MIRROR",        mirror);
 		COMMAND("RELOAD-CONFIG", reloadConfig);
-		COMMAND("BYE",      bye) ;
-		COMMAND("QUIT",     bye);
-		COMMAND("EXIT",     bye);
+		COMMAND("BYE",           bye) ;
+		COMMAND("QUIT",          bye);
+		COMMAND("EXIT",          bye);
 #undef COMMAND
 
 		Console::pushColor(CON_GREEN); 
