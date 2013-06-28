@@ -109,6 +109,7 @@ struct Config
 #define SmartExtern extern
 #endif
 
-SmartExtern Config        config;
+SmartExtern Config _rw_config;
+static const Config& config = _rw_config;
 
 }//namespace stclient

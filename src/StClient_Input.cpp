@@ -142,12 +142,13 @@ void StClient::processKeyInput()
 	const bool M = down['M'];
 	if (G || H || N || M)
 	{
-		if (G) --config.person_inc;
-		if (H) ++config.person_inc;
-		if (N) --config.movie_inc;
-		if (M) ++config.movie_inc;
-		config.person_inc = mi::minmax(config.person_inc, MIN_VOXEL_INC, MAX_VOXEL_INC);
-		config.movie_inc  = mi::minmax(config.movie_inc,  MIN_VOXEL_INC, MAX_VOXEL_INC);
+		// íºê⁄configÇèëÇ´ä∑Ç¶Ç‹Ç∑
+		if (G) --_rw_config.person_inc;
+		if (H) ++_rw_config.person_inc;
+		if (N) --_rw_config.movie_inc;
+		if (M) ++_rw_config.movie_inc;
+		_rw_config.person_inc = mi::minmax(config.person_inc, MIN_VOXEL_INC, MAX_VOXEL_INC);
+		_rw_config.movie_inc  = mi::minmax(config.movie_inc,  MIN_VOXEL_INC, MAX_VOXEL_INC);
 		return;
 	}
 

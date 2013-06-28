@@ -78,7 +78,7 @@ static bool var_exist(PSL::PSLVM& vm, const char* name)
 //================================
 // コンフィグ用PSLをロードして実行
 //================================
-static bool load_config_and_run(PSL::PSLVM& psl)
+static bool load_config_and_run(PSL::PSLVM& psl, Config& config)
 {
 	auto load_psl = [&](PSL::string path)->bool{
 		fprintf(stderr, "[PSL] Load '%s'...", path.c_str());
@@ -143,7 +143,7 @@ static bool load_config_and_run(PSL::PSLVM& psl)
 //================================
 // PSLデータをコンフィグに適用する
 //================================
-static void apply_psl_to_config(PSL::PSLVM& psl)
+static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 {
 #define CONFIG_LET2(DEST,NAME,C,FUNC)   if(var_exist(psl,#NAME)){ DEST=(C)PSL::variable(psl.get(#NAME)).FUNC(); }
 #define CONFIG_LET(DEST,NAME,C,FUNC)   CONFIG_LET2(DEST.NAME, NAME, C, FUNC)
@@ -272,11 +272,11 @@ bool load_config()
 {
 	PSL::PSLVM& psl = global.pslvm;
 
-	if (!load_config_and_run(psl))
+	if (!load_config_and_run(psl, _rw_config))
 	{
 		return false;
 	}
 
-	apply_psl_to_config(psl);
+	apply_psl_to_config(psl, _rw_config);
 	return true;
 }
