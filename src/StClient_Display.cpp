@@ -126,7 +126,7 @@ void StClient::display3dSection()
 	{
 		drawMovieFrame(
 			global.gameinfo.partner1,
-			global_config.color.movie1,
+			config.color.movie1,
 			glRGBA(50,50,50),
 			"partner1");
 	}
@@ -271,19 +271,19 @@ void StClient::displayDebugInfo()
 	auto nl = [&](){ y+=H/2; };
 	auto pr = freetype::print;
 
-	const glRGBA h1_  = global_config.color.text_h1;
-	const glRGBA text = global_config.color.text_p;
-	const glRGBA em   = global_config.color.text_em;
-	const glRGBA dt   = global_config.color.text_dt;
-	const glRGBA dd   = global_config.color.text_dd;
+	const glRGBA h1_  = config.color.text_h1;
+	const glRGBA text = config.color.text_p;
+	const glRGBA em   = config.color.text_em;
+	const glRGBA dt   = config.color.text_dt;
+	const glRGBA dd   = config.color.text_dd;
 
 	auto color = [](bool status){
 		(status
-			? global_config.color.text_em
-			: global_config.color.text_p)();
+			? config.color.text_em
+			: config.color.text_p)();
 	};
 	auto h1 = [&](const char* s){
-		global_config.color.text_h1();
+		config.color.text_h1();
 		freetype::print(monospace, x, y+=H, s);
 		text();	
 	};

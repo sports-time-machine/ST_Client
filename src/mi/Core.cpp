@@ -50,9 +50,24 @@ const std::string& Core::getComputerName()
 void Folder::createFolder(const char* full_folder_name)
 {
 	std::vector<std::string> lines;
+	char first  = full_folder_name[0];
+	char second = full_folder_name[1];
+
+	// //SERVERNAME/folder/folder/folder...
+	bool netfolder = false;
+	if ((first=='/' || first=='\\') && (second=='/' || second=='\\'))
+	{
+		netfolder = true;
+		full_folder_name += 2;
+	}
+
 	Lib::splitByChars(full_folder_name, "/\\", lines);
 
 	std::string folder;
+	if (netfolder)
+	{
+		folder += "//";
+	}
 	for (size_t i=0; i<lines.size(); ++i)
 	{
 		folder += lines[i];

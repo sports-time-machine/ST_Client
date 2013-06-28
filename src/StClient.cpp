@@ -22,13 +22,6 @@ const int MAX_TOTAL_SECOND  = 50;
 const int MAX_TOTAL_FRAMES  = MAX_TOTAL_SECOND * FRAMES_PER_SECOND;
 
 
-#define MOVIE_ROOT_FOLDER    "C:/ST/Movie/"
-
-
-
-
-
-
 
 struct VodyInfo
 {
@@ -121,7 +114,7 @@ bool StClient::init()
 	Msg::SystemMessage("Init StClient");
 
 #if 0//#
-	if (global_config.enable_kinect)
+	if (config.enable_kinect)
 	{
 		openni::VideoMode depthVideoMode;
 		openni::VideoMode colorVideoMode;
@@ -233,7 +226,7 @@ void StClient::recordingStart()
 {
 	Msg::SystemMessage("Recording start!");
 	changeStatus(STATUS_GAME);
-	global.gameinfo.movie.clear();
+	global.gameinfo.movie.clearMovie();
 }
 
 void StClient::recordingStop()
@@ -296,11 +289,11 @@ void StClient::processOneFrame()
 	this->processUdpCommands();
 
 	// Nフレでのスナップショット
-	if (global_config.auto_snapshot_interval>0)
+	if (config.auto_snapshot_interval>0)
 	{
 		static int frame_count;
 		++frame_count;
-		if (frame_count%global_config.auto_snapshot_interval==0)
+		if ((frame_count % config.auto_snapshot_interval)==0)
 		{
 			this->createSnapshot();
 		}
@@ -386,9 +379,9 @@ void StClient::processOneFrame()
 
 		default:
 			glClearGraphics(
-				global_config.color.ground.r,
-				global_config.color.ground.g,
-				global_config.color.ground.b);
+				config.color.ground.r,
+				config.color.ground.g,
+				config.color.ground.b);
 			this->display2dSectionPrepare();
 			{
 				mi::Timer tm(&time_profile.drawing.wall);
@@ -571,7 +564,7 @@ void StClient::drawFieldGrid(int size_cm)
 		}
 		else
 		{
-			global_config.color.grid(0.40f);
+			config.color.grid(0.40f);
 		}
 
 		glVertex3f(-F, 0, f);
@@ -638,11 +631,12 @@ void StClient::draw2dWall()
 }
 
 // 三次元上に壁を描画する @wall
+#if 0//# OBSOLETE CODE: void StClient::draw3dWall()
 void StClient::draw3dWall()
 {
 	auto& img = global.images.background;
 
-	const float Z = global_config.wall_depth;
+	const float Z = !;
 	gl::Texture(true);
 	glPushMatrix();
 	glRGBA::white();
@@ -663,6 +657,7 @@ void StClient::draw3dWall()
 	glPopMatrix();
 	gl::Texture(false);
 }
+#endif
 
 
 void stclient::MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam)
@@ -717,7 +712,7 @@ void stclient::drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_col
 	else
 	{
 		gl::Texture(false);
-		glPointSize(global_config.person_dot_px);
+		glPointSize(config.person_dot_px);
 		glBegin(GL_POINTS);
 	}
 
@@ -774,10 +769,10 @@ void stclient::drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_col
 // ゲーム情報の破棄、初期化
 void GameInfo::init()
 {
-	movie.clear();
-	partner1.clear();
-	partner2.clear();
-	partner3.clear();
+	movie.clearAll();
+	partner1.clearAll();
+	partner2.clearAll();
+	partner3.clearAll();
 	movie.frames.clear();
 	movie.cam1 = CamParam();
 	movie.cam2 = CamParam();
@@ -818,7 +813,7 @@ void StClient::DrawRealMovie(Dots& dots)
 			MixDepth(dots, dev1.raw_snapshot, cam1);
 			MixDepth(dots, dev2.raw_snapshot, cam2);
 
-			glRGBA color = global_config.color.snapshot;
+			glRGBA color = config.color.snapshot;
 			color.a = color.a * snapshot_life / config.snapshot_life_frames;
 			drawVoxels(dots, color, color_outer, DRAW_VOXELS_NORMAL, +0.5f);
 		}
@@ -979,7 +974,7 @@ void StClient::MovieRecord()
 
 string GameInfo::GetFolderName(const string& id)
 {
-	string folder = MOVIE_ROOT_FOLDER;
+	string folder = string("//")+config.server_name+"/ST/Movie/";
 
 	// 逆順で追加
 	// 0000012345 => '5/4/3/2/1/0/0/0/0/0/'

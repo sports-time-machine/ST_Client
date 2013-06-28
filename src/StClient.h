@@ -568,4 +568,4 @@ void myGetKeyboardState(BYTE* kbd);
 
 
 
-extern void load_config();
+extern bool load_config();

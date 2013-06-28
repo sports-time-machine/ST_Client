@@ -1,8 +1,6 @@
 #define THIS_IS_MAIN
 #include <OpenNI.h>
 #include "StClient.h"
-#include "Config.h"
-#include "psl_if.h"
 
 #ifdef _M_X64
 #pragma comment(lib,"OpenNI2_x64.lib")
@@ -12,229 +10,8 @@
 #pragma comment(lib,"opengl32.lib")
 #pragma comment(lib,"glu32.lib")
 
-
 using namespace mi;
 using namespace stclient;
-
-
-
-GlobalConfig::GlobalConfig()
-{
-	enable_kinect = true;
-	enable_color  = false;
-	wall_depth    = 3.0f;//#del
-	color.ground .set( 80, 40, 20);
-	color.grid   .set(200,150,130);
-	color.movie1 .set(120, 50, 50,200);
-	color.movie2 .set( 50,120, 50,200);
-	color.movie3 .set( 50, 50,120,200);
-	color.text_h1.set(200,200,200);
-	color.text_p .set(200,200,200);
-	color.text_em.set(200,200,200);
-	color.text_dt.set(200,200,200);
-	color.text_dd.set(200,200,200);
-	person_dot_px = 1.5f;
-}
-
-
-Config::Config()
-{
-	client_number        = -1;
-	initial_fullscreen   = false;
-	mirroring            = false;
-	hit_threshold        = 10;
-	ignore_udp           = false;
-	metrics.ground_px    = 480;
-	metrics.left_mm      = 0;
-	metrics.right_mm     = 4000;
-	metrics.top_mm       = 2500;
-	snapshot_life_frames = 0;
-	center_atari_voxel_threshould = 2500;
-}
-
-
-
-void ErrorDialog(const char* title)
-{
-	const char* text = openni::OpenNI::getExtendedError();
-	Core::dialog(title, text);
-}
-
-static bool var_exist(PSL::variable& var)
-{
-	using namespace PSL;
-	if (var.length()!=0)              return true;  //array
-	if (var.memberLength()!=0)        return true;  //hash
-	if (var.type()==variable::INT)    return true;
-	if (var.type()==variable::FLOAT)  return true;
-	if (var.type()==variable::HEX)    return true;
-	if (var.type()==variable::STRING) return true;
-	return false;
-}
-
-static bool var_exist(PSL::PSLVM& vm, const char* name)
-{
-	PSL::variable var = vm.get(name);
-	return var_exist(var);
-}
-
-
-void load_config()
-{
-	PSL::PSLVM& psl = global.pslvm;
-
-	auto load_psl = [&](PSL::string path)->bool{
-		fprintf(stderr, "[PSL] Load '%s'...", path.c_str());
-		auto err = psl.loadScript(path);
-		if (err==PSL::PSLVM::NONE)
-		{
-			fprintf(stderr, "Ok\n");
-			return true;
-		}
-		switch (err)
-		{
-		case PSL::PSLVM::FOPEN_ERROR:
-			fprintf(stderr, "Cannot open file '%s'\n", path.c_str());
-			return false;
-		case PSL::PSLVM::PARSE_ERROR:
-			fprintf(stderr, "PSL parse error (Syntax error?)\n");
-			return false;
-		default:
-			fprintf(stderr, "PSL unknown error\n");
-			return false;
-		}
-	};
-
-	if (!load_psl("//STMx64/ST/Config.psl"))
-	{
-		puts("Config.psl load error.");
-	}
-	if (!load_psl(PSL::string("C:/ST/")+Core::getComputerName().c_str()+".psl"))
-	{
-		puts("(client-name).psl load error.");
-	}
-
-	psl.run();
-
-#define CONFIG_LET2(DEST,NAME,C,FUNC)   if(var_exist(psl,#NAME)){ DEST=(C)PSL::variable(psl.get(#NAME)).FUNC(); }
-#define CONFIG_LET(DEST,NAME,C,FUNC)   CONFIG_LET2(DEST.NAME, NAME, C, FUNC)
-#define CONFIG_INT(DEST,NAME)          CONFIG_LET(DEST,NAME,int,toInt)
-#define CONFIG_BOOL(DEST,NAME)         CONFIG_LET(DEST,NAME,bool,toBool)
-#define CONFIG_FLOAT(DEST,NAME)        CONFIG_LET(DEST,NAME,float,toDouble)
-	CONFIG_INT(config, client_number);
-	CONFIG_INT(config, center_atari_voxel_threshould);
-	CONFIG_BOOL(config, initial_fullscreen);
-	CONFIG_BOOL(config, mirroring);
-	printf("mirroring: %d\n", config.mirroring);
-
-	// Metrics
-	double left_meter  = 0.0f;
-	double right_meter = 0.0f;
-	double top_meter   = 0.0f;
-	int    ground_px   = 0;
-	CONFIG_LET2(top_meter,   metrics_topt_meter,  float, toDouble);
-	CONFIG_LET2(ground_px,   metrics_ground_px,   int,   toInt);
-	config.metrics.left_mm   = (int)(1000 * left_meter);
-	config.metrics.right_mm  = (int)(1000 * right_meter);
-	config.metrics.top_mm    = (int)(1000 * top_meter);
-	config.metrics.ground_px = ground_px;
-
-	auto set_rgb = [&](PSL::variable src, mgl::glRGBA& dest){
-		if (!var_exist(src))
-			return;
-		int alpha = src["a"].toInt();
-		if (alpha==0) alpha=255;
-		dest.set(
-			src["r"].toInt(),
-			src["g"].toInt(),
-			src["b"].toInt(),
-			alpha);		
-	};
-	auto set_camera_param = [&](CamParam& cam, const char* varname){
-		PSL::variable var = psl.get(varname);
-		cam.x     = (float)var["x"];
-		cam.y     = (float)var["y"];
-		cam.z     = (float)var["z"];
-		cam.rotx  = (float)var["rotx"];
-		cam.roty  = (float)var["roty"];
-		cam.rotz  = (float)var["rotz"];
-		cam.scale = (float)var["scale"];
-	};
-	auto toString = [&](PSLv var)->const char*{
-		if (var==PSLv(PSLv::NIL))
-		{
-			return "";
-		}
-		return var.toString().c_str();
-	};
-	auto pslString = [&](const char* name)->const char*{
-		return PSL::variable(psl.get(name)).toString().c_str();
-	};
-
-	//=== GLOBAL VARS ===
-	global.on_hit_setup = psl.get("onHitSetup");
-
-	//=== LOCAL SETTINGS ===
-	CONFIG_INT(config, person_inc);
-	CONFIG_INT(config, movie_inc);
-	CONFIG_INT(config, hit_threshold);
-	CONFIG_INT(config, snapshot_life_frames);
-	CONFIG_BOOL(config, ignore_udp);
-	set_camera_param(config.cam1, "camera1");
-	set_camera_param(config.cam2, "camera2");
-	{
-#define DEF_IMAGE(NAME) dest.NAME = toString(src[#NAME])
-		// Images
-		PSLv src = psl.get("images");
-		auto& dest = config.images;
-		DEF_IMAGE(background);
-		DEF_IMAGE(sleep);
-		DEF_IMAGE(idle);
-		for (int i=0; i<MAX_PICT_NUMBER; ++i)
-		{
-			string pic_no = (string("pic") + to_s(i));
-			config.images.pic[i] = toString(src[pic_no.c_str()]);
-		}
-#undef DEF_IMAGE
-	}
-
-	//=== GLOBAL SETTINGS ===
-	auto& gc = global_config;
-	CONFIG_BOOL(gc, enable_kinect);
-	CONFIG_BOOL(gc, enable_color);
-	CONFIG_FLOAT(gc, wall_depth);
-
-	//=== COLORS ===
-	{
-		PSLv src = psl.get("player_colors");
-		PSLv names = src.keys();
-		for (size_t i=0; i<names.length(); ++i)
-		{
-			PSLv key = names[i];
-			set_rgb(src[key], config.player_colors[key.c_str()]);
-		}
-	}
-	{
-		PSLv colors = psl.get("colors");
-		set_rgb(colors["default_player_color"],   gc.color.default_player_color);
-		set_rgb(colors["ground"],   gc.color.ground);
-		set_rgb(colors["grid"],     gc.color.grid);
-		set_rgb(colors["movie1"],   gc.color.movie1);
-		set_rgb(colors["movie2"],   gc.color.movie2);
-		set_rgb(colors["movie3"],   gc.color.movie3);
-		set_rgb(colors["text_h1"],  gc.color.text_h1);
-		set_rgb(colors["text_p"],   gc.color.text_p);
-		set_rgb(colors["text_em"],  gc.color.text_em);
-		set_rgb(colors["text_dt"],  gc.color.text_dt);
-		set_rgb(colors["text_dd"],  gc.color.text_dd);
-		set_rgb(colors["snapshot"], gc.color.snapshot);
-	}
-	CONFIG_FLOAT(global_config, person_dot_px);
-	CONFIG_INT(global_config, auto_snapshot_interval);
-
-#undef CONFIG_INT
-#undef CONFIG_BOOL
-}
 
 static void init_kinect()
 {
@@ -271,6 +48,11 @@ static void get_kinect_devices(string& first, string& second)
 	}
 }
 
+static void ErrorDialog(const char* title)
+{
+	const char* text = openni::OpenNI::getExtendedError();
+	Core::dialog(title, text);
+}
 
 static void init_kinect(const char* uri, Kdev& k)
 {
@@ -325,7 +107,7 @@ static void init_kinect(const char* uri, Kdev& k)
 		create_depth();
 		puts("done.");
 
-		if (global_config.enable_color)
+		if (config.enable_color)
 		{
 			printf("Create Color...");
 			create_color();
@@ -349,17 +131,11 @@ static void init_kinect(const char* uri, Kdev& k)
 	}
 }
 
-
-#include "mi/Timer.h"
-#include "mi/Console.h"
-#include "file_io.h"
-
-
 static bool run_app()
 {
 	Kdev dev1, dev2;
 
-	if (global_config.enable_kinect)
+	if (config.enable_kinect)
 	{
 		init_kinect();
 
@@ -376,7 +152,6 @@ static bool run_app()
 			Core::dialog("Kinectが2台見つかりません。起動を中止します。");
 			return false;
 		}
-		
 
 		if (!first.empty())
 		{
@@ -395,7 +170,7 @@ static bool run_app()
 	StClient st_client(dev1, dev2);
 	if (st_client.init()==false)
 	{
-		if (global_config.enable_kinect)
+		if (config.enable_kinect)
 		{
 			openni::OpenNI::shutdown();
 		}
@@ -405,10 +180,12 @@ static bool run_app()
 	return true;
 }
 
-
 int main()
 {
 	mi::Console::setTitle("スポーツタイムマシン コンソール");
-	load_config();
+	if (!load_config())
+	{
+		return EXIT_FAILURE;
+	}
 	return run_app() ? EXIT_SUCCESS : EXIT_FAILURE;
 }

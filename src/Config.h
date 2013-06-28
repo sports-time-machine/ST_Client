@@ -25,6 +25,7 @@ namespace stclient{
 
 enum
 {
+	// これ以外についてはConfig.cppのConfig::Config()に記述してあります
 	INITIAL_WIN_SIZE_X   = 640,
 	INITIAL_WIN_SIZE_Y   = 480,
 	MOVIE_MAX_SECS       = 50,
@@ -34,18 +35,12 @@ enum
 	MAX_VOXEL_INC        = 128,
 	ATARI_INC            = 20,
 	MAX_PICT_NUMBER      = 10,        // PICT numコマンドで送れるピクチャの数
-
-
-	DEFAULT_SNAPSHOT_LIFE_FRAMES = 100,
 };
 
 
-struct GlobalConfig
+struct Config
 {
-	bool          enable_kinect;
-	bool          enable_color;
-	float         wall_depth;//#del
-	int           auto_snapshot_interval;
+	typedef std::map<string,mgl::glRGBA> PlayerColors;
 
 	struct Colors
 	{
@@ -55,18 +50,8 @@ struct GlobalConfig
 			movie1, movie2, movie3,
 			snapshot,
 			text_h1, text_p, text_em, text_dt, text_dd;
+		Colors();
 	};
-
-	Colors color;
-
-	float person_dot_px;
-
-	GlobalConfig();
-};
-
-struct Config
-{
-	typedef std::map<string,mgl::glRGBA> PlayerColors;
 
 	struct Images
 	{
@@ -76,38 +61,40 @@ struct Config
 		string pic[MAX_PICT_NUMBER];
 		string idle;
 	};
-
-	PlayerColors player_colors;
-	Images       images;
-	int          person_inc;
-	int          movie_inc;
-	int          client_number;
-	int          center_atari_voxel_threshould;     // アタリ中央をとるために必要なボクセル数（2500～とか）
-	bool         initial_fullscreen;
-	bool         mirroring;
-	int          hit_threshold;
-	int          snapshot_life_frames;
-	bool         ignore_udp;
-
-	float getScreenLeftMeter() const
-	{
-		return (client_number-1) * GROUND_WIDTH;
-	}
-	
-	float getScreenRightMeter() const
-	{
-		return getScreenLeftMeter() + GROUND_WIDTH;
-	}
-
-	CamParam cam1,cam2;
-
 	struct Metrics
 	{
 		int left_mm;
 		int right_mm;
 		int top_mm;
 		int ground_px;
-	} metrics;
+	};
+
+	// 全体的な設定
+	PlayerColors player_colors;
+	Images       images;
+	Colors       color;
+	int          center_atari_voxel_threshould;     // アタリ中央をとるために必要なボクセル数（2500～とか）
+	int          hit_threshold;
+	int          snapshot_life_frames;
+	int          auto_snapshot_interval;
+	float        person_dot_px;
+
+	// クライアント個別の設定
+	string       server_name;
+	int          person_inc;
+	int          movie_inc;
+	int          client_number;
+	bool         enable_kinect;
+	bool         enable_color;
+	bool         initial_fullscreen;
+	bool         mirroring;
+	bool         ignore_udp;
+	CamParam     cam1;
+	CamParam     cam2;
+	Metrics      metrics;//#?
+
+	float getScreenLeftMeter()  const  { return (client_number-1) * GROUND_WIDTH; }
+	float getScreenRightMeter() const  { return getScreenLeftMeter() + GROUND_WIDTH; }
 
 	Config();
 };
@@ -118,7 +105,6 @@ struct Config
 #define SmartExtern extern
 #endif
 
-SmartExtern GlobalConfig  global_config;
 SmartExtern Config        config;
 
 }//namespace stclient

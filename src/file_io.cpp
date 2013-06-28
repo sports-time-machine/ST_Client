@@ -33,7 +33,7 @@ void stclient::saveToFile(File& f, const MovieData& movie)
 	f.write(movie.cam1);
 	f.write(movie.cam2);
 	f.write(movie.dot_size);
-	f.write(movie.player_color);
+//	f.write(movie.player_color);
 
 	// ÉtÉåÅ[ÉÄèÓïÒ
 	printf("Save %d frames.\n", TOTAL_FRAMES);
@@ -75,7 +75,7 @@ static void load_ver1_0(File& f, const FileHeader& header, MovieData& movie)
 	f.read(movie.cam1);
 	f.read(movie.cam2);
 	f.read(movie.dot_size);
-	f.read(movie.player_color);
+//	f.read(movie.player_color);
 
 	// é¿âfëú
 	printf("Total frames: %d\n", header.total_frames);
@@ -119,13 +119,18 @@ int MovieData::getValidFrame(int frame) const
 	}
 }
 
-void MovieData::clear()
+void MovieData::clearMovie()
 {
 	frames.clear();
-	total_frames      = 0;
+	total_frames = 0;
+}
+
+void MovieData::clearAll()
+{
+	clearMovie();
 	dot_size          = 1.0f;
 	player_color      = "default";
-	player_color_rgba = global_config.color.default_player_color;
+	player_color_rgba = config.color.default_player_color;
 }
 
 bool MovieData::load(const string& id)

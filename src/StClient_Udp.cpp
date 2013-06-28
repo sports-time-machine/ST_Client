@@ -18,7 +18,7 @@ static glRGBA getPlayerColorFromString(const std::string& name)
 	if (itr==config.player_colors.end())
 	{
 		// 見つからなかったときのデフォルト色
-		return global_config.color.default_player_color;
+		return config.color.default_player_color;
 	}
 	return itr->second;
 }
@@ -504,9 +504,10 @@ void Command::init(Args& arg)
 	client->initGameInfo();
 
 	// 並走者の削除
-	global.gameinfo.partner1.clear();
-	global.gameinfo.partner2.clear();
-	global.gameinfo.partner3.clear();
+	global.gameinfo.movie.clearAll();
+	global.gameinfo.partner1.clearAll();
+	global.gameinfo.partner2.clearAll();
+	global.gameinfo.partner3.clearAll();
 
 	Msg::SystemMessage("Init!");
 	client->changeStatus(STATUS_IDLE);

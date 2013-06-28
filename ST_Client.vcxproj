@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Config.cpp" />
     <ClCompile Include="src\depth.cpp" />
     <ClCompile Include="src\Depth10b6b.cpp" />
     <ClCompile Include="src\StClient_Eye.cpp" />

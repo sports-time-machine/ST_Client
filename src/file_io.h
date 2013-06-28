@@ -109,10 +109,11 @@ struct MovieData
 
 	MovieData()
 	{
-		clear();
+		clearAll();
 	}
 
-	void clear();
+	void clearMovie();
+	void clearAll();
 
 	bool load(const string& id);
 };

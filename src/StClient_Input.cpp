@@ -63,7 +63,7 @@ static float getCalibrationSpeed(bool shift)
 
 void StClient::startMovieRecordSettings()
 {
-	global.gameinfo.movie.clear();
+	global.gameinfo.movie.clearMovie();
 }
 
 void StClient::processKeyInput()
@@ -263,10 +263,10 @@ bool StClient::processKeyInput_Calibration(int key)
 		global.gameinfo.save();
 		break;
 	case SK_CTRL + 'L'://Ctrl+L
-		global.gameinfo.movie.load("0000099N3B");
+		global.gameinfo.movie.load("00000QWERT");
 		break;
 	case SK_CTRL + 'K'://Ctrl+K
-		global.gameinfo.partner1.load("0000099N3B");
+		global.gameinfo.partner1.load("00000QWERT");
 		break;
 	case SK_CTRL + 'R'://Ctrl+R
 		Msg::Notice("ƒŠƒvƒŒƒC!!");
