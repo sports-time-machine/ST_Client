@@ -154,7 +154,6 @@ void font_data::init(const std::string& fname, unsigned int h)
 	//Of all the places where the code might die, this is the most likely,
 	//as FT_New_Face will die if the font file does not exist or is somehow broken.
 	{
-		printf("load font file : '%s'\n", fname.c_str());
 		int res = FT_New_Face(library, fname.c_str(), 0, &face); 
 		if (res!=0)
 			throw std::runtime_error("FT_New_Face failed (there is probably a problem with your font file)");

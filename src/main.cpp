@@ -115,7 +115,7 @@ static void init_kinect(const char* uri, Kdev& k)
 		}
 		else
 		{
-			puts("Skip color.\n");
+			puts("Skip color.");
 		}
 	}
 	catch (...)
@@ -137,6 +137,7 @@ static bool run_app()
 
 	if (config.enable_kinect)
 	{
+		Msg::BarMessage("Init Kinect");
 		init_kinect();
 
 		string first, second;

@@ -61,6 +61,7 @@ enum ActiveCamera
 
 namespace Msg
 {
+	extern void BarMessage   (const string&, int width=70, int first_half=3);
 	extern void Notice       (const string&);
 	extern void SystemMessage(const string&);
 	extern void ErrorMessage (const string&);
@@ -369,6 +370,7 @@ struct Global
 	HitObjects   hit_objects;
 	bool         show_debug_info;
 	mgl::glRGBA  color_overlay;
+	size_t       idle_image_number;
 
 	bool calibrating_now() const
 	{
@@ -393,6 +395,7 @@ struct Global
 		show_debug_info      = false;
 		calibration.fast     = false;
 		calibration.enabled  = false;
+		idle_image_number    = 0;
 		color_overlay.set(0,0,0,0);  // transparent
 	}
 };
@@ -544,6 +547,7 @@ private:
 	void draw2dWall();
 	void draw3dWall();
 	void drawFieldGrid(int size_cm);
+	void drawIdleImage();
 
 	void CreateAtari(const Dots& dots);
 	void CreateAtariFromBodyCenter();

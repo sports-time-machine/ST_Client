@@ -162,7 +162,7 @@ void Image::_DibToPicture(void* void_dib)
 	this->_tex_y_ratio = (float)_img_h / _tex_h;
 }
 
-void Image::draw(int x, int y, int w, int h, int alpha)
+void Image::draw(int x, int y, int w, int h, int alpha) const
 {
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, this->_gl_tex);
@@ -184,7 +184,7 @@ void Image::draw(int x, int y, int w, int h, int alpha)
 	glDisable(GL_TEXTURE_2D);
 }
 
-void Image::drawRotated(int x, int y, int w, int h, float rot, int alpha)
+void Image::drawRotated(int x, int y, int w, int h, float rot, int alpha) const
 {
 	glBindTexture(GL_TEXTURE_2D, this->_gl_tex);
 	glColor4f(1, 1, 1, alpha/255.0f);

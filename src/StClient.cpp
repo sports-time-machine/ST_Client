@@ -54,6 +54,24 @@ static void _Msg(int color, const string& s, const string& param)
 	Console::printf(color, "%s - %s\n", s.c_str(), param.c_str());
 }
 
+void Msg::BarMessage(const string& s, int width, int first_half)
+{
+	Console::pushColor(CON_CYAN);
+	for (int i=0; i<first_half; ++i)
+	{
+		putchar('=');
+	}
+	printf(" %s ", s.c_str());
+	
+	const int second_half = width - 2 - s.length() - first_half;
+	for (int i=0; i<second_half; ++i)
+	{
+		putchar('=');
+	}
+	putchar('\n');
+	Console::popColor();
+}
+
 void Msg::Notice       (const string& s)                       { Console::puts(CON_CYAN,  s); }
 void Msg::SystemMessage(const string& s)                       { Console::puts(CON_GREEN, s); }
 void Msg::ErrorMessage (const string& s)                       { Console::puts(CON_RED,   s); }
@@ -92,15 +110,9 @@ StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 	_private_client_status(STATUS_SLEEP)
 {
 	eye.view_2d_run();
-
-	// コンフィグデータからのロード
 	cal_cam1.curr = config.cam1;
 	cal_cam2.curr = config.cam2;
-
 	udp_recv.init(UDP_CONTROLLER_TO_CLIENT);
-	printf("host: %s\n", Core::getComputerName().c_str());
-	printf("ip: %s\n", mi::Udp::getIpAddress().c_str());
-
 	mode.mirroring   = config.mirroring;
 }
 
@@ -111,7 +123,7 @@ StClient::~StClient()
 
 bool StClient::init()
 {
-	Msg::SystemMessage("Init StClient");
+	Msg::BarMessage("Init StClient");
 
 #if 0//#
 	if (config.enable_kinect)
@@ -139,18 +151,15 @@ bool StClient::init()
 
 	// Init routine @init
 	{
-		puts("Init font...");
+		printf("Init font...");
 		const string font_folder = "C:/Windows/Fonts/";
 		monospace.init(font_folder + "Cour.ttf", 12);
-
-		// Consolas
-		//monospace.init(font_folder + "trebuc.ttf", 10);
-		puts("Init font...done!");
+		puts("done!");
 	}
 
 	reloadResources();
 
-	Msg::SystemMessage("Init done!");
+	Msg::BarMessage("Init done!");
 	Console::nl();
 
 	return true;
@@ -159,8 +168,21 @@ bool StClient::init()
 void StClient::reloadResources()
 {
 	// @init @image @png @jpg
-#define LOAD_IMAGE(NAME) global.images.NAME.createFromImageA(config.images.NAME)
-	LOAD_IMAGE(idle);
+#define LOAD_IMAGE(NAME) \
+	printf("Load '%s'...", #NAME);\
+	if (global.images.NAME.createFromImageA(config.picture_folder + config.images.NAME)){\
+		puts("done!");\
+	}
+
+	// アイドル画像のロード
+	for (size_t i=0; i<config.idle_images.size(); ++i)
+	{
+		auto& named_image = _rw_config.idle_images[i];
+		printf("アイドル画像のロード '%s'\n", named_image.fullpath.c_str());
+		named_image.image.createFromImageA(named_image.fullpath);
+	}
+
+
 	LOAD_IMAGE(background);
 	LOAD_IMAGE(sleep);
 	LOAD_IMAGE(dot);
@@ -269,6 +291,34 @@ void CreateHitWall(float meter, int id, const char* text)
 }
 
 
+//========================================
+// アイドル画像の描画と、時間による切り替え
+//========================================
+void StClient::drawIdleImage()
+{
+#if 1
+	const int NaN = -1;
+	static int life = 0;
+	static int curr_image = NaN;
+	static int transition = 0;
+
+	if (--life<0)
+	{
+		curr_image = rand() % config.idle_images.size();
+		life       = (rand()%100)+(rand()%100)+(rand()%100)+150;
+	}
+
+	auto itr = config.idle_images.find(curr_image);
+	if (itr!=config.idle_images.end())
+	{
+		itr->second.image.draw(0,0,640,480);
+	}
+#else
+	// 製作時間がなくてタイムアウト
+	// あとでトランジションしたい
+#endif
+}
+
 
 // @gcls
 static void glClearGraphics(int r, int g, int b)
@@ -341,7 +391,7 @@ void StClient::processOneFrame()
 			// 2Dアイドル画像
 			glClearGraphics(255,255,255);
 			this->display2dSectionPrepare();
-			global.images.idle.draw(0,0,640,480);
+			this->drawIdleImage();
 
 			// 実映像の表示
 			this->display3dSectionPrepare();

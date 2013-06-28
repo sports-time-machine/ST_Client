@@ -6,6 +6,7 @@
 using namespace mi;
 using namespace stclient;
 
+#define SERVER_NAME_PSL "C:/ST/server_name.psl"
 
 Config::Colors::Colors()
 {
@@ -24,6 +25,8 @@ Config::Colors::Colors()
 Config::Config()
 {
 	// 全体的な設定
+	movie_folder           = ""; //デフォルトママだとエラーになります
+	picture_folder         = ""; //デフォルトママだとエラーになります
 	center_atari_voxel_threshould = 2500;
 	hit_threshold          = 10;
 	snapshot_life_frames   = 100;
@@ -102,25 +105,23 @@ static bool load_config_and_run(PSL::PSLVM& psl, Config& config)
 		}
 	};
 
-	// いったんconfig.pslを読み込み、サーバー名を得る
-	auto client_config = PSL::string("C:/ST/")+Core::getComputerName().c_str()+".psl";
-	if (!load_psl(client_config))
+	// サーバー名を得る
+	if (!load_psl(SERVER_NAME_PSL))
 	{
-		Core::dialog("クライアントコンフィグのロードエラー");
+		Core::dialog(SERVER_NAME_PSL"のロードエラー");
 		return false;
 	}
-
 	psl.run();
 	PSLv server_name(psl.get("server_name"));
 	if (server_name.type()!=PSLv::STRING)
 	{
-		Core::dialog("クライアントコンフィグにglobal server_nameの記載がないか、文字列ではありませんでした。");
+		Core::dialog(SERVER_NAME_PSL"にglobal server_nameの記載がないか、文字列ではありませんでした。");
 		return false;
 	}
 
 	config.server_name = server_name.toString().c_str();
 
-	// 共通コンフィグのロード
+	// サーバーコンフィグのロード
 	auto server_config = PSL::string("//")+server_name.toString()+"/ST/Config.psl";
 	if (!load_psl(server_config))
 	{
@@ -128,6 +129,7 @@ static bool load_config_and_run(PSL::PSLVM& psl, Config& config)
 		return false;
 	}
 	// クライアントコンフィグの再ロード
+	auto client_config = PSL::string("C:/ST/")+Core::getComputerName().c_str()+".psl";
 	if (!load_psl(client_config))
 	{
 		Core::dialog("(client-name).psl load error.");
@@ -140,20 +142,37 @@ static bool load_config_and_run(PSL::PSLVM& psl, Config& config)
 }
 
 
+// idle_images = [file,file,...] をセット
+static void ApplyIdleImages(Config::IdleImages& idle_images, const string& folder, PSLv var)
+{
+	idle_images.clear();
+
+	for (size_t i=0; i<var.length(); ++i)
+	{
+		string fullpath = folder + var[i].toString().c_str();
+		idle_images[i].fullpath = fullpath;
+	}
+}
+
+
+
+
+
 //================================
 // PSLデータをコンフィグに適用する
 //================================
 static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 {
-#define CONFIG_LET2(DEST,NAME,C,FUNC)   if(var_exist(psl,#NAME)){ DEST=(C)PSL::variable(psl.get(#NAME)).FUNC(); }
+#define CONFIG_LET2(DEST,NAME,C,FUNC)   if(var_exist(psl,#NAME)){ DEST=(C)PSL::variable(psl.get(#NAME)).FUNC; }
 #define CONFIG_LET(DEST,NAME,C,FUNC)   CONFIG_LET2(DEST.NAME, NAME, C, FUNC)
-#define CONFIG_INT(DEST,NAME)          CONFIG_LET(DEST,NAME,int,toInt)
-#define CONFIG_BOOL(DEST,NAME)         CONFIG_LET(DEST,NAME,bool,toBool)
-#define CONFIG_FLOAT(DEST,NAME)        CONFIG_LET(DEST,NAME,float,toDouble)
-	CONFIG_INT(config, client_number);
-	CONFIG_INT(config, center_atari_voxel_threshould);
-	CONFIG_BOOL(config, initial_fullscreen);
-	CONFIG_BOOL(config, mirroring);
+#define CONFIG_INT(NAME)          CONFIG_LET(config,NAME,int,toInt())
+#define CONFIG_BOOL(NAME)         CONFIG_LET(config,NAME,bool,toBool())
+#define CONFIG_FLOAT(NAME)        CONFIG_LET(config,NAME,float,toDouble())
+#define CONFIG_STRING(NAME)       CONFIG_LET(config,NAME,const char*,toString())
+	CONFIG_INT(client_number);
+	CONFIG_INT(center_atari_voxel_threshould);
+	CONFIG_BOOL(initial_fullscreen);
+	CONFIG_BOOL(mirroring);
 	printf("mirroring: %d\n", config.mirroring);
 
 	// Metrics
@@ -161,8 +180,8 @@ static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 	double right_meter = 0.0f;
 	double top_meter   = 0.0f;
 	int    ground_px   = 0;
-	CONFIG_LET2(top_meter,   metrics_topt_meter,  float, toDouble);
-	CONFIG_LET2(ground_px,   metrics_ground_px,   int,   toInt);
+	CONFIG_LET2(top_meter,   metrics_topt_meter,  float, toDouble());
+	CONFIG_LET2(ground_px,   metrics_ground_px,   int,   toInt());
 	config.metrics.left_mm   = (int)(1000 * left_meter);
 	config.metrics.right_mm  = (int)(1000 * right_meter);
 	config.metrics.top_mm    = (int)(1000 * top_meter);
@@ -200,15 +219,22 @@ static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 		return PSL::variable(psl.get(name)).toString().c_str();
 	};
 
+	// Import plain-old-data
+	CONFIG_INT(person_inc);
+	CONFIG_INT(movie_inc);
+	CONFIG_INT(hit_threshold);
+	CONFIG_INT(snapshot_life_frames);
+	CONFIG_BOOL(enable_kinect);
+	CONFIG_BOOL(enable_color);
+	CONFIG_BOOL(ignore_udp);
+	CONFIG_STRING(picture_folder);
+	CONFIG_STRING(movie_folder);
+	CONFIG_FLOAT(person_dot_px);
+	CONFIG_INT(auto_snapshot_interval);
+
 	//=== GLOBAL VARS ===
 	global.on_hit_setup = psl.get("onHitSetup");
 
-	//=== LOCAL SETTINGS ===
-	CONFIG_INT(config, person_inc);
-	CONFIG_INT(config, movie_inc);
-	CONFIG_INT(config, hit_threshold);
-	CONFIG_INT(config, snapshot_life_frames);
-	CONFIG_BOOL(config, ignore_udp);
 	set_camera_param(config.cam1, "camera1");
 	set_camera_param(config.cam2, "camera2");
 	{
@@ -218,7 +244,6 @@ static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 		auto& dest = config.images;
 		DEF_IMAGE(background);
 		DEF_IMAGE(sleep);
-		DEF_IMAGE(idle);
 		for (int i=0; i<MAX_PICT_NUMBER; ++i)
 		{
 			string pic_no = (string("pic") + to_s(i));
@@ -227,10 +252,6 @@ static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 #undef DEF_IMAGE
 	}
 
-	//=== GLOBAL SETTINGS ===
-	auto& gc = config;
-	CONFIG_BOOL(gc, enable_kinect);
-	CONFIG_BOOL(gc, enable_color);
 
 	//=== COLORS ===
 	{
@@ -244,21 +265,19 @@ static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 	}
 	{
 		PSLv colors = psl.get("colors");
-		set_rgb(colors["default_player_color"],   gc.color.default_player_color);
-		set_rgb(colors["ground"],   gc.color.ground);
-		set_rgb(colors["grid"],     gc.color.grid);
-		set_rgb(colors["movie1"],   gc.color.movie1);
-		set_rgb(colors["movie2"],   gc.color.movie2);
-		set_rgb(colors["movie3"],   gc.color.movie3);
-		set_rgb(colors["text_h1"],  gc.color.text_h1);
-		set_rgb(colors["text_p"],   gc.color.text_p);
-		set_rgb(colors["text_em"],  gc.color.text_em);
-		set_rgb(colors["text_dt"],  gc.color.text_dt);
-		set_rgb(colors["text_dd"],  gc.color.text_dd);
-		set_rgb(colors["snapshot"], gc.color.snapshot);
+		set_rgb(colors["default_player_color"], config.color.default_player_color);
+		set_rgb(colors["ground"],   config.color.ground);
+		set_rgb(colors["grid"],     config.color.grid);
+		set_rgb(colors["movie1"],   config.color.movie1);
+		set_rgb(colors["movie2"],   config.color.movie2);
+		set_rgb(colors["movie3"],   config.color.movie3);
+		set_rgb(colors["text_h1"],  config.color.text_h1);
+		set_rgb(colors["text_p"],   config.color.text_p);
+		set_rgb(colors["text_em"],  config.color.text_em);
+		set_rgb(colors["text_dt"],  config.color.text_dt);
+		set_rgb(colors["text_dd"],  config.color.text_dd);
+		set_rgb(colors["snapshot"], config.color.snapshot);
 	}
-	CONFIG_FLOAT(config, person_dot_px);
-	CONFIG_INT(config, auto_snapshot_interval);
 
 #undef CONFIG_INT
 #undef CONFIG_BOOL
@@ -268,6 +287,11 @@ static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 //====================================
 // コンフィグファイルのロード
 //====================================
+#define VALIDATE(NAME) \
+	if (config.NAME.empty()){\
+		Core::dialog("コンフィグに" #NAME "がかかれていません");\
+		return false;\
+	}
 bool load_config()
 {
 	PSL::PSLVM& psl = global.pslvm;
@@ -278,5 +302,16 @@ bool load_config()
 	}
 
 	apply_psl_to_config(psl, _rw_config);
+
+	// 検証
+	VALIDATE(movie_folder);
+	VALIDATE(picture_folder);
+
+	// idle_images = [array];
+	ApplyIdleImages(
+		_rw_config.idle_images, 
+		config.picture_folder,
+		psl.get("idle_images"));
+
 	return true;
 }

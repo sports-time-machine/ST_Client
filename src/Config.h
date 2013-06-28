@@ -44,7 +44,14 @@ enum
 
 struct Config
 {
+	struct NamedImage
+	{
+		string     fullpath;
+		mi::Image  image;
+	};
+
 	typedef std::map<string,mgl::glRGBA> PlayerColors;
+	typedef std::map<int,NamedImage> IdleImages;
 
 	struct Colors
 	{
@@ -63,7 +70,6 @@ struct Config
 		string dot;
 		string sleep;
 		string pic[MAX_PICT_NUMBER];
-		string idle;
 	};
 	struct Metrics
 	{
@@ -75,6 +81,7 @@ struct Config
 
 	// 全体的な設定
 	PlayerColors player_colors;
+	IdleImages   idle_images;
 	Images       images;
 	Colors       color;
 	int          center_atari_voxel_threshould;     // アタリ中央をとるために必要なボクセル数（2500～とか）
@@ -82,6 +89,8 @@ struct Config
 	int          snapshot_life_frames;
 	int          auto_snapshot_interval;
 	float        person_dot_px;
+	string       movie_folder;
+	string       picture_folder;
 
 	// クライアント個別の設定
 	string       server_name;
@@ -101,6 +110,12 @@ struct Config
 	float getScreenRightMeter() const  { return getScreenLeftMeter() + GROUND_WIDTH; }
 
 	Config();
+
+	void reload();
+
+private:
+	// call by reload()
+	void ApplyIdleImages(const string& folder, PSLv var);
 };
 
 #ifdef THIS_IS_MAIN

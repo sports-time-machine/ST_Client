@@ -8,8 +8,8 @@ class Image
 public:
 	bool createFromImageA(const std::string& filename);
 
-	void draw(int x, int y, int w, int h, int alpha=255);
-	void drawRotated(int x, int y, int w, int h, float rot, int alpha=255);
+	void draw(int x, int y, int w, int h, int alpha=255) const;
+	void drawRotated(int x, int y, int w, int h, float rot, int alpha=255) const;
 
 
 	// miImage is GLuint compatible
