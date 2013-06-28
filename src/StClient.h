@@ -349,8 +349,9 @@ struct Global
 		bool fast;               // キャリブレーションのときの移動・回転速度
 		bool enabled;            // キャリブレーション可能
 	};
+	typedef const Config::RunEnv* RunEnvPtr;
 	
-	Config::RunEnv* run_env;
+	RunEnvPtr    run_env;
 	Calibration  calibration;
 	Debug        debug;
 	GameInfo     gameinfo;

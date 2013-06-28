@@ -176,7 +176,7 @@ unsigned long GetInetAddress(const char* src)
 	}
 
 	const auto ipv4 = inet_addr(src);
-	if (ipv4==-1u)
+	if (ipv4==0xFFFFFFFFu)
 	{
 		// –¼‘O‚ðˆø‚­
 		const hostent* host = gethostbyname(src);

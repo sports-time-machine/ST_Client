@@ -163,6 +163,7 @@ static void ApplyRunEnvs(Config::RunEnvs& envs, const string& folder, PSLv var)
 	for (size_t i=0; i<keys.length(); ++i)
 	{
 		PSL::string name = keys[i].toString().c_str();
+		printf("[RunEnv] %s\n", name.c_str());
 
 		auto& env = envs[name.c_str()];
 		env.background.fullpath = folder + var[name]["background"].toString().c_str();

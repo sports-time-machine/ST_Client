@@ -381,16 +381,32 @@ void Command::partner(Args& arg)
 void Command::background(Args& arg)
 {
 	arg_check(arg, 1);
-	status_check(STATUS_IDLE);
+	no_check_status();
+	//##status_check(STATUS_IDLE);
 
-	printf("BACKGROUND:%s\n", arg[0].to_s());
+	const string env = arg[0].to_s();
+	printf("BACKGROUND:%s\n", env.c_str());
+
+	const auto itr = config.run_env.find(env);
+	if (itr!=config.run_env.cend())
+	{
+		Msg::Notice("RunEnv", env);
+		global.run_env = &itr->second;
+		Msg::Notice("RunEnv", global.run_env->background.fullpath);
+	}
+	else
+	{
+		Msg::ErrorMessage("RunEnv not found", env);
+		global.run_env = Config::getDefaultRunEnv();
+	}
 }
 
 // PLAYER-STYLE <name>
 void Command::playerStyle(Args& arg)
 {
 	arg_check(arg, 1);
-	status_check(STATUS_IDLE);
+	no_check_status();
+//	status_check(STATUS_IDLE);
 
 	printf("PLAYER-STYLE:%s\n", arg[0].to_s());
 }
@@ -399,7 +415,8 @@ void Command::playerStyle(Args& arg)
 void Command::playerColor(Args& arg)
 {
 	arg_check(arg, 1);
-	status_check(STATUS_IDLE);
+	no_check_status();
+//	status_check(STATUS_IDLE);
 
 	printf("PLAYER-COLOR:%s\n", arg[0].to_s());
 
@@ -489,6 +506,9 @@ void Command::init(Args& arg)
 
 	// ゲーム情報の破棄
 	client->initGameInfo();
+
+	// 走行環境の破棄（デフォルトにする）
+	global.run_env = Config::getDefaultRunEnv();
 
 	// 並走者の削除
 	global.gameinfo.movie.clearAll();

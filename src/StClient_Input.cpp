@@ -110,6 +110,8 @@ void StClient::processKeyInput()
 	case VK_ESCAPE:
 		if (!global.calibration.enabled)
 		{
+			// キャリブレーション用ボディ設定
+			global.gameinfo.movie.player_color_rgba.set(50,125,70);
 			Msg::Notice("キャリブレーションモードへの移行");
 			global.calibration.enabled = true;
 			global.show_debug_info     = true;

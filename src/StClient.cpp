@@ -337,16 +337,12 @@ void StClient::processOneFrame()
 	if (global.calibration.enabled)
 	{
 		// スーパーモードとしてのキャリブレーションモード
-
 		glClearGraphics(255,255,255);
 		this->display3dSectionPrepare();
 		{
 			mi::Timer tm(&time_profile.drawing.grid);
 			this->drawFieldGrid(500);
 		}
-
-		// キャリブレーション用ボディ設定
-		global.gameinfo.movie.player_color_rgba.set(50,125,70);
 
 		// 実映像の表示
 		static Dots dots;
@@ -466,8 +462,10 @@ void StClient::initGameInfo()
 {
 	startMovieRecordSettings();
 
-	// 走行環境の破棄（デフォルトにする）
-	global.run_env = Config::getDefaultRunEnv();
+	// 以下の情報は破棄しない
+	// global.run_env
+	// ボディの色
+	//    ...など
 
 	// 最初の当たり判定を作る
 	const int FIRST_HIT_NUMBER = 0;
@@ -698,7 +696,7 @@ void StClient::drawRunEnv()
 		return;
 	}
 
-	// デフォルト環境
+	// デフォルト環境 (BACKGROUND命令がこなかった）
 	if (global.run_env==Config::getDefaultRunEnv())
 	{
 		static int t = 0;
@@ -723,7 +721,7 @@ void StClient::drawRunEnv()
 	}
 
 	auto& img = global.run_env->background.image;
-	img.draw(0,0,640,480,10);
+	img.drawDepth(0,0,640,480,10);
 }
 
 // 三次元上に壁を描画する @wall

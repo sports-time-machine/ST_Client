@@ -41,6 +41,12 @@ void Kdev::CreateRawDepthImage()
 	uint16* dest = raw_depth.image.data();
 	const int src_inc = mirroring ? -1 : +1;
 
+#if 0//#reserve for debug
+	BYTE kbd[256]={};
+	GetKeyboardState(kbd);
+	const bool shift = kbd[VK_SHIFT];
+#endif
+
 	raw_depth.max_value = 0;
 	raw_depth.min_value = 0;
 	raw_depth.range     = 0;
