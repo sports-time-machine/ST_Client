@@ -88,7 +88,7 @@ static bool drawMovieFrame(const MovieData& mov, glRGBA inner, glRGBA outer, con
 		Depth10b6b::playback(depth1, depth2, mov.frames.find(disp_frame)->second);
 		MixDepth(dots, depth1, mov.cam1);
 		MixDepth(dots, depth2, mov.cam2);
-		drawVoxels(dots, inner, outer, DRAW_VOXELS_HALF);
+		drawVoxels(dots, mov.dot_size, inner, outer, DRAW_VOXELS_HALF);
 	}
 	return true;
 }
@@ -114,7 +114,7 @@ void StClient::display3dSection()
 	if (gd.show_realmovie)
 	{
 		static Dots dots;
-		this->DrawRealMovie(dots);
+		this->DrawRealMovie(dots, config.person_dot_px);
 
 		// センター座標(@Center)の取得
 		this->CreateAtari(dots);
@@ -154,7 +154,7 @@ void StClient::display2dSectionPrepare()
 {
 	gl::Projection();
 	gl::LoadIdentity();
-	glOrtho(0, 640, 480, 0, -1.0, 1.0);
+	glOrtho(0, 640, 480, 0, -50.0, 50.0);
 
 	gl::Texture(false);
 	gl::DepthTest(false);

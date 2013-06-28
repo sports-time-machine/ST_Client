@@ -154,6 +154,21 @@ static void ApplyIdleImages(Config::IdleImages& idle_images, const string& folde
 	}
 }
 
+// run_env = [name:[background:file], ...] ‚ðƒZƒbƒg
+static void ApplyRunEnvs(Config::RunEnvs& envs, const string& folder, PSLv var)
+{
+	envs.clear();
+
+	PSLv keys = var.keys();
+	for (size_t i=0; i<keys.length(); ++i)
+	{
+		PSL::string name = keys[i].toString().c_str();
+
+		auto& env = envs[name.c_str()];
+		env.background.fullpath = folder + var[name]["background"].toString().c_str();
+	}
+}
+
 
 
 
@@ -242,7 +257,6 @@ static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 		// Images
 		PSLv src = psl.get("images");
 		auto& dest = config.images;
-		DEF_IMAGE(background);
 		DEF_IMAGE(sleep);
 		for (int i=0; i<MAX_PICT_NUMBER; ++i)
 		{
@@ -312,6 +326,10 @@ bool load_config()
 		_rw_config.idle_images, 
 		config.picture_folder,
 		psl.get("idle_images"));
+	ApplyRunEnvs(
+		_rw_config.run_env, 
+		config.picture_folder,
+		psl.get("run_env"));
 
 	return true;
 }

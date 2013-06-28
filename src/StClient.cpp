@@ -48,6 +48,19 @@ local VodyInfo vody;
 const int TEXTURE_SIZE = 512;
 
 
+// @gcls
+static void glClearGraphics(int r, int g, int b)
+{
+	glClearColor(
+		r / 255.0f,
+		g / 255.0f,
+		b / 255.0f,
+		1.00f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+
+
 
 static void _Msg(int color, const string& s, const string& param)
 {
@@ -177,13 +190,17 @@ void StClient::reloadResources()
 	// アイドル画像のロード
 	for (size_t i=0; i<config.idle_images.size(); ++i)
 	{
-		auto& named_image = _rw_config.idle_images[i];
-		printf("アイドル画像のロード '%s'\n", named_image.fullpath.c_str());
-		named_image.image.createFromImageA(named_image.fullpath);
+		_rw_config.idle_images[i].reload("アイドル画像のロード");
+	}
+
+	// 走行環境のロード
+	for (auto itr=_rw_config.run_env.begin(); itr!=_rw_config.run_env.end(); ++itr)
+	{
+		Config::RunEnv& env = itr->second;
+		env.background.reload("走行環境:画像のロード");
 	}
 
 
-	LOAD_IMAGE(background);
 	LOAD_IMAGE(sleep);
 	LOAD_IMAGE(dot);
 	for (int i=0; i<MAX_PICT_NUMBER; ++i)
@@ -291,47 +308,6 @@ void CreateHitWall(float meter, int id, const char* text)
 }
 
 
-//========================================
-// アイドル画像の描画と、時間による切り替え
-//========================================
-void StClient::drawIdleImage()
-{
-#if 1
-	const int NaN = -1;
-	static int life = 0;
-	static int curr_image = NaN;
-	static int transition = 0;
-
-	if (--life<0)
-	{
-		curr_image = rand() % config.idle_images.size();
-		life       = (rand()%100)+(rand()%100)+(rand()%100)+150;
-	}
-
-	auto itr = config.idle_images.find(curr_image);
-	if (itr!=config.idle_images.end())
-	{
-		itr->second.image.draw(0,0,640,480);
-	}
-#else
-	// 製作時間がなくてタイムアウト
-	// あとでトランジションしたい
-#endif
-}
-
-
-// @gcls
-static void glClearGraphics(int r, int g, int b)
-{
-	glClearColor(
-		r / 255.0f,
-		g / 255.0f,
-		b / 255.0f,
-		1.00f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-
-
 // 1フレで実行する内容
 void StClient::processOneFrame()
 {
@@ -368,16 +344,22 @@ void StClient::processOneFrame()
 			mi::Timer tm(&time_profile.drawing.grid);
 			this->drawFieldGrid(500);
 		}
-		this->display3dSection();
+
+		// キャリブレーション用ボディ設定
+		global.gameinfo.movie.player_color_rgba.set(50,125,70);
+
+		// 実映像の表示
+		static Dots dots;
+		this->DrawRealMovie(dots, 1.5f);
 	}
 	else
 	{
 		// クライアントステータスによる描画の分岐
 		// VRAMのクリア(glClearGraphics)はそれぞれに行う
-		switch (clientStatus())
+		switch (STATUS_IDLE)
 		{
 		case STATUS_SLEEP:
-			// 2Dアイドル画像
+			// 2Dスリープ画像
 			glClearGraphics(255,255,255);
 			this->display2dSectionPrepare();
 			global.images.sleep.draw(0,0,640,480);
@@ -393,11 +375,13 @@ void StClient::processOneFrame()
 			this->display2dSectionPrepare();
 			this->drawIdleImage();
 
+			// アイドル用ボディ
+			global.gameinfo.movie.player_color_rgba.set(80,70,50);
+
 			// 実映像の表示
 			this->display3dSectionPrepare();
-			this->display3dSection();
 			static Dots dots;
-			DrawRealMovie(dots);
+			DrawRealMovie(dots, config.person_dot_px);
 			break;}
 
 		case STATUS_PICT:{
@@ -414,7 +398,7 @@ void StClient::processOneFrame()
 			this->display3dSectionPrepare();
 			this->display3dSection();
 			static Dots dots;
-			DrawRealMovie(dots);
+			DrawRealMovie(dots, config.person_dot_px);
 		
 			// 床消しのアップデート
 			dev1.updateFloorDepth();
@@ -428,14 +412,16 @@ void StClient::processOneFrame()
 			break;}
 
 		default:
+#if 0
 			glClearGraphics(
 				config.color.ground.r,
 				config.color.ground.g,
 				config.color.ground.b);
+#endif
 			this->display2dSectionPrepare();
 			{
 				mi::Timer tm(&time_profile.drawing.wall);
-				this->draw2dWall();
+				this->drawRunEnv();
 			}
 			this->display3dSectionPrepare();
 			{
@@ -474,10 +460,14 @@ void StClient::processOneFrame()
 	}
 }
 
+// ゲーム情報の初期化
+//   INIT命令とSTART命令で実行される
 void StClient::initGameInfo()
 {
 	startMovieRecordSettings();
-//######	global.gameinfo.init();
+
+	// 走行環境の破棄（デフォルトにする）
+	global.run_env = Config::getDefaultRunEnv();
 
 	// 最初の当たり判定を作る
 	const int FIRST_HIT_NUMBER = 0;
@@ -664,20 +654,76 @@ void StClient::drawFieldGrid(int size_cm)
 	glEnd();
 }
 
-
-// 平面に壁を描画する @wall
-void StClient::draw2dWall()
+//========================================
+// アイドル画像の描画と、時間による切り替え
+//========================================
+void StClient::drawIdleImage()
 {
-	auto& img = global.images.background;
+#if 1
+	const int NaN = -1;
+	static int life = 0;
+	static int curr_image = NaN;
+	static int transition = 0;
 
-	img.draw(0,0,640,480);
-	glColor3f(255,0,0);
-	glBegin(GL_QUADS);
-	glVertex2f(0,0);
-	glVertex2f(20,0);
-	glVertex2f(20,480);
-	glVertex2f(0,480);
-	glEnd();
+	if (--life<0)
+	{
+		curr_image = rand() % config.idle_images.size();
+		life       = (rand()%100)+(rand()%100)+(rand()%100)+150;
+		printf("アイドル画像の変更: %d\n", curr_image);
+	}
+
+	auto itr = config.idle_images.find(curr_image);
+	if (itr!=config.idle_images.end())
+	{
+		itr->second.image.draw(0.0f, 0.0f, 640.0f, 480.0f, -IDLE_IMAGE_Z);
+	}
+#else
+	// 製作時間がなくてタイムアウト
+	// あとでトランジションしたい
+#endif
+}
+
+//===============================================
+// 壁や背景など、走行環境を描画する @runenv @wall
+//===============================================
+void StClient::drawRunEnv()
+{
+	glClearGraphics(255,255,255);
+
+	if (global.run_env==nullptr)
+	{
+		// 環境がありませんでした
+		// なんらかの問題あり?
+		Msg::ErrorMessage("drawRunEnv - no run env (bug?)");
+		return;
+	}
+
+	// デフォルト環境
+	if (global.run_env==Config::getDefaultRunEnv())
+	{
+		static int t = 0;
+		++t;
+		const int N = 20;
+		bool color = false;
+		const int x = -(t % (2*N));
+		for (int i=0; i<640+480+2*N; i+=N)
+		{
+			color
+				? glRGBA(220,220,188)()
+				: glRGBA(255,252,243)();
+			color = !color;
+			glBegin(GL_QUADS);
+				glVertex3f(x+i,         0, 10);
+				glVertex3f(x+i+N,       0, 10);
+				glVertex3f(x+i+N-480, 480, 10);
+				glVertex3f(x+i  -480, 480, 10);
+			glEnd();
+		}
+		return;
+	}
+
+	auto& img = global.run_env->background.image;
+	img.draw(0,0,640,480,10);
 }
 
 // 三次元上に壁を描画する @wall
@@ -750,7 +796,7 @@ void stclient::MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& ca
 	}
 }
 
-void stclient::drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style, float add_z)
+void stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style, float add_z)
 {
 	// @voxel @dot
 	if (style & DRAW_VOXELS_QUAD)
@@ -762,7 +808,7 @@ void stclient::drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_col
 	else
 	{
 		gl::Texture(false);
-		glPointSize(config.person_dot_px);
+		glPointSize(dot_size);
 		glBegin(GL_POINTS);
 	}
 
@@ -836,7 +882,7 @@ void StClient::createSnapshot()
 	puts("Create snapshot!");
 }
 
-void StClient::DrawRealMovie(Dots& dots)
+void StClient::DrawRealMovie(Dots& dots, float dot_size)
 {
 	const glRGBA color_body = global.gameinfo.movie.player_color_rgba;
 	const glRGBA color_cam1(80,190,250);
@@ -865,7 +911,7 @@ void StClient::DrawRealMovie(Dots& dots)
 
 			glRGBA color = config.color.snapshot;
 			color.a = color.a * snapshot_life / config.snapshot_life_frames;
-			drawVoxels(dots, color, color_outer, DRAW_VOXELS_NORMAL, +0.5f);
+			drawVoxels(dots, dot_size, color, color_outer, DRAW_VOXELS_NORMAL, +0.5f);
 		}
 	}
 
@@ -920,7 +966,7 @@ void StClient::DrawRealMovie(Dots& dots)
 		
 		{
 			Timer tm(&time_profile.drawing.drawvoxels);
-			drawVoxels(dots, color_body, color_outer);
+			drawVoxels(dots, dot_size, color_body, color_outer);
 		}
 	}
 	else
@@ -929,19 +975,19 @@ void StClient::DrawRealMovie(Dots& dots)
 		{
 			dots.init();
 			MixDepth(dots, image1, cam1);
-			drawVoxels(dots, color_cam1, color_outer);
+			drawVoxels(dots, dot_size, color_cam1, color_outer);
 			dots.init();
 			MixDepth(dots, image2, cam2);
-			drawVoxels(dots, color_other, color_other);
+			drawVoxels(dots, dot_size, color_other, color_other);
 		}
 		else
 		{
 			dots.init();
 			MixDepth(dots, image1, cam1);
-			drawVoxels(dots, color_other, color_other);
+			drawVoxels(dots, dot_size, color_other, color_other);
 			dots.init();
 			MixDepth(dots, image2, cam2);
-			drawVoxels(dots, color_cam2, color_outer);
+			drawVoxels(dots, dot_size, color_cam2, color_outer);
 		}
 	}
 }
@@ -1053,7 +1099,7 @@ void GameInfo::save_Thumbnail(const string& basename, const string& suffix, int)
 	File f;
 	if (!f.openForWrite(path.c_str()))
 	{
-		Console::printf(CON_RED, "Cannot open file '%s'\n", path.c_str());
+		Console::printf(CON_RED, "Cannot open file '%s' (save_Thumbnail)\n", path.c_str());
 		return;
 	}
 }
@@ -1068,17 +1114,18 @@ bool GameInfo::prepareForSave(const string& player_id, const string& game_id)
 
 	// Folder name: ${BaseFolder}/E/D/C/B/A/0/0/0/0/0/
 	const string folder = GetFolderName(game_id);
-	mi::Folder::createFolder(folder.c_str());
 	printf("Folder: %s\n", folder.c_str());
+	mi::Folder::createFolder(folder.c_str());
 
 	// Base name: ${BaseFolder}/E/D/C/B/A/0/0/0/0/0/00000ABCDE
 	this->basename = folder + game_id;
 
-	// Open!
-	const string filename = this->basename + ".stmov";
+	// Open: 00000ABCDE-1.stmov
+	const string filename = this->basename + "-" + to_s(config.client_number) + ".stmov";
+	printf("Movie: %s\n", filename.c_str());
 	if (!movie_file.openForWrite(filename))
 	{
-		Msg::ErrorMessage("Cannot open file", filename);
+		Msg::ErrorMessage("Cannot open file (preapreForSave)", filename);
 		return false;
 	}
 
@@ -1095,12 +1142,14 @@ void GameInfo::save()
 	Msg::Notice("Saved!");
 
 	// Save Thumbnail
+#if 0
 	save_Thumbnail(basename,"1",0);
 	save_Thumbnail(basename,"2",0);
 	save_Thumbnail(basename,"3",0);
 	save_Thumbnail(basename,"4",0);
 	save_Thumbnail(basename,"5",0);
 	save_Thumbnail(basename,"6",0);
+#endif
 }
 
 static void CreateDummyDepth(RawDepthImage& depth)

@@ -340,8 +340,6 @@ struct Global
 	};
 	struct Images
 	{
-		mi::Image idle;
-		mi::Image background;
 		mi::Image sleep;
 		mi::Image dot;
 		mi::Image pic[MAX_PICT_NUMBER];
@@ -351,7 +349,8 @@ struct Global
 		bool fast;               // キャリブレーションのときの移動・回転速度
 		bool enabled;            // キャリブレーション可能
 	};
-
+	
+	Config::RunEnv* run_env;
 	Calibration  calibration;
 	Debug        debug;
 	GameInfo     gameinfo;
@@ -386,6 +385,7 @@ struct Global
 
 	Global()
 	{
+		run_env              = Config::getDefaultRunEnv();
 		view_mode            = VM_2D_RUN;
 		window_w             = 0;
 		window_h             = 0;
@@ -539,12 +539,12 @@ private:
 	void loadAgent(int slot);
 
 	void MovieRecord();
-	void DrawRealMovie(Dots& dots);
+	void DrawRealMovie(Dots& dots, float dot_size);
 	void set_clipboard_text();
 
 	void reloadResources();
 
-	void draw2dWall();
+	void drawRunEnv();
 	void draw3dWall();
 	void drawFieldGrid(int size_cm);
 	void drawIdleImage();
@@ -566,7 +566,7 @@ enum DrawVoxelsStyle
 };
 
 void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam);
-void drawVoxels(const Dots& dots, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style = DRAW_VOXELS_NORMAL, float add_z=0.0f);
+void drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style = DRAW_VOXELS_NORMAL, float add_z=0.0f);
 void myGetKeyboardState(BYTE* kbd);
 
 }//namespace stclient

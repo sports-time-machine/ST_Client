@@ -9,6 +9,7 @@ public:
 	bool createFromImageA(const std::string& filename);
 
 	void draw(int x, int y, int w, int h, int alpha=255) const;
+	void draw(float x, float y, float w, float h, float z, int alpha=255) const;
 	void drawRotated(int x, int y, int w, int h, float rot, int alpha=255) const;
 
 

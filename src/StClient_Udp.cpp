@@ -356,7 +356,7 @@ void Command::ident(Args& arg)
 
 	if (!global.gameinfo.prepareForSave(player_id, game_id))
 	{
-		Msg::ErrorMessage("Open error (savefile)");
+		Msg::ErrorMessage("Open error (ident, prepareForSave)");
 		return;
 	}
 

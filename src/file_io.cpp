@@ -137,7 +137,7 @@ bool MovieData::load(const string& id)
 	File f;
 	if (!f.open(name))
 	{
-		Msg::ErrorMessage("Cannot open file", name);
+		Msg::ErrorMessage("Cannot open file (MovieData::load)", name);
 		return false;
 	}
 

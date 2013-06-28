@@ -113,20 +113,34 @@ void StClient::processKeyInput()
 			Msg::Notice("キャリブレーションモードへの移行");
 			global.calibration.enabled = true;
 			global.show_debug_info     = true;
+			eye.view_2d_front();
 		}
 		else
 		{
 			Msg::Notice("キャリブレーションモードの終了");
 			global.calibration.enabled = false;
 			global.show_debug_info     = false;
+			eye.view_2d_run();
 		}
 		return;
-	case '0':            saveScreenShot();  return;
-	case VK_TAB:         toggle(global.calibration.fast, "高速キャリブレーションモード");   return;
-	case 'P':            toggle(global.show_debug_info, "デバッグ情報表示");               return;
-	case VK_F9:          load_config(); reloadResources();         return;
-	case SK_CTRL|VK_F4:  quitApplication(); return;
-	case SK_ALT |VK_F4:  quitApplication(); return;
+	case '0':             saveScreenShot();  return;
+	case VK_TAB:          toggle(global.calibration.fast, "高速キャリブレーションモード");   return;
+	case 'P':             toggle(global.show_debug_info, "デバッグ情報表示");               return;
+	case VK_F9:           load_config();                            return;
+	case VK_F9|SK_SHIFT:  load_config(); reloadResources();         return;
+	case VK_F4|SK_CTRL:   quitApplication(); return;
+	case VK_F4|SK_ALT:    quitApplication(); return;
+	case VK_BACK:        this->clearFloorDepth();                  break;
+	case '1':    active_camera=CAM_A;     break;
+	case '2':    active_camera=CAM_B;     break;
+	case '3':    active_camera=CAM_BOTH;  break;
+	case VK_F1:  eye.view_2d_left();      break;
+	case VK_F2:  eye.view_2d_top();       break;
+	case VK_F3:  eye.view_2d_front();     break;
+	case VK_F5:  eye.view_2d_run();       break;
+	case VK_F6:  eye.view_3d_left();      break;
+	case VK_F7:  eye.view_3d_right();     break;
+	case VK_F8:  eye.view_3d_front();     break;
 	}
 
 	if (global.calibration.enabled)
@@ -223,24 +237,12 @@ bool StClient::processKeyInput_Calibration(int key)
 		printf("Key: %X\n", key);
 		return false;
 
-	case '1':    active_camera=CAM_A;     break;
-	case '2':    active_camera=CAM_B;     break;
-	case '3':    active_camera=CAM_BOTH;  break;
-	case VK_F1:  eye.view_2d_left();      break;
-	case VK_F2:  eye.view_2d_top();       break;
-	case VK_F3:  eye.view_2d_front();     break;
-	case VK_F5:  eye.view_2d_run();       break;
-	case VK_F6:  eye.view_3d_left();      break;
-	case VK_F7:  eye.view_3d_right();     break;
-	case VK_F8:  eye.view_3d_front();     break;
-
 	case VK_F12:         /* init-floor */                          break;
 	case VK_HOME:                                                  break;
 	case VK_END:                                                   break;
 	case 'I':            toggle(eye.fast_set,   "視点高速移動");    break;
 	case 'M':            toggle(mode.mirroring, "ミラー");         break;
 	case SK_CTRL | 'C':  set_clipboard_text();                     break;
-	case VK_BACK:        this->clearFloorDepth();                  break;
 
 	case SK_CTRL + 'S'://Ctrl+S
 		if (!recordingNow())

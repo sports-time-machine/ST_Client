@@ -24,6 +24,7 @@ namespace stclient{
 #define ATARI_TOP          (GROUND_HEIGHT)
 
 #define LOOKAT_EYE_DEPTH   (4.0f)
+#define IDLE_IMAGE_Z       (5.0f)
 
 
 
@@ -48,10 +49,21 @@ struct Config
 	{
 		string     fullpath;
 		mi::Image  image;
+
+		void reload(const char* title)
+		{
+			printf("%s '%s'\n", title, fullpath.c_str());
+			image.createFromImageA(fullpath);
+		}
+	};
+	struct RunEnv
+	{
+		NamedImage background;
 	};
 
 	typedef std::map<string,mgl::glRGBA> PlayerColors;
 	typedef std::map<int,NamedImage> IdleImages;
+	typedef std::map<string,RunEnv> RunEnvs;
 
 	struct Colors
 	{
@@ -66,7 +78,6 @@ struct Config
 
 	struct Images
 	{
-		string background;
 		string dot;
 		string sleep;
 		string pic[MAX_PICT_NUMBER];
@@ -82,6 +93,7 @@ struct Config
 	// 全体的な設定
 	PlayerColors player_colors;
 	IdleImages   idle_images;
+	RunEnvs      run_env;
 	Images       images;
 	Colors       color;
 	int          center_atari_voxel_threshould;     // アタリ中央をとるために必要なボクセル数（2500～とか）
@@ -108,6 +120,8 @@ struct Config
 
 	float getScreenLeftMeter()  const  { return (client_number-1) * GROUND_WIDTH; }
 	float getScreenRightMeter() const  { return getScreenLeftMeter() + GROUND_WIDTH; }
+	
+	static RunEnv* getDefaultRunEnv()  { static RunEnv re; return &re; }
 
 	Config();
 

@@ -184,6 +184,28 @@ void Image::draw(int x, int y, int w, int h, int alpha) const
 	glDisable(GL_TEXTURE_2D);
 }
 
+void Image::draw(float x, float y, float w, float h, float z, int alpha) const
+{
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, this->_gl_tex);
+	glColor4f(1, 1, 1, alpha/255.0f);
+
+	const float x1 = x;
+	const float y1 = y;
+	const float x2 = x + w;
+	const float y2 = y + h;
+	const float u = this->_tex_x_ratio;
+	const float v = this->_tex_y_ratio;
+
+	glBegin(GL_QUADS);
+	glTexCoord2f(0, 0); glVertex3f(x1, y1, z);
+	glTexCoord2f(u, 0); glVertex3f(x2, y1, z);
+	glTexCoord2f(u, v); glVertex3f(x2, y2, z);
+	glTexCoord2f(0, v); glVertex3f(x1, y2, z);
+	glEnd();
+	glDisable(GL_TEXTURE_2D);
+}
+
 void Image::drawRotated(int x, int y, int w, int h, float rot, int alpha) const
 {
 	glBindTexture(GL_TEXTURE_2D, this->_gl_tex);
