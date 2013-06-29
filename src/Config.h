@@ -96,7 +96,7 @@ struct Config
 	RunEnvs      run_env;
 	Images       images;
 	Colors       color;
-	int          center_atari_voxel_threshould;     // アタリ中央をとるために必要なボクセル数（2500～とか）
+	int          center_atari_voxel_threshould;     // アタリ中央をとるために必要なボクセル数（1K単位ぐらい）
 	int          hit_threshold;
 	int          snapshot_life_frames;
 	int          auto_snapshot_interval;

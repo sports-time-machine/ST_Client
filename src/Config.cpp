@@ -27,7 +27,7 @@ Config::Config()
 	// 全体的な設定
 	movie_folder           = ""; //デフォルトママだとエラーになります
 	picture_folder         = ""; //デフォルトママだとエラーになります
-	center_atari_voxel_threshould = 2500;
+	center_atari_voxel_threshould = 7500;
 	hit_threshold          = 10;
 	snapshot_life_frames   = 100;
 	auto_snapshot_interval = 0;
