@@ -311,6 +311,8 @@ void CreateHitWall(float meter, int id, const char* text)
 // 1フレで実行する内容
 void StClient::processOneFrame()
 {
+	++global.total_frames;
+
 	// フレーム開始時にUDPコマンドの処理をする
 	this->processUdpCommands();
 
@@ -574,6 +576,7 @@ void ChangeCalParamKeys::init()
 	this->rot_xy = (kbd['T'] & 0x80)!=0;
 	this->rot_z  = (kbd['Y'] & 0x80)!=0;
 	this->scale  = (kbd['U'] & 0x80)!=0;
+	this->scalex = (kbd['J'] & 0x80)!=0;
 }
 
 
@@ -757,9 +760,9 @@ void StClient::draw3dWall()
 void stclient::MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam)
 {
 	const mat4x4 trans = mat4x4::create(
-			cam.rotx, cam.roty, cam.rotz,
-			cam.x,    cam.y,    cam.z,
-			cam.scale);
+			cam.rot.x, cam.rot.y, cam.rot.z,
+			cam.pos.x, cam.pos.y, cam.pos.z,
+			cam.scale.x, cam.scale.y, cam.scale.z);
 
 	int index = 0;
 	for (int y=0; y<480; ++y)
@@ -797,7 +800,8 @@ void stclient::MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& ca
 void stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style, float add_z)
 {
 	// @voxel @dot
-	if (style & DRAW_VOXELS_QUAD)
+	const bool quad = false;
+	if (quad)
 	{
 		gl::Texture(true);
 		glBindTexture(GL_TEXTURE_2D, global.images.dot);
@@ -811,9 +815,9 @@ void stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 	}
 
 	const int inc = 
-		(style & DRAW_VOXELS_HALF)
-			? mi::minmax(config.movie_inc,  MIN_VOXEL_INC, MAX_VOXEL_INC)
-			: mi::minmax(config.person_inc, MIN_VOXEL_INC, MAX_VOXEL_INC);
+		(style==DRAW_VOXELS_PERSON)
+			? mi::minmax(config.person_inc, MIN_VOXEL_INC, MAX_VOXEL_INC)
+			: mi::minmax(config.movie_inc,  MIN_VOXEL_INC, MAX_VOXEL_INC); 
 	const int SIZE16 = dots.size() << 4;
 
 	for (int i16=0; i16<SIZE16; i16+=inc)
@@ -843,7 +847,7 @@ void stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 			outer_color.glColorUpdate(col255>>2);
 		}
 
-		if (style & DRAW_VOXELS_QUAD)
+		if (quad)
 		{
 			const float K = 0.01f;
 			glTexCoord2f(0,0); glVertex3f(x-K,y-K,-z);
@@ -909,7 +913,7 @@ void StClient::DrawRealMovie(Dots& dots, float dot_size)
 
 			glRGBA color = config.color.snapshot;
 			color.a = color.a * snapshot_life / config.snapshot_life_frames;
-			drawVoxels(dots, dot_size, color, color_outer, DRAW_VOXELS_NORMAL, +0.5f);
+			drawVoxels(dots, dot_size, color, color_outer, DRAW_VOXELS_PERSON, +0.5f);
 		}
 	}
 
@@ -964,7 +968,7 @@ void StClient::DrawRealMovie(Dots& dots, float dot_size)
 		
 		{
 			Timer tm(&time_profile.drawing.drawvoxels);
-			drawVoxels(dots, dot_size, color_body, color_outer);
+			drawVoxels(dots, dot_size, color_body, color_outer, DRAW_VOXELS_PERSON);
 		}
 	}
 	else
@@ -973,19 +977,19 @@ void StClient::DrawRealMovie(Dots& dots, float dot_size)
 		{
 			dots.init();
 			MixDepth(dots, image1, cam1);
-			drawVoxels(dots, dot_size, color_cam1, color_outer);
+			drawVoxels(dots, dot_size, color_cam1, color_outer, DRAW_VOXELS_PERSON);
 			dots.init();
 			MixDepth(dots, image2, cam2);
-			drawVoxels(dots, dot_size, color_other, color_other);
+			drawVoxels(dots, dot_size, color_other, color_other, DRAW_VOXELS_PERSON);
 		}
 		else
 		{
 			dots.init();
 			MixDepth(dots, image1, cam1);
-			drawVoxels(dots, dot_size, color_other, color_other);
+			drawVoxels(dots, dot_size, color_other, color_other, DRAW_VOXELS_PERSON);
 			dots.init();
 			MixDepth(dots, image2, cam2);
-			drawVoxels(dots, dot_size, color_cam2, color_outer);
+			drawVoxels(dots, dot_size, color_cam2, color_outer, DRAW_VOXELS_PERSON);
 		}
 	}
 }
@@ -1202,18 +1206,24 @@ static void change_cal_param(Calset& set, float mx, float my, const ChangeCalPar
 	auto& curr = set.curr;
 	auto& prev = set.prev;
 
-	if (keys.scale)
+	if (keys.scalex)
 	{
-		curr.scale = prev.scale - 0.2*(mx + my);
+		curr.scale.x = prev.scale.x - 0.2*(mx + my);
+	}
+	else if (keys.scale)
+	{
+		curr.scale.x = prev.scale.x - 0.2*(mx + my);
+		curr.scale.y = prev.scale.y - 0.2*(mx + my);
+		curr.scale.z = prev.scale.z - 0.2*(mx + my);
 	}
 	else if (keys.rot_xy)
 	{
-		curr.rotx = prev.rotx + 0.2*my;
-		curr.roty = prev.roty + 0.2*mx;
+		curr.rot.x = prev.rot.x + 0.2*my;
+		curr.rot.y = prev.rot.y + 0.2*mx;
 	}
 	else if (keys.rot_z)
 	{
-		curr.rotz = prev.rotz - 0.2*(mx + my);
+		curr.rot.z = prev.rot.z - 0.2*(mx + my);
 	}
 	else
 	{
@@ -1222,47 +1232,47 @@ static void change_cal_param(Calset& set, float mx, float my, const ChangeCalPar
 		case VM_2D_TOP:// ウエキャリブレーション
 			if (keys.ctrl)
 			{
-				curr.roty = prev.roty + mx - my;
+				curr.rot.y = prev.rot.y + mx - my;
 			}
 			else
 			{
-				curr.x = prev.x + mx;
-				curr.z = prev.z - my;
+				curr.pos.x = prev.pos.x + mx;
+				curr.pos.z = prev.pos.z - my;
 			}
 			break;
 		case VM_2D_LEFT:// ヨコキャリブレーション
 			if (keys.ctrl)
 			{
-				curr.rotx = prev.rotx - mx + my;
+				curr.rot.x = prev.rot.x - mx + my;
 			}
 			else
 			{
-				curr.z = prev.z - mx;
-				curr.y = prev.y - my;
+				curr.pos.z = prev.pos.z - mx;
+				curr.pos.y = prev.pos.y - my;
 			}
 			break;
 		case VM_2D_FRONT:// マエキャリブレーション
 		case VM_2D_RUN:  // 走り画面
 			if (keys.ctrl)
 			{
-				curr.rotz = prev.rotz - mx - my;
+				curr.rot.z = prev.rot.z - mx - my;
 			}
 			else
 			{
-				curr.x = prev.x + mx;
-				curr.y = prev.y - my;
+				curr.pos.x = prev.pos.x + mx;
+				curr.pos.y = prev.pos.y - my;
 			}
 			break;
 		default:
 			if (keys.ctrl)
 			{
-				curr.x = prev.x + mx;
-				curr.y = prev.y - my;
+				curr.pos.x = prev.pos.x + mx;
+				curr.pos.y = prev.pos.y - my;
 			}				
 			else
 			{
-				curr.x = prev.x + mx;
-				curr.z = prev.z - my;
+				curr.pos.x = prev.pos.x + mx;
+				curr.pos.z = prev.pos.z - my;
 			}
 			break;
 		}
@@ -1292,7 +1302,16 @@ void StClient::do_calibration(float mx, float my)
 
 
 
-void StClient::set_clipboard_text()
+string StClient::GetCamConfigPath()
+{
+	string filename;
+	filename += "C:/ST/";
+	filename += mi::Core::getComputerName();
+	filename += "_cam.psl";
+	return filename;
+}
+
+void StClient::SaveCamConfig()
 {
 	string s;
 	
@@ -1305,22 +1324,30 @@ void StClient::set_clipboard_text()
 			"x:%+6.3f,"
 			"y:%+6.3f,"
 			"z:%+6.3f,"
-			"rotx:%+6.3f,"
-			"roty:%+6.3f,"
-			"rotz:%+6.3f,"
-			"scale:%+6.3f];\r\n",
+			"rx:%+6.3f,"
+			"ry:%+6.3f,"
+			"rz:%+6.3f,"
+			"sx:%+6.3f,"
+			"sy:%+6.3f,"
+			"sz:%+6.3f];\r\n",
 				1+i,
-				cam.x,
-				cam.y,
-				cam.z,
-				cam.rotx,
-				cam.roty,
-				cam.rotz,
-				cam.scale);
+				cam.pos.x,
+				cam.pos.y,
+				cam.pos.z,
+				cam.rot.x,
+				cam.rot.y,
+				cam.rot.z,
+				cam.scale.x,
+				cam.scale.y,
+				cam.scale.z);
 		s += buffer;
 	}
 
-	mi::Clipboard::setText(s);
+	File f;
+	if (f.openForWrite(GetCamConfigPath()))
+	{
+		f.write(s);
+	}
 }
 
 

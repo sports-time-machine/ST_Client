@@ -19,16 +19,17 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\..\..\..\..\ST\STMx64.psl" />
+  </ItemGroup>
+  <ItemGroup>
     <ClCompile Include="src\Config.cpp" />
     <ClCompile Include="src\depth.cpp" />
     <ClCompile Include="src\Depth10b6b.cpp" />
-    <ClCompile Include="src\StClient_Eye.cpp" />
     <ClCompile Include="src\file_io.cpp" />
     <ClCompile Include="src\FreeType.cpp" />
     <ClCompile Include="src\gl.cpp" />
     <ClCompile Include="src\gl_funcs.cpp" />
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\mi\Audio.cpp" />
     <ClCompile Include="src\mi\Clipboard.cpp" />
     <ClCompile Include="src\mi\Console.cpp" />
     <ClCompile Include="src\mi\Core.cpp" />
@@ -38,22 +39,15 @@
     <ClCompile Include="src\mi\Timer.cpp" />
     <ClCompile Include="src\mi\Udp.cpp" />
     <ClCompile Include="src\pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="src\StClient_Display.cpp" />
-    <ClCompile Include="src\StClient_Input.cpp" />
     <ClCompile Include="src\StClient.cpp" />
+    <ClCompile Include="src\StClient_Display.cpp" />
+    <ClCompile Include="src\StClient_Eye.cpp" />
+    <ClCompile Include="src\StClient_Input.cpp" />
     <ClCompile Include="src\StClient_Udp.cpp" />
-    <ClCompile Include="src\VoxelRecorder.cpp" />
-    <ClCompile Include="src\zlibpp.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Config.h" />
-    <ClInclude Include="src\file_io.h" />
-    <ClInclude Include="src\FreeType.h" />
-    <ClInclude Include="src\gl_funcs.h" />
-    <ClInclude Include="src\mi\Audio.h" />
     <ClInclude Include="src\mi\Clipboard.h" />
     <ClInclude Include="src\mi\Console.h" />
     <ClInclude Include="src\mi\Core.h" />
@@ -63,14 +57,6 @@
     <ClInclude Include="src\mi\mi.h" />
     <ClInclude Include="src\mi\Timer.h" />
     <ClInclude Include="src\mi\Udp.h" />
-    <ClInclude Include="src\pch.h" />
-    <ClInclude Include="src\psl_if.h" />
-    <ClInclude Include="src\StClient.h" />
-    <ClInclude Include="src\vec4.h" />
-    <ClInclude Include="src\zlibpp.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\..\..\..\..\ST\STMx64.psl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{BDA3BF24-550A-4BF9-83E5-7B56134EED40}</ProjectGuid>
@@ -119,10 +105,10 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>C:\ST\Bin\</OutDir>
+    <OutDir>C:\ST\Client</OutDir>
     <IntDir>$(ProjectDir)..\Bin\Intermediate\$(Platform)-$(Configuration)\$(ProjectName)\</IntDir>
-    <IncludePath>$(WindowsSdkDir)\include;$(VCInstallDir)include;C:\Users\STM\Dev\Include</IncludePath>
-    <LibraryPath>$(LibraryPath);$(VSInstallDir);$(VSInstallDir)lib;C:\Users\STM\Dev\Lib</LibraryPath>
+    <IncludePath>$(WindowsSdkDir)\include;$(VCInstallDir)include;C:\Users\STM\Dev\Include;C:\Dev\Include</IncludePath>
+    <LibraryPath>$(LibraryPath);$(VSInstallDir);$(VSInstallDir)lib;C:\Users\STM\Dev\Lib;C:\Dev\Lib</LibraryPath>
     <TargetName>$(ProjectName)_x32_d</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -133,10 +119,10 @@
     <TargetName>$(ProjectName)_x64</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>C:\ST\Bin\</OutDir>
+    <OutDir>C:\ST\Client\</OutDir>
     <IntDir>$(ProjectDir)..\Bin\Intermediate\$(Platform)-$(Configuration)\$(ProjectName)\</IntDir>
-    <IncludePath>$(WindowsSdkDir)\include;$(VCInstallDir)include;C:\Users\STM\Dev\Include</IncludePath>
-    <LibraryPath>$(LibraryPath);$(VSInstallDir);$(VSInstallDir)lib;C:\Users\STM\Dev\Lib</LibraryPath>
+    <IncludePath>$(WindowsSdkDir)\include;$(VCInstallDir)include;C:\Users\STM\Dev\Include;C:\Dev\Include</IncludePath>
+    <LibraryPath>$(LibraryPath);$(VSInstallDir);$(VSInstallDir)lib;C:\Users\STM\Dev\Lib;C:\Dev\Lib</LibraryPath>
     <TargetName>$(ProjectName)_x32</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

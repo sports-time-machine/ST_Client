@@ -88,7 +88,7 @@ static bool drawMovieFrame(const MovieData& mov, glRGBA inner, glRGBA outer, con
 		Depth10b6b::playback(depth1, depth2, mov.frames.find(disp_frame)->second);
 		MixDepth(dots, depth1, mov.cam1);
 		MixDepth(dots, depth2, mov.cam2);
-		drawVoxels(dots, mov.dot_size, inner, outer, DRAW_VOXELS_HALF);
+		drawVoxels(dots, mov.dot_size, inner, outer, DRAW_VOXELS_MOVIE);
 	}
 	return true;
 }
@@ -342,60 +342,34 @@ void StClient::displayDebugInfo()
 	nl();
 
 	{
-		const int saved = y;
-		x = 200;
-		const auto cam = global.gameinfo.movie.cam1;
-		h1("RecCam A:");
-		pr(monospace, x, y+=H, "pos x = %9.5f", cam.x);
-		pr(monospace, x, y+=H, "pos y = %9.5f", cam.y);
-		pr(monospace, x, y+=H, "pos z = %9.5f", cam.z);
-		pr(monospace, x, y+=H, "rot x = %9.5f", cam.rotx);
-		pr(monospace, x, y+=H, "rot y = %9.5f", cam.roty);
-		pr(monospace, x, y+=H, "rot z = %9.5f", cam.rotz);
-		pr(monospace, x, y+=H, "scale = %9.5f", cam.scale);
-		y = saved;
-	}
-
-	{
 		x = 20;
 		h1("Camera A:");
 		(active_camera==CAM_A) ? em() : text();
-		pr(monospace, x, y+=H, "pos x = %9.5f", cal_cam1.curr.x);
-		pr(monospace, x, y+=H, "pos y = %9.5f", cal_cam1.curr.y);
-		pr(monospace, x, y+=H, "pos z = %9.5f", cal_cam1.curr.z);
-		pr(monospace, x, y+=H, "rot x = %9.5f", cal_cam1.curr.rotx);
-		pr(monospace, x, y+=H, "rot y = %9.5f", cal_cam1.curr.roty);
-		pr(monospace, x, y+=H, "rot z = %9.5f", cal_cam1.curr.rotz);
-		pr(monospace, x, y+=H, "scale = %9.5f", cal_cam1.curr.scale);
+		pr(monospace, x, y+=H, "pos x = %9.5f", cal_cam1.curr.pos.x);
+		pr(monospace, x, y+=H, "pos y = %9.5f", cal_cam1.curr.pos.y);
+		pr(monospace, x, y+=H, "pos z = %9.5f", cal_cam1.curr.pos.z);
+		pr(monospace, x, y+=H, "rot x = %9.5f", cal_cam1.curr.rot.x);
+		pr(monospace, x, y+=H, "rot y = %9.5f", cal_cam1.curr.rot.y);
+		pr(monospace, x, y+=H, "rot z = %9.5f", cal_cam1.curr.rot.z);
+		pr(monospace, x, y+=H, "scl x = %9.5f", cal_cam1.curr.scale.x);
+		pr(monospace, x, y+=H, "scl y = %9.5f", cal_cam1.curr.scale.y);
+		pr(monospace, x, y+=H, "scl z = %9.5f", cal_cam1.curr.scale.z);
 		nl();
-	}
-
-	{
-		const int saved = y;
-		x = 200;
-		const auto cam = global.gameinfo.movie.cam2;
-		h1("RecCam B:");
-		pr(monospace, x, y+=H, "pos x = %9.5f", cam.x);
-		pr(monospace, x, y+=H, "pos y = %9.5f", cam.y);
-		pr(monospace, x, y+=H, "pos z = %9.5f", cam.z);
-		pr(monospace, x, y+=H, "rot x = %9.5f", cam.rotx);
-		pr(monospace, x, y+=H, "rot y = %9.5f", cam.roty);
-		pr(monospace, x, y+=H, "rot z = %9.5f", cam.rotz);
-		pr(monospace, x, y+=H, "scale = %9.5f", cam.scale);
-		y = saved;
 	}
 
 	{
 		x = 20;
 		h1("Camera B:");
 		(active_camera==CAM_B) ? em() : text();
-		pr(monospace, x, y+=H, "pos x = %9.5f", cal_cam2.curr.x);
-		pr(monospace, x, y+=H, "pos y = %9.5f", cal_cam2.curr.y);
-		pr(monospace, x, y+=H, "pos z = %9.5f", cal_cam2.curr.z);
-		pr(monospace, x, y+=H, "rot x = %9.5f", cal_cam2.curr.rotx);
-		pr(monospace, x, y+=H, "rot y = %9.5f", cal_cam2.curr.roty);
-		pr(monospace, x, y+=H, "rot z = %9.5f", cal_cam2.curr.rotz);
-		pr(monospace, x, y+=H, "scale = %9.5f", cal_cam2.curr.scale);
+		pr(monospace, x, y+=H, "pos x = %9.5f", cal_cam2.curr.pos.x);
+		pr(monospace, x, y+=H, "pos y = %9.5f", cal_cam2.curr.pos.y);
+		pr(monospace, x, y+=H, "pos z = %9.5f", cal_cam2.curr.pos.z);
+		pr(monospace, x, y+=H, "rot x = %9.5f", cal_cam2.curr.rot.x);
+		pr(monospace, x, y+=H, "rot y = %9.5f", cal_cam2.curr.rot.y);
+		pr(monospace, x, y+=H, "rot z = %9.5f", cal_cam2.curr.rot.z);
+		pr(monospace, x, y+=H, "scl x = %9.5f", cal_cam1.curr.scale.x);
+		pr(monospace, x, y+=H, "scl y = %9.5f", cal_cam1.curr.scale.y);
+		pr(monospace, x, y+=H, "scl z = %9.5f", cal_cam1.curr.scale.z);
 		nl();
 	}
 
@@ -411,6 +385,9 @@ void StClient::displayDebugInfo()
 			flashing,
 			global.person_center.x,
 			global.person_center.y);
+	pr(monospace, 20, y+=H,
+		"TOTAL [%d frames]",
+			global.total_frames);
 
 	// @fps
 	pr(monospace, 20, y+=H, "%.2ffps", fps_counter.getFps());

@@ -128,11 +128,17 @@ static bool load_config_and_run(PSL::PSLVM& psl, Config& config)
 		Core::dialog("Config.psl load error.");
 		return false;
 	}
-	// クライアントコンフィグの再ロード
+	// クライアントコンフィグのロード
 	auto client_config = PSL::string("C:/ST/")+Core::getComputerName().c_str()+".psl";
 	if (!load_psl(client_config))
 	{
 		Core::dialog("(client-name).psl load error.");
+		return false;
+	}
+	// クライアントコンフィグのロード
+	if (!load_psl(StClient::GetCamConfigPath().c_str()))
+	{
+		Core::dialog("(cam-config).psl load error.");
 		return false;
 	}
 
@@ -216,13 +222,15 @@ static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 	};
 	auto set_camera_param = [&](CamParam& cam, const char* varname){
 		PSL::variable var = psl.get(varname);
-		cam.x     = (float)var["x"];
-		cam.y     = (float)var["y"];
-		cam.z     = (float)var["z"];
-		cam.rotx  = (float)var["rotx"];
-		cam.roty  = (float)var["roty"];
-		cam.rotz  = (float)var["rotz"];
-		cam.scale = (float)var["scale"];
+		cam.pos.x = (float)var["x"];
+		cam.pos.y = (float)var["y"];
+		cam.pos.z = (float)var["z"];
+		cam.rot.x = (float)var["rx"];
+		cam.rot.y = (float)var["ry"];
+		cam.rot.z = (float)var["rz"];
+		cam.scale.x = (float)var["sx"];
+		cam.scale.y = (float)var["sy"];
+		cam.scale.z = (float)var["sz"];
 	};
 	auto toString = [&](PSLv var)->const char*{
 		if (var==PSLv(PSLv::NIL))

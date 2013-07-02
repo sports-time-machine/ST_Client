@@ -1,6 +1,5 @@
 #pragma once
 #include "mi/Core.h"
-#include "zlibpp.h"
 #include "gl_funcs.h"
 
 namespace stclient{
@@ -58,12 +57,18 @@ struct Dots
 
 struct CamParam
 {
-	float x,y,z,rotx,roty,rotz,scale;
+	struct XYZ
+	{
+		float x,y,z;
+		XYZ() { x=y=z=0.0f; }
+	};
+	XYZ pos,rot,scale;
 
 	CamParam()
 	{
-		x=y=z=rotx=roty=rotz=0.0f;
-		scale=1.0f;
+		scale.x = 1.0f;
+		scale.y = 1.0f;
+		scale.z = 1.0f;
 	}
 };
 

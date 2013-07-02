@@ -74,7 +74,10 @@ struct mat4x4
 	}
 
 	// rotation, move and scaling
-	static mat4x4 create(float rotx, float roty, float rotz, float x, float y, float z, float scale)
+	static mat4x4 create(
+		float rotx,   float roty,   float rotz,
+		float x,      float y,      float z,
+		float scalex, float scaley, float scalez)
 	{
 		mat4x4 trans;
 		{
@@ -109,11 +112,10 @@ struct mat4x4
 		}
 
 		// ÉYÅ[ÉÄ
-		const float s = scale;
 		trans = mat4x4(
-			s, 0, 0, 0,
-			0, s, 0, 0,
-			0, 0, s, 0,
+			scalex, 0, 0, 0,
+			0, scaley, 0, 0,
+			0, 0, scalez, 0,
 			0, 0, 0, 1) * trans;
 
 		// ïΩçsà⁄ìÆ

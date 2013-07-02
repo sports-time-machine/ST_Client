@@ -11,7 +11,6 @@ void toggle(bool& ref, const char* s)
 	Msg::Notice(s, mi::boolToYesNo(ref));
 }
 
-
 #include <FreeImage.h>
 
 static void quitApplication()
@@ -115,14 +114,14 @@ void StClient::processKeyInput()
 			Msg::Notice("キャリブレーションモードへの移行");
 			global.calibration.enabled = true;
 			global.show_debug_info     = true;
-			eye.view_2d_front();
+//			eye.view_2d_front();
 		}
 		else
 		{
 			Msg::Notice("キャリブレーションモードの終了");
 			global.calibration.enabled = false;
 			global.show_debug_info     = false;
-			eye.view_2d_run();
+//			eye.view_2d_run();
 		}
 		return;
 	case '0':             saveScreenShot();  return;
@@ -276,7 +275,7 @@ bool StClient::processKeyInput_Calibration(int key)
 	case VK_END:                                                   break;
 	case 'I':            toggle(eye.fast_set,   "視点高速移動");    break;
 	case 'M':            toggle(mode.mirroring, "ミラー");         break;
-	case SK_CTRL | 'C':  set_clipboard_text();                     break;
+	case SK_CTRL | 'C':  SaveCamConfig();                          break;
 
 #if 0
 	case SK_CTRL + 'L'://Ctrl+L

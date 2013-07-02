@@ -1,7 +1,8 @@
 #include "freetype.h"
 #pragma warning(disable: 4244)
 #pragma warning(disable: 4996)//unsafe functions
-#pragma comment(lib, "freetype2412_x32.lib")
+//#pragma comment(lib, "freetype2412_x32.lib")
+#pragma comment(lib, "freetype250.lib")
 
 namespace freetype {
 

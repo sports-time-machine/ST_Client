@@ -268,7 +268,7 @@ struct Eye
 
 struct ChangeCalParamKeys
 {
-	bool rot_xy, rot_z, scale, ctrl;
+	bool rot_xy, rot_z, scale, scalex, ctrl;
 
 	void init();
 };
@@ -371,6 +371,7 @@ struct Global
 	bool         show_debug_info;
 	mgl::glRGBA  color_overlay;
 	size_t       idle_image_number;
+	int          total_frames;
 
 	bool calibrating_now() const
 	{
@@ -397,6 +398,7 @@ struct Global
 		calibration.fast     = false;
 		calibration.enabled  = false;
 		idle_image_number    = 0;
+		total_frames         = 0;
 		color_overlay.set(0,0,0,0);  // transparent
 	}
 };
@@ -542,7 +544,8 @@ private:
 
 	void MovieRecord();
 	void DrawRealMovie(Dots& dots, float dot_size);
-	void set_clipboard_text();
+	void SaveCamConfig();
+	void LoadCamConfig();
 
 	void drawRunEnv();
 	void draw3dWall();
@@ -552,6 +555,9 @@ private:
 	void CreateAtari(const Dots& dots);
 	void CreateAtariFromBodyCenter();
 	void CreateAtariFromDepthMatrix(const Dots& dots);
+
+public:
+	static string GetCamConfigPath();
 };
 
 const char* to_s(int x);
@@ -560,13 +566,13 @@ const char* to_s(int x);
 
 enum DrawVoxelsStyle
 {
-	DRAW_VOXELS_NORMAL = 0,
-	DRAW_VOXELS_HALF = 1,
-	DRAW_VOXELS_QUAD = 2,
+	//DRAW_VOXELS_QUAD = 2,
+	DRAW_VOXELS_PERSON = 1,
+	DRAW_VOXELS_MOVIE  = 2,
 };
 
 void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam);
-void drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style = DRAW_VOXELS_NORMAL, float add_z=0.0f);
+void drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style, float add_z=0.0f);
 void myGetKeyboardState(BYTE* kbd);
 
 }//namespace stclient

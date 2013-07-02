@@ -54,6 +54,7 @@ static void ErrorDialog(const char* title)
 	Core::dialog(title, text);
 }
 
+#if 1
 static void init_kinect(const char* uri, Kdev& k)
 {
 	auto create_device = [&](){
@@ -130,6 +131,7 @@ static void init_kinect(const char* uri, Kdev& k)
 		exit(1);
 	}
 }
+#endif
 
 static bool run_app()
 {

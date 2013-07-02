@@ -46,8 +46,12 @@ void Clipboard::setText(const std::string& s)
 		Sleep(1);
 	}
 
-	::EmptyClipboard();
-	ClipboardAux(s);
+	try {
+		ClipboardAux(s);
+	} catch (...) {
+		puts("Clipboard fault.");
+	}
+
 	::CloseClipboard();
 
 	puts("Close Clipboard");
