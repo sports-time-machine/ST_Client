@@ -79,6 +79,8 @@ private:
 	void replay(Args& arg);
 	void save(Args& arg);
 	void init(Args& arg);
+	void gameStart(Args& arg);
+	void goal(Args& arg);
 	void hit(Args& arg);
 
 	// 随時コマンド
@@ -451,6 +453,10 @@ void Command::replay(Args& arg)
 	arg_check(arg, 0);
 	status_check(STATUS_READY);
 	client->changeStatus(STATUS_REPLAY);
+
+	// MovingObject関係
+	global.in_game = false;
+	global.partner_mo.init(global.moi_lib["CHEETAH-1"]);
 }
 
 // HIT <int>
@@ -477,7 +483,6 @@ void Command::frame(Args& arg)
 	}
 	else
 	{
-//#		printf("\rframe recvd: %5d", frame);
 		global.frame_index = frame;
 	}
 }
@@ -518,6 +523,32 @@ void Command::init(Args& arg)
 
 	Msg::SystemMessage("Init!");
 	client->changeStatus(STATUS_IDLE);
+
+	// MovingObject関係
+	global.game_start_frame = 0;
+	global.in_game = false;
+	global.partner_mo.init(global.moi_lib["CHEETAH-1"]);
+}
+
+// GAME-START
+void Command::gameStart(Args& arg)
+{
+	arg_check(arg, 0);
+	no_check_status();
+
+	// 「よーい、ドン！」の「ドン！」の最初のフレームにshoutされる
+	global.game_start_frame = global.frame_index;
+	global.in_game = true;
+}
+
+// GOAL
+void Command::goal(Args& arg)
+{
+	arg_check(arg, 0);
+	no_check_status();
+
+	// ゴールしたフレームでshoutされる
+	global.in_game = false;
 }
 
 // IDLE
@@ -627,13 +658,14 @@ bool Command::command(const string& line)
 		COMMAND("PLAYER-COLOR",      playerColor);
 
 		// ゲーム
-		COMMAND("START",    start);
-		COMMAND("STOP",     stop);
-		COMMAND("FRAME",    frame);
-		COMMAND("REPLAY",   replay);
-		COMMAND("HIT",      hit);
-		COMMAND("SAVE",     save);
-		COMMAND("INIT",     init);
+		COMMAND("START",      start);
+		COMMAND("STOP",       stop);
+		COMMAND("FRAME",      frame);
+		COMMAND("REPLAY",     replay);
+		COMMAND("HIT",        hit);
+		COMMAND("SAVE",       save);
+		COMMAND("INIT",       init);
+		COMMAND("GAME-START", gameStart);
 
 		// 随時
 		COMMAND("COLOR-OVERLAY", colorOverlay);

@@ -28,6 +28,7 @@ Config::Config()
 	movie_folder           = ""; //デフォルトママだとエラーになります
 	picture_folder         = ""; //デフォルトママだとエラーになります
 	center_atari_voxel_threshould = 7500;
+	whitemode_voxel_threshould = 2500;
 	hit_threshold          = 10;
 	snapshot_life_frames   = 100;
 	auto_snapshot_interval = 0;
@@ -120,6 +121,7 @@ static bool load_config_and_run(PSL::PSLVM& psl, Config& config)
 	}
 
 	config.server_name = server_name.toString().c_str();
+	psl.add("COMPUTER_NAME", Core::getComputerName().c_str());
 
 	// サーバーコンフィグのロード
 	auto server_config = PSL::string("//")+server_name.toString()+"/ST/Config.psl";
@@ -255,6 +257,7 @@ static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 	CONFIG_STRING(movie_folder);
 	CONFIG_FLOAT(person_dot_px);
 	CONFIG_INT(auto_snapshot_interval);
+	CONFIG_INT(whitemode_voxel_threshould);
 
 	//=== GLOBAL VARS ===
 	global.on_hit_setup = psl.get("onHitSetup");

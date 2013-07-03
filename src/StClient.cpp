@@ -17,11 +17,6 @@ using namespace mi;
 using namespace stclient;
 using namespace vector_and_matrix;
 
-//const int FRAMES_PER_SECOND = 30;
-//const int MAX_TOTAL_SECOND  = 50;
-//const int MAX_TOTAL_FRAMES  = MAX_TOTAL_SECOND * FRAMES_PER_SECOND;
-
-
 
 struct VodyInfo
 {
@@ -175,6 +170,16 @@ bool StClient::init()
 	Msg::BarMessage("Init done!");
 	Console::nl();
 
+	
+	auto& moi = global.moi_lib["CHEETAH-1"];
+	moi.addFrame(40, "C:/ST/Picture/MovingObject/CHEETAH-1/01.png");
+	moi.addFrame(30, "C:/ST/Picture/MovingObject/CHEETAH-1/02.png");
+	moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/03.png");
+	moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/04.png");
+	moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/05.png");
+	moi.addFrame(10, "C:/ST/Picture/MovingObject/CHEETAH-1/06.png");
+	moi.addFrame(15, "C:/ST/Picture/MovingObject/CHEETAH-1/07.png");
+
 	return true;
 }
 
@@ -308,6 +313,47 @@ void CreateHitWall(float meter, int id, const char* text)
 }
 
 
+void StClient::drawMovingObject()
+{
+	volatile int frame = global.frame_index - global.game_start_frame;
+
+	// ゲーム中だけ、フレーム時間が進行する
+	const int mo_frame = global.in_game
+		? frame
+		: 0;
+
+	MovingObject& mo = global.partner_mo;
+	auto& image = mo.getFrameImage(mo_frame);
+	float real_meter = mo.getDistance();
+
+	const float TURN = mo.getTurnPosition();
+	bool forward = (real_meter<TURN);
+	float virtual_meter = forward ? real_meter : (TURN-(real_meter-TURN));
+
+	const int w = 200 * (forward ? +1 : -1);
+	const int h = 200;
+
+	// Xの中央
+	const float x = virtual_meter - config.getScreenLeftMeter();
+
+	// このYの「上」に表示される
+	const int y = 340;
+
+	const float dx = x/4.0*640;
+	image.drawDepth(dx-w/2, y-h, w, h, -1.0f);
+	image.draw(0,0, 50,50);
+
+
+	if (global.in_game)
+	{
+		// INIT > START > GAME-START > (ゲーム中) > STOP
+		// ゲーム中のみ時間がながれます
+		mo.updateDistance();
+	}
+}
+
+
+
 // 1フレで実行する内容
 void StClient::processOneFrame()
 {
@@ -335,6 +381,10 @@ void StClient::processOneFrame()
 
 	// キネクト情報はつねにもらっておく
 	this->displayEnvironment();
+
+	// 描画したかのフラグ
+	global.voxel_drew = false;
+
 
 	if (global.calibration.enabled)
 	{
@@ -416,17 +466,25 @@ void StClient::processOneFrame()
 				config.color.ground.g,
 				config.color.ground.b);
 #endif
-			this->display2dSectionPrepare();
 			{
 				mi::Timer tm(&time_profile.drawing.wall);
+				this->display2dSectionPrepare();
 				this->drawRunEnv();
 			}
-			this->display3dSectionPrepare();
+			
+			if (global.partner_mo.enabled())
+			{
+				this->display2dSectionPrepare();
+				drawMovingObject();
+			}
+
 			{
 				mi::Timer tm(&time_profile.drawing.grid);
+				this->display3dSectionPrepare();
 				this->drawFieldGrid(500);
 			}
 			this->display3dSection();
+
 			this->display2dSectionPrepare();
 			this->display2dSection();
 			if (global.color_overlay.a>0)
@@ -448,6 +506,16 @@ void StClient::processOneFrame()
 		this->display2dSectionPrepare();
 		this->displayDebugInfo();
 	}
+
+
+	// 描画していなければ床消し追記する
+	if (!global.calibrating_now() && !global.voxel_drew)
+	{
+		++global.auto_clear_floor_count;
+//		this->clearFloorDepth();
+	}
+
+
 
 	glfwSwapBuffers();
 
@@ -679,8 +747,8 @@ void StClient::drawIdleImage()
 		itr->second.image.drawDepth(0,0,640,480, IDLE_IMAGE_Z);
 	}
 #else
-	// 製作時間がなくてタイムアウト
-	// あとでトランジションしたい
+	//# 製作時間がなくてタイムアウト
+	//# あとでトランジションしたい
 #endif
 }
 
@@ -797,8 +865,60 @@ void stclient::MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& ca
 	}
 }
 
-void stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style, float add_z)
+bool stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style, float add_z)
 {
+#if 0
+	// Create histogram
+	for (int i=0; i<dots.size(); ++i)
+	{
+		dots[i].
+	}
+#endif
+	int atari_count = 0;
+	for (int i=0; i<dots.size(); ++i)
+	{
+		const float x = dots[i].x;
+		const float y = dots[i].y;
+		const float z = dots[i].z + add_z;
+
+		const bool in_x = (x>=GROUND_LEFT && x<=GROUND_RIGHT);
+		const bool in_y = (y>=0.0f && y<=GROUND_HEIGHT);
+		const bool in_z = (z>=0.0f && z<=GROUND_DEPTH);
+
+		if (in_x && in_y && in_z)
+		{
+			++atari_count;
+		}
+	}
+
+	global.atari_count = atari_count;
+
+
+	// RUNモードで描画すべきボクセルが少ない場合、描画をとりやめる
+	if (global.view_mode==VM_2D_RUN)
+	{
+		if (atari_count < config.whitemode_voxel_threshould)
+		{
+			global.voxels_alpha = 0.0f;
+			return false;
+		}
+	}
+
+
+
+	// 描画しましたフラグ
+	global.voxel_drew = true;
+
+
+
+	if (global.voxels_alpha<1.0f)
+	{
+		global.voxels_alpha = minmax(global.voxels_alpha + 0.07f, 0.0f, 1.0f);
+	}
+
+
+
+
 	// @voxel @dot
 	const bool quad = false;
 	if (quad)
@@ -831,7 +951,9 @@ void stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 		const bool in_x = (x>=GROUND_LEFT && x<=GROUND_RIGHT);
 		const bool in_y = (y>=0.0f && y<=GROUND_HEIGHT);
 		const bool in_z = (z>=0.0f && z<=GROUND_DEPTH);
-		
+
+#if 0
+		// Depth is alpha version
 		float col = z/4;
 		if (col<0.25f) col=0.25f;
 		if (col>0.90f) col=0.90f;
@@ -846,6 +968,23 @@ void stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 		{
 			outer_color.glColorUpdate(col255>>2);
 		}
+#else
+		// Depth is alpha version
+		float col = global.voxels_alpha * z/4;
+		if (col<0.25f) col=0.25f;
+		if (col>0.90f) col=0.90f;
+		col = 1.00f - col;
+		const int col255 = (int)(col*220);
+
+		if (in_x && in_y && in_z)
+		{
+			inner_color.glColorUpdate(col255);
+		}
+		else
+		{
+			outer_color.glColorUpdate(col255>>2);
+		}
+#endif
 
 		if (quad)
 		{
@@ -862,6 +1001,7 @@ void stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 	}
 
 	glEnd();
+	return true;
 }
 
 // ゲーム情報の破棄、初期化
@@ -892,11 +1032,11 @@ void StClient::DrawRealMovie(Dots& dots, float dot_size)
 	const glRGBA color_other(170,170,170);
 	const glRGBA color_outer(120,130,200);
 	
-	CamParam cam1 = cal_cam1.curr;
-	CamParam cam2 = cal_cam2.curr;
+	const CamParam cam1 = cal_cam1.curr;
+	const CamParam cam2 = cal_cam2.curr;
 
-	RawDepthImage& image1 = dev1.raw_cooked;
-	RawDepthImage& image2 = dev2.raw_cooked;
+	const RawDepthImage& image1 = dev1.raw_cooked;
+	const RawDepthImage& image2 = dev2.raw_cooked;
 
 	dev1.CreateCookedImage();
 	dev2.CreateCookedImage();

@@ -342,6 +342,24 @@ void StClient::displayDebugInfo()
 	nl();
 
 	{
+		const int saved = y;
+		x = 200;
+		h1("Camera B:");
+		(active_camera==CAM_B) ? em() : text();
+		pr(monospace, x, y+=H, "pos x = %9.5f", cal_cam2.curr.pos.x);
+		pr(monospace, x, y+=H, "pos y = %9.5f", cal_cam2.curr.pos.y);
+		pr(monospace, x, y+=H, "pos z = %9.5f", cal_cam2.curr.pos.z);
+		pr(monospace, x, y+=H, "rot x = %9.5f", cal_cam2.curr.rot.x);
+		pr(monospace, x, y+=H, "rot y = %9.5f", cal_cam2.curr.rot.y);
+		pr(monospace, x, y+=H, "rot z = %9.5f", cal_cam2.curr.rot.z);
+		pr(monospace, x, y+=H, "scl x = %9.5f", cal_cam1.curr.scale.x);
+		pr(monospace, x, y+=H, "scl y = %9.5f", cal_cam1.curr.scale.y);
+		pr(monospace, x, y+=H, "scl z = %9.5f", cal_cam1.curr.scale.z);
+		nl();
+		y = saved;
+	}
+
+	{
 		x = 20;
 		h1("Camera A:");
 		(active_camera==CAM_A) ? em() : text();
@@ -351,22 +369,6 @@ void StClient::displayDebugInfo()
 		pr(monospace, x, y+=H, "rot x = %9.5f", cal_cam1.curr.rot.x);
 		pr(monospace, x, y+=H, "rot y = %9.5f", cal_cam1.curr.rot.y);
 		pr(monospace, x, y+=H, "rot z = %9.5f", cal_cam1.curr.rot.z);
-		pr(monospace, x, y+=H, "scl x = %9.5f", cal_cam1.curr.scale.x);
-		pr(monospace, x, y+=H, "scl y = %9.5f", cal_cam1.curr.scale.y);
-		pr(monospace, x, y+=H, "scl z = %9.5f", cal_cam1.curr.scale.z);
-		nl();
-	}
-
-	{
-		x = 20;
-		h1("Camera B:");
-		(active_camera==CAM_B) ? em() : text();
-		pr(monospace, x, y+=H, "pos x = %9.5f", cal_cam2.curr.pos.x);
-		pr(monospace, x, y+=H, "pos y = %9.5f", cal_cam2.curr.pos.y);
-		pr(monospace, x, y+=H, "pos z = %9.5f", cal_cam2.curr.pos.z);
-		pr(monospace, x, y+=H, "rot x = %9.5f", cal_cam2.curr.rot.x);
-		pr(monospace, x, y+=H, "rot y = %9.5f", cal_cam2.curr.rot.y);
-		pr(monospace, x, y+=H, "rot z = %9.5f", cal_cam2.curr.rot.z);
 		pr(monospace, x, y+=H, "scl x = %9.5f", cal_cam1.curr.scale.x);
 		pr(monospace, x, y+=H, "scl y = %9.5f", cal_cam1.curr.scale.y);
 		pr(monospace, x, y+=H, "scl z = %9.5f", cal_cam1.curr.scale.z);
@@ -386,8 +388,11 @@ void StClient::displayDebugInfo()
 			global.person_center.x,
 			global.person_center.y);
 	pr(monospace, 20, y+=H,
-		"TOTAL [%d frames]",
-			global.total_frames);
+		"TOTAL [%d frames] [WVTac=%d][WVT=%d][auto-CF=%d]",
+			global.total_frames,
+			global.atari_count,
+			config.whitemode_voxel_threshould,
+			global.auto_clear_floor_count);
 
 	// @fps
 	pr(monospace, 20, y+=H, "%.2ffps", fps_counter.getFps());

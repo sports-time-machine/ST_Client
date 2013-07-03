@@ -1,8 +1,11 @@
 #pragma once
 #include <vector>
 #include <map>
-#include <cstdio>
 #include <string>
+#include <list>
+#include <cstdio>
+#include <cmath>
+
 
 typedef __int8  int8;
 typedef __int16 int16;

@@ -103,6 +103,7 @@ struct Config
 	float        person_dot_px;
 	string       movie_folder;
 	string       picture_folder;
+	int          whitemode_voxel_threshould;
 
 	// クライアント個別の設定
 	string       server_name;

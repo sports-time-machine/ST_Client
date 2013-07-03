@@ -320,6 +320,61 @@ private:
 	void save_Thumbnail(const string& basename, const string& suffix, int );
 };
 
+// チーターなど実体
+class MovingObjectImage
+{
+	friend class MovingObject;
+public:
+	// 初期化
+	void init(const string& id);
+	void addFrame(int length, const string& filepath);
+
+private:
+	typedef std::map<int,mi::Image> Images;
+	typedef std::vector<int> Frames;
+
+	string  _id;               // M:CHEETAH-1
+	Images  _images;
+	Frames  _frames;
+};
+
+// チーターなど
+class MovingObject
+{
+public:
+	enum Stage
+	{
+		STAGE_RUN1,
+		STAGE_BREAK,
+		STAGE_RUN2,
+		STAGE_GOAL,
+	};
+
+public:
+	MovingObject();
+	void init(const MovingObjectImage& moi);
+	bool enabled() const   { return _moi!=nullptr; }
+
+
+	// getter
+	int convertRealFrameToVirtualFrame(int real_frame) const;
+	const mi::Image& getFrameImage(int virtual_frame) const;
+	float getDistance() const;
+	float getTurnPosition() const  { return 28.0f; }
+
+	// command
+	void resetDistance();
+	void updateDistance();
+
+private:
+	const MovingObjectImage* _moi;
+	Stage  _stage;
+	float  _distance_meter;   // 原点からの距離
+	float  _speed;            // 毎フレームの移動速度 m/frame
+	float  _break_rate;       // ブレーキの良さ 0.0-1.0
+};
+
+
 struct Global
 {
 	struct View
@@ -364,6 +419,8 @@ struct Global
 	Point3D      person_center;
 	int          frame_index;
 	bool         frame_auto_increment;
+	int          game_start_frame;
+	bool         in_game;
 	PSL::PSLVM   pslvm;
 	int          hit_stage;
 	PSLv         on_hit_setup;
@@ -372,6 +429,12 @@ struct Global
 	mgl::glRGBA  color_overlay;
 	size_t       idle_image_number;
 	int          total_frames;
+	int          atari_count;
+	float        voxels_alpha;
+	bool         voxel_drew;
+	int          auto_clear_floor_count;
+	std::map<string,MovingObjectImage> moi_lib;
+	MovingObject   partner_mo;
 
 	bool calibrating_now() const
 	{
@@ -399,6 +462,12 @@ struct Global
 		calibration.enabled  = false;
 		idle_image_number    = 0;
 		total_frames         = 0;
+		atari_count          = 0;
+		voxels_alpha         = 1.0f;
+		voxel_drew           = false;
+		auto_clear_floor_count = 0;
+		in_game              = false;
+		game_start_frame     = 0;
 		color_overlay.set(0,0,0,0);  // transparent
 	}
 };
@@ -442,9 +511,6 @@ struct TimeProfile
 	} playback;
 };
 
-#include "Config.h"  // EXTERN
-
-
 SmartExtern Global       global;
 SmartExtern Mode         mode;
 SmartExtern TimeProfile  time_profile;
@@ -459,6 +525,7 @@ namespace VoxelRecorder{
 	void record(const Dots& dots, MovieData::Frame& dest_frame);
 	void playback(Dots& dots, const MovieData::Frame& frame);
 }//namespace VoxelRecorder
+
 
 class StClient
 {
@@ -551,6 +618,7 @@ private:
 	void draw3dWall();
 	void drawFieldGrid(int size_cm);
 	void drawIdleImage();
+	void drawMovingObject();
 
 	void CreateAtari(const Dots& dots);
 	void CreateAtariFromBodyCenter();
@@ -572,7 +640,7 @@ enum DrawVoxelsStyle
 };
 
 void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam);
-void drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style, float add_z=0.0f);
+bool drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style, float add_z=0.0f);
 void myGetKeyboardState(BYTE* kbd);
 
 }//namespace stclient
