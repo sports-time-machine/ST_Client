@@ -381,17 +381,37 @@ void Command::ident(Args& arg)
 }
 
 // PARTNER <game>
+// PARTNER M:CHEETAH-1
 void Command::partner(Args& arg)
 {
 	arg_check(arg, 1);
 	status_check(STATUS_IDLE);
 
-	const string partner_game = normalize('G', arg[0].to_s(), 10);
-	printf("PARTNER:%s\n", partner_game.c_str());
-
-	client->changeStatus(STATUS_LOADING);
-
+	const string id = arg[0].to_s();
+	if (id.length()>=2 && id[0]=='M' && id[1]==':')
 	{
+		// MovingObject!!
+		const string name = id.substr(2);
+		auto itr = global.moi_lib.find(name);
+		if (itr==global.moi_lib.end())
+		{
+			Msg::ErrorMessage("MovingObject not found", name);
+		}
+		else
+		{
+			global.game_start_frame = 0;
+			global.in_game_or_replay = false;
+			global.partner_mo.init(global.moi_lib[name]);
+		}
+	}
+	else
+	{
+		// ‚Ó‚Â‚¤‚Ìƒp[ƒgƒi[
+		const string partner_game = normalize('G', id, 10);
+		printf("PARTNER:%s\n", partner_game.c_str());
+
+		client->changeStatus(STATUS_LOADING);
+
 		Msg::Notice("Loading partner movie", partner_game);
 		mi::File f;
 		if (!global.gameinfo.partner1.load(partner_game))
@@ -475,10 +495,10 @@ void Command::init(Args& arg)
 	Msg::SystemMessage("Init!");
 	client->changeStatus(STATUS_IDLE);
 
-	// MovingObjectŠÖŒW -- START‚Æ“¯‚¶“à—e
+	// MovingObjectŠÖŒW
 	global.game_start_frame = 0;
 	global.in_game_or_replay = false;
-	global.partner_mo.init(global.moi_lib["CHEETAH-1"]);
+	global.partner_mo.init();
 }
 
 // START -- ˜^‰æŠJŽn
@@ -496,7 +516,6 @@ void Command::start(Args& arg)
 	// MovingObjectŠÖŒW -- INIT‚Æ“¯‚¶“à—e
 	global.game_start_frame = 0;
 	global.in_game_or_replay = false;
-	global.partner_mo.init(global.moi_lib["CHEETAH-1"]);
 }
 
 // STOP
@@ -518,8 +537,8 @@ void Command::replay(Args& arg)
 	client->changeStatus(STATUS_REPLAY);
 
 	// MovingObjectŠÖŒW
+	global.game_start_frame = 0;
 	global.in_game_or_replay = false;
-	global.partner_mo.init(global.moi_lib["CHEETAH-1"]);
 }
 
 // HIT <int>

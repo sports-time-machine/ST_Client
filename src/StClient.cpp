@@ -270,7 +270,7 @@ void StClient::drawNormalGraphics()
 		gl::ClearGraphics(255,255,255);
 		this->display2dSectionPrepare();
 		global.images.sleep.draw(0,0,640,480);
-		this->drawManyTriangles();
+		//# this->drawManyTriangles();
 		break;
 
 	case STATUS_BLACK:
@@ -292,7 +292,7 @@ void StClient::drawNormalGraphics()
 		gl::ClearGraphics(255,255,255);
 		this->display2dSectionPrepare();
 		this->drawIdleImage();
-		this->drawManyTriangles();
+		//# this->drawManyTriangles();
 
 		// アイドル用ボディ
 		global.gameinfo.movie.player_color_rgba.set(80,70,50);
@@ -331,12 +331,6 @@ void StClient::drawNormalGraphics()
 		break;}
 
 	default:
-#if 0
-		glClearGraphics(
-			config.color.ground.r,
-			config.color.ground.g,
-			config.color.ground.b);
-#endif
 		{
 			mi::Timer tm(&time_profile.drawing.wall);
 			this->display2dSectionPrepare();
@@ -349,11 +343,7 @@ void StClient::drawNormalGraphics()
 			drawMovingObject();
 		}
 
-		{
-//#			mi::Timer tm(&time_profile.drawing.grid);
-//#			this->display3dSectionPrepare();
-//#			this->drawFieldGrid(500);
-		}
+		this->display3dSectionPrepare();
 		this->display3dSection();
 
 		this->display2dSectionPrepare();
@@ -627,7 +617,7 @@ void stclient::MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& ca
 	}
 }
 
-bool stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style, float add_z)
+bool StClient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style)
 {
 #if 0
 	// Create histogram
@@ -642,7 +632,7 @@ bool stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 	{
 		const float x = dots[i].x;
 		const float y = dots[i].y;
-		const float z = dots[i].z + add_z;
+		const float z = dots[i].z;
 
 		const bool in_x = (x>=GROUND_LEFT && x<=GROUND_RIGHT);
 		const bool in_y = (y>=0.0f && y<=GROUND_HEIGHT);
@@ -661,14 +651,17 @@ bool stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 	global.atari_count = atari_count;
 
 
-	// RUNモードで描画すべきボクセルが少ない場合、描画をとりやめる
-	if (global.view_mode==VM_2D_RUN)
+	// GAME/IDLEモードで描画すべきボクセルが少ない場合、描画をとりやめる
+	switch (clientStatus())
 	{
+	case STATUS_GAME:
+	case STATUS_IDLE:
 		if (atari_count < config.whitemode_voxel_threshould)
 		{
-		//	global.voxels_alpha = 0.0f;
-		//	return false;
+			global.voxels_alpha = 0.0f;
+			return false;
 		}
+		break;
 	}
 
 
@@ -707,13 +700,18 @@ bool stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 			: mi::minmax(config.movie_inc,  MIN_VOXEL_INC, MAX_VOXEL_INC); 
 	const int SIZE16 = dots.size() << 4;
 
+	const float add_y = 
+		(style==DRAW_VOXELS_PERSON)
+			? 0.0f
+			: config.partner_y;
+	
 	for (int i16=0; i16<SIZE16; i16+=inc)
 	{
 		const int i = (i16 >> 4);
 
 		const float x = dots[i].x;
 		const float y = dots[i].y;
-		const float z = dots[i].z + add_z;
+		const float z = dots[i].z;
 
 		const bool in_x = (x>=GROUND_LEFT && x<=GROUND_RIGHT);
 		const bool in_y = (y>=0.0f && y<=GROUND_HEIGHT);
@@ -741,7 +739,7 @@ bool stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 		if (col<0.25f) col=0.25f;
 		if (col>0.90f) col=0.90f;
 		col = 1.00f - col;
-		const int col255 = (int)(col*220);
+		const int col255 = (int)(col * config.person_base_alpha);
 
 		if (global.calibration.enabled)
 		{
@@ -755,7 +753,7 @@ bool stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 		{
 			// ゲーム中はエリア内だけ表示する
 			if (in_x && in_y && in_z)
-				inner_color.glColorUpdate(col255>>2);
+				inner_color.glColorUpdate(col255);
 		}
 #endif
 
@@ -769,7 +767,7 @@ bool stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 		}
 		else
 		{
-			glVertex3f(x,y,-z);
+			glVertex3f(x,y+add_y,-z);
 		}
 	}
 

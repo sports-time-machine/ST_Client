@@ -352,6 +352,7 @@ public:
 
 public:
 	MovingObject();
+	void init();
 	void init(const MovingObjectImage& moi);
 	bool enabled() const      { return _moi!=nullptr; }
 	
@@ -428,6 +429,7 @@ struct Global
 	PSLv           on_hit_setup;
 	HitObjects     hit_objects;
 	bool           show_debug_info;
+	bool           debug_atari_ball;
 	mgl::glRGBA    color_overlay;
 	size_t         idle_image_number;
 	int            total_frames;
@@ -449,8 +451,7 @@ struct Global
 		frame_index            = 0;
 		frame_auto_increment   = false;
 		hit_stage              = 0;
-		//show_debug_info        = false;//# @sdb
-		show_debug_info        = true;
+		show_debug_info        = false;
 		calibration.fast       = false;
 		calibration.enabled    = false;
 		idle_image_number      = 0;
@@ -617,6 +618,18 @@ private:
 	void drawNormalGraphics();
 	void drawNormalGraphicsObi();
 	void drawManyTriangles();
+	bool drawMovieFrame(const MovieData& mov, glRGBA inner, glRGBA outer, const char* movie_type);
+
+	enum DrawVoxelsStyle
+	{
+		//DRAW_VOXELS_QUAD = 2,
+		DRAW_VOXELS_PERSON = 1,
+		DRAW_VOXELS_MOVIE  = 2,
+	};
+
+	bool drawVoxels(const Dots& dots, float dot_size,
+		glRGBA inner_color, glRGBA outer_color,
+		DrawVoxelsStyle style);
 
 	void CreateAtari(const Dots& dots);
 	void CreateAtariFromBodyCenter();
@@ -629,16 +642,7 @@ public:
 const char* to_s(int x);
 
 
-
-enum DrawVoxelsStyle
-{
-	//DRAW_VOXELS_QUAD = 2,
-	DRAW_VOXELS_PERSON = 1,
-	DRAW_VOXELS_MOVIE  = 2,
-};
-
 void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam);
-bool drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style, float add_z=0.0f);
 void myGetKeyboardState(BYTE* kbd);
 
 }//namespace stclient

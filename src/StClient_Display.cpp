@@ -53,7 +53,7 @@ static void DrawCenterOfPerson()
 }
 
 // 単発ムービーの描画
-static bool drawMovieFrame(const MovieData& mov, glRGBA inner, glRGBA outer, const char* movie_type)
+bool StClient::drawMovieFrame(const MovieData& mov, glRGBA inner, glRGBA outer, const char* movie_type)
 {
 	if (mov.total_frames==0)
 	{
@@ -118,7 +118,10 @@ void StClient::display3dSection()
 
 		// センター座標(@Center)の取得
 		this->CreateAtari(dots);
-		::DrawCenterOfPerson();
+		if (config.debug_atari_ball)
+		{
+			::DrawCenterOfPerson();
+		}
 	}
 
 	// 並走者

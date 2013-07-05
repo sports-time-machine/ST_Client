@@ -250,16 +250,24 @@ static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 	CONFIG_INT(movie_inc);
 	CONFIG_INT(hit_threshold);
 	CONFIG_INT(snapshot_life_frames);
+	CONFIG_INT(auto_snapshot_interval);
+	CONFIG_INT(whitemode_voxel_threshould);
+	CONFIG_INT(person_base_alpha);
 	CONFIG_BOOL(enable_kinect);
 	CONFIG_BOOL(enable_color);
 	CONFIG_BOOL(ignore_udp);
+	CONFIG_BOOL(debug_info_text);
+	CONFIG_BOOL(debug_atari_ball);
 	CONFIG_STRING(picture_folder);
 	CONFIG_STRING(movie_folder);
 	CONFIG_FLOAT(person_dot_px);
-	CONFIG_INT(auto_snapshot_interval);
-	CONFIG_INT(whitemode_voxel_threshould);
+	CONFIG_FLOAT(partner_y);
+
+	config.person_base_alpha = minmax(config.person_base_alpha, 64, 255);
+
 
 	//=== GLOBAL VARS ===
+	global.show_debug_info = config.debug_info_text;
 	global.on_hit_setup = psl.get("onHitSetup");
 
 	set_camera_param(config.cam1, "camera1");

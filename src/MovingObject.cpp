@@ -35,6 +35,16 @@ MovingObject::MovingObject()
 	this->_moi = nullptr;
 }
 
+void MovingObject::init()
+{
+	this->_moi            = nullptr;
+	this->_stage          = STAGE_RUN1;
+	this->_break_rate     = 0.0f;
+	this->_distance_meter = 0.0f;
+	this->_speed          = 0.0f;
+	this->_is_running     = false;
+}
+
 void MovingObject::init(const MovingObjectImage& moi)
 {
 	this->_moi            = &moi;

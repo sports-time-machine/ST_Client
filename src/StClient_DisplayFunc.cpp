@@ -372,7 +372,7 @@ void StClient::drawRealDots(Dots& dots, float dot_size)
 
 			glRGBA color = config.color.snapshot;
 			color.a = color.a * snapshot_life / config.snapshot_life_frames;
-			drawVoxels(dots, dot_size, color, color_outer, DRAW_VOXELS_PERSON, +0.5f);
+			drawVoxels(dots, dot_size, color, color_outer, DRAW_VOXELS_PERSON);
 		}
 	}
 

@@ -104,6 +104,10 @@ struct Config
 	string       movie_folder;
 	string       picture_folder;
 	int          whitemode_voxel_threshould;
+	bool         debug_info_text;
+	bool         debug_atari_ball;
+	int          person_base_alpha;
+	float        partner_y;
 
 	// クライアント個別の設定
 	string       server_name;
