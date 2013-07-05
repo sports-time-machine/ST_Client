@@ -155,7 +155,7 @@ bool MovieData::load(const string& id)
 		fprintf(stderr, "Unsupport format.\n");
 		return false;
 	}
-	if (header.total_frames<=0 || header.total_frames>=MOVIE_MAX_FRAMES)
+	if (header.total_frames<=0 || header.total_frames>MOVIE_MAX_FRAMES)
 	{
 		fprintf(stderr, "Invalid total frames.\n");
 		return false;

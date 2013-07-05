@@ -1,6 +1,4 @@
 #include "mi/mi.h"
-#include "file_io.h"
-#include "Config.h"
 #pragma warning(disable:4366)
 #define GL_GENERATE_MIPMAP_SGIS 0x8191
 #include "StClient.h"
@@ -18,74 +16,8 @@ using namespace stclient;
 using namespace vector_and_matrix;
 
 
-struct VodyInfo
-{
-	int near_d;         // 最近デプス（255に近い）
-	int far_d;          // 最遠デプス（0に近い）
-	int raw_near_d;     // データ上の最近
-	int raw_far_d;      // データ上の最近
-	Box body;           // バーチャルボディ本体の矩形
-	Box near_box;       // 近いもの（手とか）の矩形
-	Box far_box;        // 遠いもの（体幹など）の矩形
-	int total_pixels;   // バーチャルボディが占めるピクセル数
-	int histogram[256]; // バーチャルボディのデプスヒストグラム
-};
-
-local VodyInfo vody;
-
-
-
-
-
-
-
-
 const int TEXTURE_SIZE = 512;
 
-
-// @gcls
-static void glClearGraphics(int r, int g, int b)
-{
-	glClearColor(
-		r / 255.0f,
-		g / 255.0f,
-		b / 255.0f,
-		1.00f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-
-
-
-
-static void _Msg(int color, const string& s, const string& param)
-{
-	Console::printf(color, "%s - %s\n", s.c_str(), param.c_str());
-}
-
-void Msg::BarMessage(const string& s, int width, int first_half)
-{
-	Console::pushColor(CON_CYAN);
-	for (int i=0; i<first_half; ++i)
-	{
-		putchar('=');
-	}
-	printf(" %s ", s.c_str());
-	
-	const int second_half = width - 2 - s.length() - first_half;
-	for (int i=0; i<second_half; ++i)
-	{
-		putchar('=');
-	}
-	putchar('\n');
-	Console::popColor();
-}
-
-void Msg::Notice       (const string& s)                       { Console::puts(CON_CYAN,  s); }
-void Msg::SystemMessage(const string& s)                       { Console::puts(CON_GREEN, s); }
-void Msg::ErrorMessage (const string& s)                       { Console::puts(CON_RED,   s); }
-void Msg::Notice       (const string& s, const string& param)  { _Msg(CON_CYAN,  s, param); }
-void Msg::SystemMessage(const string& s, const string& param)  { _Msg(CON_GREEN, s, param); }
-void Msg::ErrorMessage (const string& s, const string& param)  { _Msg(CON_RED,   s, param); }
 
 
 
@@ -170,15 +102,26 @@ bool StClient::init()
 	Msg::BarMessage("Init done!");
 	Console::nl();
 
-	
-	auto& moi = global.moi_lib["CHEETAH-1"];
-	moi.addFrame(40, "C:/ST/Picture/MovingObject/CHEETAH-1/01.png");
-	moi.addFrame(30, "C:/ST/Picture/MovingObject/CHEETAH-1/02.png");
-	moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/03.png");
-	moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/04.png");
-	moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/05.png");
-	moi.addFrame(10, "C:/ST/Picture/MovingObject/CHEETAH-1/06.png");
-	moi.addFrame(15, "C:/ST/Picture/MovingObject/CHEETAH-1/07.png");
+
+	{	
+		auto& moi = global.moi_lib["CHEETAH-1"];
+		moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/Cheetah01.png");
+		moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/Cheetah02.png");
+		moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/Cheetah03.png");
+		moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/Cheetah04.png");
+		moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/Cheetah05.png");
+		moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/Cheetah06.png");
+	}
+	{	
+		auto& moi = global.moi_lib["MUSAGI"];
+		moi.addFrame(40, "C:/ST/Picture/MovingObject/MUSAGI/01.png");
+		moi.addFrame(30, "C:/ST/Picture/MovingObject/MUSAGI/02.png");
+		moi.addFrame(20, "C:/ST/Picture/MovingObject/MUSAGI/03.png");
+		moi.addFrame(20, "C:/ST/Picture/MovingObject/MUSAGI/04.png");
+		moi.addFrame(20, "C:/ST/Picture/MovingObject/MUSAGI/05.png");
+		moi.addFrame(10, "C:/ST/Picture/MovingObject/MUSAGI/06.png");
+		moi.addFrame(15, "C:/ST/Picture/MovingObject/MUSAGI/07.png");
+	}
 
 	return true;
 }
@@ -313,45 +256,121 @@ void CreateHitWall(float meter, int id, const char* text)
 }
 
 
-void StClient::drawMovingObject()
+
+
+// 通常時の描画（キャリブレーション時をのぞく描画）
+void StClient::drawNormalGraphics()
 {
-	volatile int frame = global.frame_index - global.game_start_frame;
-
-	// ゲーム中だけ、フレーム時間が進行する
-	const int mo_frame = global.in_game
-		? frame
-		: 0;
-
-	MovingObject& mo = global.partner_mo;
-	auto& image = mo.getFrameImage(mo_frame);
-	float real_meter = mo.getDistance();
-
-	const float TURN = mo.getTurnPosition();
-	bool forward = (real_meter<TURN);
-	float virtual_meter = forward ? real_meter : (TURN-(real_meter-TURN));
-
-	const int w = 200 * (forward ? +1 : -1);
-	const int h = 200;
-
-	// Xの中央
-	const float x = virtual_meter - config.getScreenLeftMeter();
-
-	// このYの「上」に表示される
-	const int y = 340;
-
-	const float dx = x/4.0*640;
-	image.drawDepth(dx-w/2, y-h, w, h, -1.0f);
-	image.draw(0,0, 50,50);
-
-
-	if (global.in_game)
+	// クライアントステータスによる描画の分岐
+	// VRAMのクリア(glClearGraphics)はそれぞれに行う
+	switch (clientStatus())
 	{
-		// INIT > START > GAME-START > (ゲーム中) > STOP
-		// ゲーム中のみ時間がながれます
-		mo.updateDistance();
+	case STATUS_SLEEP:
+		// 2Dスリープ画像
+		gl::ClearGraphics(255,255,255);
+		this->display2dSectionPrepare();
+		global.images.sleep.draw(0,0,640,480);
+		this->drawManyTriangles();
+		break;
+
+	case STATUS_BLACK:
+		gl::ClearGraphics(0,0,0);
+		break;
+
+	case STATUS_SAVING:
+		// セーブしている間は画面描画できないので、
+		// アイドル画像を表示しておく
+		// このとき、Kinect画像も停止するため、
+		// 実映像は表示しない
+		gl::ClearGraphics(255,255,255);
+		this->display2dSectionPrepare();
+		this->drawIdleImage();
+		break;
+
+	case STATUS_IDLE:{
+		// 2Dアイドル画像
+		gl::ClearGraphics(255,255,255);
+		this->display2dSectionPrepare();
+		this->drawIdleImage();
+		this->drawManyTriangles();
+
+		// アイドル用ボディ
+		global.gameinfo.movie.player_color_rgba.set(80,70,50);
+
+		// 実映像の表示
+		this->display3dSectionPrepare();
+		static Dots dots;
+		drawRealDots(dots, config.person_dot_px);
+		break;}
+
+	case STATUS_PICT:{
+		// 画像
+		puts("pict");
+		gl::ClearGraphics(255,255,255);
+		this->display2dSectionPrepare();
+		global.images.pic[global.picture_number].draw(0,0,640,480);
+		break;}
+
+	case STATUS_INIT_FLOOR:{
+		// 実映像の表示
+		gl::ClearGraphics(255,255,255);
+		this->display3dSectionPrepare();
+		this->display3dSection();
+		static Dots dots;
+		drawRealDots(dots, config.person_dot_px);
+		
+		// 床消しのアップデート
+		dev1.updateFloorDepth();
+		dev2.updateFloorDepth();
+
+		// テキスト
+		this->display2dSectionPrepare();
+		this->display2dSection();
+		glRGBA::black();
+		freetype::print(monospace, 100, 100, "Initializing floor image...");
+		break;}
+
+	default:
+#if 0
+		glClearGraphics(
+			config.color.ground.r,
+			config.color.ground.g,
+			config.color.ground.b);
+#endif
+		{
+			mi::Timer tm(&time_profile.drawing.wall);
+			this->display2dSectionPrepare();
+			this->drawRunEnv();
+		}
+			
+		if (global.partner_mo.enabled())
+		{
+			this->display2dSectionPrepare();
+			drawMovingObject();
+		}
+
+		{
+//#			mi::Timer tm(&time_profile.drawing.grid);
+//#			this->display3dSectionPrepare();
+//#			this->drawFieldGrid(500);
+		}
+		this->display3dSection();
+
+		this->display2dSectionPrepare();
+		this->display2dSection();
+		if (global.color_overlay.a>0)
+		{
+			global.color_overlay();
+			glBegin(GL_QUADS);
+				glVertex2i(0,0);
+				glVertex2i(640,0);
+				glVertex2i(640,480);
+				glVertex2i(0,480);
+			glEnd();
+		}
+		break;
 	}
 }
-
 
 
 // 1フレで実行する内容
@@ -382,123 +401,56 @@ void StClient::processOneFrame()
 	// キネクト情報はつねにもらっておく
 	this->displayEnvironment();
 
+	// 1フレ描画
+	this->drawOneFrame();
+
+	// 描画していなければ床消し追記する
+	//   - キャリブレーションモード以外で、
+	//   - 画面にボクセルが描画されていないとき
+	if (!global.calibration.enabled)
+	{
+		if (global.dot_count < 500)
+		{
+			++global.auto_clear_floor_count;
+			this->dev1.updateFloorDepth();
+			this->dev2.updateFloorDepth();
+		}
+	}
+
+	// デバッグ用のフレームオートインクリメント
+	if (global.frame_auto_increment)
+	{
+		++global.frame_index;
+	}
+}
+
+void StClient::drawOneFrame()
+{
 	// 描画したかのフラグ
 	global.voxel_drew = false;
 
-
 	if (global.calibration.enabled)
 	{
+		glfwEnable(GLFW_MOUSE_CURSOR);
+
 		// スーパーモードとしてのキャリブレーションモード
-		glClearGraphics(255,255,255);
+		gl::ClearGraphics(255,255,255);
 		this->display3dSectionPrepare();
 		{
 			mi::Timer tm(&time_profile.drawing.grid);
 			this->drawFieldGrid(500);
 		}
 
-		// 実映像の表示
+		// 実映像の表示 -- キャリブレーション時はドットサイズ固定
 		static Dots dots;
-		this->DrawRealMovie(dots, 1.5f);
+		this->drawRealDots(dots, 1.5f);
 	}
 	else
 	{
-		// クライアントステータスによる描画の分岐
-		// VRAMのクリア(glClearGraphics)はそれぞれに行う
-		switch (clientStatus())
-		{
-		case STATUS_SLEEP:
-			// 2Dスリープ画像
-			glClearGraphics(255,255,255);
-			this->display2dSectionPrepare();
-			global.images.sleep.draw(0,0,640,480);
-			break;
+		glfwDisable(GLFW_MOUSE_CURSOR);
 
-		case STATUS_BLACK:
-			glClearGraphics(0,0,0);
-			break;
-
-		case STATUS_IDLE:{
-			// 2Dアイドル画像
-			glClearGraphics(255,255,255);
-			this->display2dSectionPrepare();
-			this->drawIdleImage();
-
-			// アイドル用ボディ
-			global.gameinfo.movie.player_color_rgba.set(80,70,50);
-
-			// 実映像の表示
-			this->display3dSectionPrepare();
-			static Dots dots;
-			DrawRealMovie(dots, config.person_dot_px);
-			break;}
-
-		case STATUS_PICT:{
-			// 画像
-			puts("pict");
-			glClearGraphics(255,255,255);
-			this->display2dSectionPrepare();
-			global.images.pic[global.picture_number].draw(0,0,640,480);
-			break;}
-
-		case STATUS_INIT_FLOOR:{
-			// 実映像の表示
-			glClearGraphics(255,255,255);
-			this->display3dSectionPrepare();
-			this->display3dSection();
-			static Dots dots;
-			DrawRealMovie(dots, config.person_dot_px);
-		
-			// 床消しのアップデート
-			dev1.updateFloorDepth();
-			dev2.updateFloorDepth();
-
-			// テキスト
-			this->display2dSectionPrepare();
-			this->display2dSection();
-			glRGBA::black();
-			freetype::print(monospace, 100, 100, "Initializing floor image...");
-			break;}
-
-		default:
-#if 0
-			glClearGraphics(
-				config.color.ground.r,
-				config.color.ground.g,
-				config.color.ground.b);
-#endif
-			{
-				mi::Timer tm(&time_profile.drawing.wall);
-				this->display2dSectionPrepare();
-				this->drawRunEnv();
-			}
-			
-			if (global.partner_mo.enabled())
-			{
-				this->display2dSectionPrepare();
-				drawMovingObject();
-			}
-
-			{
-				mi::Timer tm(&time_profile.drawing.grid);
-				this->display3dSectionPrepare();
-				this->drawFieldGrid(500);
-			}
-			this->display3dSection();
-
-			this->display2dSectionPrepare();
-			this->display2dSection();
-			if (global.color_overlay.a>0)
-			{
-				global.color_overlay();
-				glBegin(GL_QUADS);
-				glVertex2i(0,0);
-				glVertex2i(640,0);
-				glVertex2i(640,480);
-				glVertex2i(0,480);
-				glEnd();
-			}
-			break;
-		}
+		this->drawNormalGraphics();
+		this->drawNormalGraphicsObi();
 	}
 
 	if (global.show_debug_info)
@@ -507,23 +459,7 @@ void StClient::processOneFrame()
 		this->displayDebugInfo();
 	}
 
-
-	// 描画していなければ床消し追記する
-	if (!global.calibrating_now() && !global.voxel_drew)
-	{
-		++global.auto_clear_floor_count;
-//		this->clearFloorDepth();
-	}
-
-
-
 	glfwSwapBuffers();
-
-	// デバッグ用のフレームオートインクリメント
-	if (global.frame_auto_increment)
-	{
-		++global.frame_index;
-	}
 }
 
 // ゲーム情報の初期化
@@ -650,180 +586,6 @@ void ChangeCalParamKeys::init()
 
 
 
-void StClient::drawFieldGrid(int size_cm)
-{
-	glBegin(GL_LINES);
-	const float F = size_cm/100.0f;
-
-	glLineWidth(1.0f);
-	for (int i=-size_cm/2; i<size_cm/2; i+=50)
-	{
-		const float f = i/100.0f;
-
-		//
-		if (i==0)
-		{
-			// centre line
-			glRGBA(0.25f, 0.66f, 1.00f, 1.00f).glColorUpdate();
-		}
-		else if (i==100)
-		{
-			// centre line
-			glRGBA(1.00f, 0.33f, 0.33f, 1.00f).glColorUpdate();
-		}
-		else
-		{
-			config.color.grid(0.40f);
-		}
-
-		glVertex3f(-F, 0, f);
-		glVertex3f(+F, 0, f);
-
-		glVertex3f( f, 0, -F);
-		glVertex3f( f, 0, +F);
-	}
-
-	glEnd();
-
-	const float BOX_WIDTH  = GROUND_WIDTH;
-	const float BOX_HEIGHT = GROUND_HEIGHT;
-	const float BOX_DEPTH  = GROUND_DEPTH;
-	const float LEFT  = -(BOX_WIDTH/2);
-	const float RIGHT = +(BOX_WIDTH/2);
-
-	// Left and right box
-	for (int i=0; i<2; ++i)
-	{
-		const float x = (i==0) ? LEFT : RIGHT;
-		glBegin(GL_LINE_LOOP);
-			glVertex3f(x,  BOX_HEIGHT,  0);
-			glVertex3f(x,  BOX_HEIGHT, -BOX_DEPTH);
-			glVertex3f(x,           0, -BOX_DEPTH);
-			glVertex3f(x,           0,  0);
-		glEnd();
-	}
-
-	// Ceil bar
-	glBegin(GL_LINES);
-		glVertex3f(LEFT,  BOX_HEIGHT, 0);
-		glVertex3f(RIGHT, BOX_HEIGHT, 0);
-		glVertex3f(LEFT,  BOX_HEIGHT, -BOX_DEPTH);
-		glVertex3f(RIGHT, BOX_HEIGHT, -BOX_DEPTH);
-	glEnd();
-
-
-
-	// run space, @green
-	glRGBA(0.25f, 1.00f, 0.25f, 0.25f).glColorUpdate();
-	glBegin(GL_QUADS);
-	glVertex3f(-2, 0,  0);
-	glVertex3f(-2, 0, -2);
-	glVertex3f( 2, 0, -2);
-	glVertex3f( 2, 0,  0);
-	glEnd();
-}
-
-//========================================
-// アイドル画像の描画と、時間による切り替え
-//========================================
-void StClient::drawIdleImage()
-{
-#if 1
-	const int NaN = -1;
-	static int life = 0;
-	static int curr_image = NaN;
-	static int transition = 0;
-
-	if (--life<0)
-	{
-		curr_image = rand() % config.idle_images.size();
-		life       = (rand()%100)+(rand()%100)+(rand()%100)+150;
-		printf("アイドル画像の変更: %d\n", curr_image);
-	}
-
-	auto itr = config.idle_images.find(curr_image);
-	if (itr!=config.idle_images.end())
-	{
-		itr->second.image.drawDepth(0,0,640,480, IDLE_IMAGE_Z);
-	}
-#else
-	//# 製作時間がなくてタイムアウト
-	//# あとでトランジションしたい
-#endif
-}
-
-//===============================================
-// 壁や背景など、走行環境を描画する @runenv @wall
-//===============================================
-void StClient::drawRunEnv()
-{
-	glClearGraphics(255,255,255);
-
-	if (global.run_env==nullptr)
-	{
-		// 環境がありませんでした
-		// なんらかの問題あり?
-		Msg::ErrorMessage("drawRunEnv - no run env (bug?)");
-		return;
-	}
-
-	// デフォルト環境 (BACKGROUND命令がこなかった）
-	if (global.run_env==Config::getDefaultRunEnv())
-	{
-		static int t = 0;
-		++t;
-		const int N = 20;
-		bool color = false;
-		const int x = -(t % (2*N));
-		for (int i=0; i<640+480+2*N; i+=N)
-		{
-			color
-				? glRGBA(220,220,188)()
-				: glRGBA(255,252,243)();
-			color = !color;
-			glBegin(GL_QUADS);
-				glVertex3f(x+i,         0, 10);
-				glVertex3f(x+i+N,       0, 10);
-				glVertex3f(x+i+N-480, 480, 10);
-				glVertex3f(x+i  -480, 480, 10);
-			glEnd();
-		}
-		return;
-	}
-
-	auto& img = global.run_env->background.image;
-	img.drawDepth(0,0,640,480,10);
-}
-
-// 三次元上に壁を描画する @wall
-#if 0//# OBSOLETE CODE: void StClient::draw3dWall()
-void StClient::draw3dWall()
-{
-	auto& img = global.images.background;
-
-	const float Z = !;
-	gl::Texture(true);
-	glPushMatrix();
-	glRGBA::white();
-	gl::LoadIdentity();
-	glBindTexture(GL_TEXTURE_2D, img.getTexture());
-	const float u = img.getTextureWidth();
-	const float v = img.getTextureHeight();
-	glBegin(GL_QUADS);
-	const float SZ = Z/2;
-	for (int i=-5; i<=5; ++i)
-	{
-		glTexCoord2f(0,0); glVertex3f(-SZ+Z*i, Z*1.5, -Z);
-		glTexCoord2f(u,0); glVertex3f( SZ+Z*i, Z*1.5, -Z); //左上
-		glTexCoord2f(u,v); glVertex3f( SZ+Z*i,  0.0f, -Z); //左下
-		glTexCoord2f(0,v); glVertex3f(-SZ+Z*i,  0.0f, -Z);
-	}
-	glEnd();
-	glPopMatrix();
-	gl::Texture(false);
-}
-#endif
-
 
 void stclient::MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam)
 {
@@ -875,6 +637,7 @@ bool stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 	}
 #endif
 	int atari_count = 0;
+	global.dot_count = 0;
 	for (int i=0; i<dots.size(); ++i)
 	{
 		const float x = dots[i].x;
@@ -885,9 +648,13 @@ bool stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 		const bool in_y = (y>=0.0f && y<=GROUND_HEIGHT);
 		const bool in_z = (z>=0.0f && z<=GROUND_DEPTH);
 
-		if (in_x && in_y && in_z)
+		if (in_x && in_y)
 		{
-			++atari_count;
+			++global.dot_count;
+			if (in_z)
+			{
+				++atari_count;
+			}
 		}
 	}
 
@@ -899,8 +666,8 @@ bool stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 	{
 		if (atari_count < config.whitemode_voxel_threshould)
 		{
-			global.voxels_alpha = 0.0f;
-			return false;
+		//	global.voxels_alpha = 0.0f;
+		//	return false;
 		}
 	}
 
@@ -976,13 +743,19 @@ bool stclient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 		col = 1.00f - col;
 		const int col255 = (int)(col*220);
 
-		if (in_x && in_y && in_z)
+		if (global.calibration.enabled)
 		{
-			inner_color.glColorUpdate(col255);
+			// キャリブレーション中は濃く表示する
+			if (in_x && in_y && in_z)
+				inner_color.glColorUpdate(col255>>1);
+			else
+				outer_color.glColorUpdate(col255>>2);
 		}
 		else
 		{
-			outer_color.glColorUpdate(col255>>2);
+			// ゲーム中はエリア内だけ表示する
+			if (in_x && in_y && in_z)
+				inner_color.glColorUpdate(col255>>2);
 		}
 #endif
 
@@ -1024,116 +797,6 @@ void StClient::createSnapshot()
 	puts("Create snapshot!");
 }
 
-void StClient::DrawRealMovie(Dots& dots, float dot_size)
-{
-	const glRGBA color_body = global.gameinfo.movie.player_color_rgba;
-	const glRGBA color_cam1(80,190,250);
-	const glRGBA color_cam2(250,190,80);
-	const glRGBA color_other(170,170,170);
-	const glRGBA color_outer(120,130,200);
-	
-	const CamParam cam1 = cal_cam1.curr;
-	const CamParam cam2 = cal_cam2.curr;
-
-	const RawDepthImage& image1 = dev1.raw_cooked;
-	const RawDepthImage& image2 = dev2.raw_cooked;
-
-	dev1.CreateCookedImage();
-	dev2.CreateCookedImage();
-
-	if (this->snapshot_life>0)
-	{
-		--snapshot_life;
-
-		if (snapshot_life>0)
-		{
-			dots.init();
-			MixDepth(dots, dev1.raw_snapshot, cam1);
-			MixDepth(dots, dev2.raw_snapshot, cam2);
-
-			glRGBA color = config.color.snapshot;
-			color.a = color.a * snapshot_life / config.snapshot_life_frames;
-			drawVoxels(dots, dot_size, color, color_outer, DRAW_VOXELS_PERSON, +0.5f);
-		}
-	}
-
-
-	if (active_camera==CAM_BOTH)
-	{
-		Timer tm(&time_profile.drawing.total);
-		{
-			Timer tm(&time_profile.drawing.mix1);
-			dots.init();
-			MixDepth(dots, image1, cam1);
-		}
-		{
-			Timer tm(&time_profile.drawing.mix2);
-			MixDepth(dots, image2, cam2);
-		}
-
-		float avg_x = 0.0f;
-		float avg_y = 0.0f;
-		float avg_z = 0.0f;
-		int count = 0;
-		for (int i=0; i<dots.size(); ++i)
-		{
-			Point3D p = dots[i];
-			if (p.x>=ATARI_LEFT && p.x<=ATARI_RIGHT && p.y>=ATARI_BOTTOM && p.y<=ATARI_TOP && p.z>=GROUND_NEAR && p.z<=GROUND_FAR)
-			{
-				++count;
-				avg_x += p.x;
-				avg_y += p.y;
-				avg_z += p.z;
-			}
-		}
-
-		// 安定して捉えていると判断するボクセルの数
-		if (count>=config.center_atari_voxel_threshould)
-		{
-			avg_x = avg_x/count;
-			avg_y = avg_y/count;
-			avg_z = avg_z/count;
-		//#	printf("%6d %5.1f %5.1f %5.1f\n", count, avg_x, avg_y, avg_z);
-		}
-		else
-		{
-			avg_x = 0.0f;
-			avg_y = 0.0f;
-			avg_z = 0.0f;
-		}
-		global.person_center.x = avg_x;
-		global.person_center.y = avg_y;
-		global.person_center.z = avg_z;
-		global.debug.atari_voxels = count;
-		
-		{
-			Timer tm(&time_profile.drawing.drawvoxels);
-			drawVoxels(dots, dot_size, color_body, color_outer, DRAW_VOXELS_PERSON);
-		}
-	}
-	else
-	{
-		if (active_camera==CAM_A)
-		{
-			dots.init();
-			MixDepth(dots, image1, cam1);
-			drawVoxels(dots, dot_size, color_cam1, color_outer, DRAW_VOXELS_PERSON);
-			dots.init();
-			MixDepth(dots, image2, cam2);
-			drawVoxels(dots, dot_size, color_other, color_other, DRAW_VOXELS_PERSON);
-		}
-		else
-		{
-			dots.init();
-			MixDepth(dots, image1, cam1);
-			drawVoxels(dots, dot_size, color_other, color_other, DRAW_VOXELS_PERSON);
-			dots.init();
-			MixDepth(dots, image2, cam2);
-			drawVoxels(dots, dot_size, color_cam2, color_outer, DRAW_VOXELS_PERSON);
-		}
-	}
-}
-
 void StClient::CreateAtariFromBodyCenter()
 {
 	// 体幹アタリ
@@ -1154,7 +817,7 @@ void StClient::CreateAtariFromDepthMatrix(const Dots& dots)
 	{
 		// デプスはGreenのなかだけ
 		Point3D p = dots[i];
-		if (!(p.z>=0.0f && p.z<=2.0f))
+		if (!(p.z>=GROUND_NEAR && p.z<=GROUND_FAR))
 		{
 			// ignore: too far, too near
 			continue;
@@ -1193,19 +856,20 @@ void StClient::MovieRecord()
 	if (global.gameinfo.movie.total_frames >= MOVIE_MAX_FRAMES)
 	{
 		puts("time over! record stop.");
+
+		// タイムオーバーしたときは最終アタリを送り
+		// ゲームを強制的に終わらせる
+		udp_send.send("HIT 9999 finish");
 		changeStatus(STATUS_READY);
 	}
 	else
 	{
 		auto& mov = global.gameinfo.movie;
-#if 0
-		VoxelRecorder::record(dot_set, mov.frames[mov.total_frames++]);
-#else
+		mov.dot_size = config.person_dot_px;
 		mov.cam1 = cal_cam1.curr;
 		mov.cam2 = cal_cam2.curr;
 		Depth10b6b::record(dev1.raw_cooked, dev2.raw_cooked, mov.frames[global.frame_index]);
 		mov.total_frames = max(mov.total_frames, global.frame_index);
-#endif
 	}
 }
 
@@ -1500,6 +1164,43 @@ static void init_open_gl_params()
 	gl::AlphaBlending(true);
 }
 
+
+ HWND GetConsoleHwnd(void)
+{
+	const int buffer_size = 1024;
+	static char new_title[buffer_size];
+	static char old_title[buffer_size];
+
+	GetConsoleTitle(old_title, buffer_size);
+	wsprintf(new_title,"%d/%d", GetTickCount(), GetCurrentProcessId());
+	SetConsoleTitle(new_title);
+	Sleep(40);
+	HWND hwndFound = FindWindow(NULL, new_title);
+	SetConsoleTitle(old_title);
+	return hwndFound;
+}
+
+HWND GetGlfwHwnd(void)
+{
+	const int buffer_size = 1024;
+	static char new_title[buffer_size];
+
+	wsprintf(new_title,"%d/%d", GetTickCount(), GetCurrentProcessId());
+	glfwSetWindowTitle(new_title);
+	Sleep(40);
+	return FindWindow(NULL, new_title);
+}
+
+void FullScreen()
+{
+	const HWND hwnd = GetGlfwHwnd();
+	SetWindowLong(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+	const int dispx = GetSystemMetrics(SM_CXSCREEN);
+	const int dispy = GetSystemMetrics(SM_CYSCREEN);
+	glfwSetWindowSize(dispx, dispy);
+}
+
+
 bool StClient::initGraphics()
 {
 	auto open_window = [&]()->int{
@@ -1509,7 +1210,7 @@ bool StClient::initGraphics()
 			480,
 			0, 0, 0,
 			0, 0, 0,
-			(config.initial_fullscreen ? GLFW_FULLSCREEN : GLFW_WINDOW));
+			GLFW_WINDOW);
 	};
 
 	if (glfwInit()==GL_FALSE)
@@ -1521,8 +1222,11 @@ bool StClient::initGraphics()
 		return false;
 	}
 
-	glfwEnable(GLFW_MOUSE_CURSOR);
-	
+	if (config.initial_fullscreen)
+	{
+		FullScreen();
+	}
+	else
 	{
 		string name;
 		name += "スポーツタイムマシン クライアント";

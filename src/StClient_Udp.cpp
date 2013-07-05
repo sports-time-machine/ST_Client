@@ -71,6 +71,7 @@ private:
 	void background(Args& arg);
 	void playerStyle(Args& arg);
 	void playerColor(Args& arg);
+	void idleSelect(Args& arg);
 
 	// ゲーム
 	void start(Args& arg);
@@ -224,6 +225,33 @@ void Command::status(Args& arg)
 	arg_check(arg, 0);
 	sendStatus();
 	Msg::Notice("Current status", client->getStatusName());
+}
+
+// FRAME <int:frame_num>
+void Command::frame(Args& arg)
+{
+	arg_check(arg, 1);
+	no_check_status();
+
+	const int frame = arg[0].to_i();
+	if (frame<0)
+	{
+		Msg::ErrorMessage("Invalid frame.");
+	}
+	else
+	{
+		global.frame_index = frame;
+	}
+}
+
+// IDLE-SELECT <int:frame_num>
+void Command::idleSelect(Args& arg)
+{
+	arg_check(arg, 1);
+	no_check_status();
+
+	const int value = arg[0].to_i();
+	global.idle_select = value;
 }
 
 // BEGIN-INIT-FLOOR
@@ -426,83 +454,6 @@ void Command::playerColor(Args& arg)
 	global.gameinfo.movie.player_color_rgba = getPlayerColorFromString(arg[0].to_s());
 }
 
-// START -- ゲーム開始
-//  - ステート変更以外にはINITと同じ処理をする
-void Command::start(Args& arg)
-{
-	arg_check(arg, 0);
-	status_check(STATUS_READY);
-
-	// ゲーム情報の破棄
-	client->initGameInfo();
-
-	client->changeStatus(STATUS_GAME);
-}
-
-// STOP
-void Command::stop(Args& arg)
-{
-	arg_check(arg, 0);
-	status_check(STATUS_GAME);
-	client->changeStatus(STATUS_READY);
-}
-
-// REPLAY
-void Command::replay(Args& arg)
-{
-	arg_check(arg, 0);
-	status_check(STATUS_READY);
-	client->changeStatus(STATUS_REPLAY);
-
-	// MovingObject関係
-	global.in_game = false;
-	global.partner_mo.init(global.moi_lib["CHEETAH-1"]);
-}
-
-// HIT <int>
-void Command::hit(Args& arg)
-{
-	arg_check(arg, 1);
-	status_check(STATUS_GAME);
-	const int next_id = arg[0].to_i();
-	Console::printf(CON_GREEN, "hit next_id is %d\n", next_id);
-	global.hit_stage = next_id;
-	global.on_hit_setup(next_id);
-}
-
-// FRAME <int:frame_num>
-void Command::frame(Args& arg)
-{
-	arg_check(arg, 1);
-	no_check_status();
-
-	const int frame = arg[0].to_i();
-	if (frame<0)
-	{
-		Msg::ErrorMessage("Invalid frame.");
-	}
-	else
-	{
-		global.frame_index = frame;
-	}
-}
-
-// SAVE
-void Command::save(Args& arg)
-{
-	arg_check(arg, 0);
-	status_check(STATUS_READY);
-
-	Msg::SystemMessage("Saving...");
-	client->changeStatus(STATUS_SAVING);
-
-	// prepareForSave()はIDENT時にやっています
-	global.gameinfo.save();
-
-	Msg::SystemMessage("Saved!");
-	client->changeStatus(STATUS_READY);
-}
-
 // INIT
 void Command::init(Args& arg)
 {
@@ -524,10 +475,81 @@ void Command::init(Args& arg)
 	Msg::SystemMessage("Init!");
 	client->changeStatus(STATUS_IDLE);
 
-	// MovingObject関係
+	// MovingObject関係 -- STARTと同じ内容
 	global.game_start_frame = 0;
-	global.in_game = false;
+	global.in_game_or_replay = false;
 	global.partner_mo.init(global.moi_lib["CHEETAH-1"]);
+}
+
+// START -- 録画開始
+//  - ステート変更以外にはINITと同じ処理をする
+void Command::start(Args& arg)
+{
+	arg_check(arg, 0);
+	status_check(STATUS_READY);
+
+	// ゲーム情報の破棄
+	client->initGameInfo();
+
+	client->changeStatus(STATUS_GAME);
+
+	// MovingObject関係 -- INITと同じ内容
+	global.game_start_frame = 0;
+	global.in_game_or_replay = false;
+	global.partner_mo.init(global.moi_lib["CHEETAH-1"]);
+}
+
+// STOP
+void Command::stop(Args& arg)
+{
+	arg_check(arg, 0);
+	status_check(STATUS_GAME);
+	client->changeStatus(STATUS_READY);
+
+	// MovingObject関係
+	global.in_game_or_replay = false;
+}
+
+// REPLAY
+void Command::replay(Args& arg)
+{
+	arg_check(arg, 0);
+//	status_check(STATUS_READY);
+	client->changeStatus(STATUS_REPLAY);
+
+	// MovingObject関係
+	global.in_game_or_replay = false;
+	global.partner_mo.init(global.moi_lib["CHEETAH-1"]);
+}
+
+// HIT <int>
+void Command::hit(Args& arg)
+{
+	arg_check(arg, 1);
+	status_check(STATUS_GAME);
+	const int next_id = arg[0].to_i();
+	Console::printf(CON_GREEN, "hit next_id is %d\n", next_id);
+	global.hit_stage = next_id;
+	global.on_hit_setup(next_id);
+}
+
+// SAVE
+void Command::save(Args& arg)
+{
+	arg_check(arg, 0);
+	status_check(STATUS_READY);
+
+	Msg::SystemMessage("Saving...");
+	client->changeStatus(STATUS_SAVING);
+
+	// SAVING状態を描画しておく
+	client->drawOneFrame();
+
+	// prepareForSave()はIDENT時にやっています
+	global.gameinfo.save();
+
+	Msg::SystemMessage("Saved!");
+	client->changeStatus(STATUS_IDLE);
 }
 
 // GAME-START
@@ -538,7 +560,7 @@ void Command::gameStart(Args& arg)
 
 	// 「よーい、ドン！」の「ドン！」の最初のフレームにshoutされる
 	global.game_start_frame = global.frame_index;
-	global.in_game = true;
+	global.in_game_or_replay = true;
 }
 
 // GOAL
@@ -548,7 +570,7 @@ void Command::goal(Args& arg)
 	no_check_status();
 
 	// ゴールしたフレームでshoutされる
-	global.in_game = false;
+	global.in_game_or_replay = false;
 }
 
 // IDLE
@@ -650,6 +672,9 @@ bool Command::command(const string& line)
 		COMMAND("IDENT",             ident);
 		COMMAND("BEGIN-INIT-FLOOR",  beginInitFloor);
 		COMMAND("END-INIT-FLOOR",    endInitFloor);
+
+		// アイドル用
+		COMMAND("IDLE-SELECT", idleSelect);
 
 		// ゲーム情報
 		COMMAND("PARTNER",           partner);

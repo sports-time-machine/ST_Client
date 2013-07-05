@@ -9,7 +9,7 @@ namespace stclient{
 #define GROUND_LEFT        (-GROUND_WIDTH/2)
 #define GROUND_RIGHT       (+GROUND_WIDTH/2)
 #define GROUND_HEIGHT      (2.40f)
-#define GROUND_DEPTH       (3.00f)
+#define GROUND_DEPTH       (2.40f)
 #define GROUND_NEAR        (0.00f)
 #define GROUND_FAR         (GROUND_DEPTH)
 

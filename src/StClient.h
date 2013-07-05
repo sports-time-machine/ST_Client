@@ -353,9 +353,8 @@ public:
 public:
 	MovingObject();
 	void init(const MovingObjectImage& moi);
-	bool enabled() const   { return _moi!=nullptr; }
-
-
+	bool enabled() const      { return _moi!=nullptr; }
+	
 	// getter
 	int convertRealFrameToVirtualFrame(int real_frame) const;
 	const mi::Image& getFrameImage(int virtual_frame) const;
@@ -365,9 +364,10 @@ public:
 	// command
 	void resetDistance();
 	void updateDistance();
-
+	
 private:
 	const MovingObjectImage* _moi;
+	bool   _is_running;
 	Stage  _stage;
 	float  _distance_meter;   // 原点からの距離
 	float  _speed;            // 毎フレームの移動速度 m/frame
@@ -405,69 +405,63 @@ struct Global
 		bool enabled;            // キャリブレーション可能
 	};
 	typedef const Config::RunEnv* RunEnvPtr;
+	typedef std::map<string,MovingObjectImage> MovinbObjectImages;
 	
-	RunEnvPtr    run_env;
-	Calibration  calibration;
-	Debug        debug;
-	GameInfo     gameinfo;
-	View         view;
-	ViewMode     view_mode;
-	int          window_w;
-	int          window_h;
-	Images       images;
-	int          picture_number;          // PICTコマンドのときに表示するピクチャ番号
-	Point3D      person_center;
-	int          frame_index;
-	bool         frame_auto_increment;
-	int          game_start_frame;
-	bool         in_game;
-	PSL::PSLVM   pslvm;
-	int          hit_stage;
-	PSLv         on_hit_setup;
-	HitObjects   hit_objects;
-	bool         show_debug_info;
-	mgl::glRGBA  color_overlay;
-	size_t       idle_image_number;
-	int          total_frames;
-	int          atari_count;
-	float        voxels_alpha;
-	bool         voxel_drew;
-	int          auto_clear_floor_count;
-	std::map<string,MovingObjectImage> moi_lib;
+	int            idle_select;
+	RunEnvPtr      run_env;
+	Calibration    calibration;
+	Debug          debug;
+	GameInfo       gameinfo;
+	View           view;
+	ViewMode       view_mode;
+	int            window_w;
+	int            window_h;
+	Images         images;
+	int            picture_number;          // PICTコマンドのときに表示するピクチャ番号
+	Point3D        person_center;
+	int            frame_index;
+	bool           frame_auto_increment;
+	int            game_start_frame;
+	bool           in_game_or_replay;
+	PSL::PSLVM     pslvm;
+	int            hit_stage;
+	PSLv           on_hit_setup;
+	HitObjects     hit_objects;
+	bool           show_debug_info;
+	mgl::glRGBA    color_overlay;
+	size_t         idle_image_number;
+	int            total_frames;
+	int            atari_count;
+	float          voxels_alpha;
+	bool           voxel_drew;
+	int            auto_clear_floor_count;
+	int            dot_count;
 	MovingObject   partner_mo;
-
-	bool calibrating_now() const
-	{
-		switch (view_mode)
-		{
-		case VM_2D_TOP:
-		case VM_2D_LEFT:
-		case VM_2D_FRONT:
-			return true;
-		}
-		return false;
-	}
+	MovinbObjectImages moi_lib;
 
 	Global()
 	{
-		run_env              = Config::getDefaultRunEnv();
-		view_mode            = VM_2D_RUN;
-		window_w             = 0;
-		window_h             = 0;
-		frame_index          = 0;
-		frame_auto_increment = false;
-		hit_stage            = 0;
-		show_debug_info      = false;
-		calibration.fast     = false;
-		calibration.enabled  = false;
-		idle_image_number    = 0;
-		total_frames         = 0;
-		atari_count          = 0;
-		voxels_alpha         = 1.0f;
-		voxel_drew           = false;
+		idle_select            = 0;
+		run_env                = Config::getDefaultRunEnv();
+		view_mode              = VM_2D_RUN;
+		window_w               = 0;
+		window_h               = 0;
+		frame_index            = 0;
+		frame_auto_increment   = false;
+		hit_stage              = 0;
+		//show_debug_info        = false;//# @sdb
+		show_debug_info        = true;
+		calibration.fast       = false;
+		calibration.enabled    = false;
+		idle_image_number      = 0;
+		total_frames           = 0;
+		atari_count            = 0;
+		voxels_alpha           = 1.0f;
+		voxel_drew             = false;
 		auto_clear_floor_count = 0;
-		in_game              = false;
-		game_start_frame     = 0;
+		in_game_or_replay      = false;
+		game_start_frame       = 0;
+		dot_count              = 0;
 		color_overlay.set(0,0,0,0);  // transparent
 	}
 };
@@ -539,6 +533,7 @@ public:
 	// コマンドクラスからよばれます
 	void startMovieRecordSettings();
 	void initGameInfo();
+	void drawOneFrame();
 
 	void clearFloorDepth()
 	{
@@ -610,15 +605,18 @@ private:
 	void loadAgent(int slot);
 
 	void MovieRecord();
-	void DrawRealMovie(Dots& dots, float dot_size);
 	void SaveCamConfig();
 	void LoadCamConfig();
 
 	void drawRunEnv();
 	void draw3dWall();
 	void drawFieldGrid(int size_cm);
+	void drawRealDots(Dots& dots, float dot_size);
 	void drawIdleImage();
 	void drawMovingObject();
+	void drawNormalGraphics();
+	void drawNormalGraphicsObi();
+	void drawManyTriangles();
 
 	void CreateAtari(const Dots& dots);
 	void CreateAtariFromBodyCenter();

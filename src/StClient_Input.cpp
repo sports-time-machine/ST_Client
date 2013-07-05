@@ -114,14 +114,12 @@ void StClient::processKeyInput()
 			Msg::Notice("キャリブレーションモードへの移行");
 			global.calibration.enabled = true;
 			global.show_debug_info     = true;
-//			eye.view_2d_front();
 		}
 		else
 		{
 			Msg::Notice("キャリブレーションモードの終了");
 			global.calibration.enabled = false;
 			global.show_debug_info     = false;
-//			eye.view_2d_run();
 		}
 		return;
 	case '0':             saveScreenShot();  return;
@@ -235,7 +233,7 @@ void StClient::processKeyInput()
 		return;
 	}
 
-	if (global.calibrating_now())
+	if (global.calibration.enabled)
 	{
 		// ONLY calibrating
 		const bool shift     = down[VK_SHIFT];

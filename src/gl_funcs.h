@@ -99,6 +99,8 @@ public:
 	static void DrawSphere(float x, float y, float z, float r);
 	static void DrawSphere(float x, float y, float z, float r, float ra, float rx, float ry, float rz);
 
+	static void ClearGraphics(int r, int g, int b);
+
 private:
 	struct Data
 	{

@@ -17,17 +17,17 @@ void Eye::gluLookAt()
 void Eye::view_2d_left()
 {
 	global.view.is_2d_view = true;
-	global.view.view2d.width = GROUND_WIDTH * 1.25f;
+	global.view.view2d.width = GROUND_DEPTH * 1.5f;
 	global.view_mode = VM_2D_LEFT;
-	set(-10.0f, -0.2f, -1.5f, 0.0f, 0.0f);
+	set(-10.0f, -0.20f, -GROUND_DEPTH/2, 0.0f, 0.0f);
 }
 
 void Eye::view_2d_top()
 {
 	global.view.is_2d_view = true;
-	global.view.view2d.width = GROUND_WIDTH * 1.25f;
+	global.view.view2d.width = GROUND_WIDTH * 1.1f;
 	global.view_mode = VM_2D_TOP;
-	set(0.0f, 110.0, 5.2f, -PI/2, -100.0f);
+	set(0.0f, 10.0, 0.8f, -PI/2, -100.0f);
 }
 
 void Eye::view_2d_front()
@@ -35,7 +35,7 @@ void Eye::view_2d_front()
 	global.view.is_2d_view = true;
 	global.view.view2d.width = GROUND_WIDTH * 1.1f;  // è≠ÇµçLÇ≠
 	global.view_mode = VM_2D_FRONT;
-	set(0.0f, -0.2f, 10.0f, -PI/2, 0.0f);
+	set(0.0f, -0.3f, 10.0f, -PI/2, 0.0f);
 }
 
 void Eye::view_2d_run()

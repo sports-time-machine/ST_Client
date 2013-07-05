@@ -39,19 +39,22 @@ void MovingObject::init(const MovingObjectImage& moi)
 {
 	this->_moi            = &moi;
 	this->_stage          = STAGE_RUN1;
-	this->_break_rate     = 0.33;
+	this->_break_rate     = 0.33f;
 	this->_distance_meter = 0.5f;
 	this->_speed          = 0.0f;
+	this->_is_running     = false;
 }
 
 int MovingObject::convertRealFrameToVirtualFrame(int real_frame) const
 {
-	return _moi->_frames[real_frame % _moi->_frames.size()];
+	int fr = real_frame % _moi->_frames.size();
+
+	return _moi->_frames[fr];
 }
 
 const mi::Image& MovingObject::getFrameImage(int real_frame) const
 {
-	const int frame = convertRealFrameToVirtualFrame(real_frame);
+	const int frame = convertRealFrameToVirtualFrame((int)(_speed * real_frame * 45));
 
 	auto itr = _moi->_images.find(frame);
 	if (itr==_moi->_images.end())
@@ -130,8 +133,14 @@ void MovingObject::updateDistance()
 	if (accelarate)
 	{
 		// 加速します!!!
-		const float TOP_SPEED    = 29.0f;
-		const float ACCEL_SECOND = 2.8f;
+		// トップスピード m/s
+		// 
+		// 2秒で35m/sまで加速した場合、
+		// トップスピードで5秒走ると175mとなり
+		// 加速中で25m走ると、7秒で200mというケニアの記録並になる
+		//const float TOP_SPEED    = 35.0f;
+		const float TOP_SPEED    = 25.0f;
+		const float ACCEL_SECOND = 2.0f;
 		const float ACCEL_FRAMES = ACCEL_SECOND * 60;
 		
 		const float TOP_SPEED_PER_F = TOP_SPEED / 30.0f;

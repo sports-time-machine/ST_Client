@@ -114,7 +114,7 @@ void StClient::display3dSection()
 	if (gd.show_realmovie)
 	{
 		static Dots dots;
-		this->DrawRealMovie(dots, config.person_dot_px);
+		this->drawRealDots(dots, config.person_dot_px);
 
 		// センター座標(@Center)の取得
 		this->CreateAtari(dots);
@@ -276,7 +276,7 @@ void StClient::displayDebugInfo()
 	const glRGBA em   = config.color.text_em;
 	const glRGBA dt   = config.color.text_dt;
 	const glRGBA dd   = config.color.text_dd;
-
+	
 	auto color = [](bool status){
 		(status
 			? config.color.text_em
@@ -290,13 +290,13 @@ void StClient::displayDebugInfo()
 
 	{
 		text();
-		pr(monospace, 700, 300, "[%s][%s][%s][%s][%s]",
-			(global.debug.recording)      ? "recoding" : "-",
+		pr(monospace, 430, 250, "[%s][%s][%s][%s][%s]",
+			(global.debug.recording)      ? "recording" : "-",
 			(global.debug.show_realmovie) ? "realmovie"  : "",
 			(global.debug.show_replay)    ? "replay" : "",
 			(global.debug.show_partner)   ? "partner"  : "",
 			getStatusName());
-		pr(monospace, 700, 320, "[Atari=%5d]",
+		pr(monospace, 430, 230, "[Atari=%5d]",
 			global.debug.atari_voxels);
 	}
 
@@ -388,13 +388,15 @@ void StClient::displayDebugInfo()
 			global.person_center.x,
 			global.person_center.y);
 	pr(monospace, 20, y+=H,
-		"TOTAL [%d frames] [WVTac=%d][WVT=%d][auto-CF=%d]",
+		"TOTAL [%d frames] [WVTac=%3d][WVT=%4d][DrawCnt=%5d][auto-CF=%d]",
 			global.total_frames,
 			global.atari_count,
 			config.whitemode_voxel_threshould,
+			global.dot_count,
 			global.auto_clear_floor_count);
 
 	// @fps
+	extern int IIIIDLE_Immamamamamage;
 	pr(monospace, 20, y+=H, "%.2ffps", fps_counter.getFps());
 	nl();
 
@@ -417,7 +419,7 @@ void StClient::displayDebugInfo()
 	dt(); pr(monospace, x, y+=H, " Atari        %6.2f", time_profile.atari);
 	
 	const bool REC = recordingNow();
-	REC?em():dt(); pr(monospace, x, y+=H, " Recording    %6.2f [%d]", time_profile.record.total, global.gameinfo.movie.frames.size());
+	REC?em():dt(); pr(monospace, x, y+=H, " Recording    %6.2f [%d]", time_profile.record.total, global.gameinfo.movie.total_frames);
 	REC?em():dd(); pr(monospace, x, y+=H, "  enc_stage1  %6.2f", time_profile.record.enc_stage1);
 	REC?em():dd(); pr(monospace, x, y+=H, "  enc_stage2  %6.2f", time_profile.record.enc_stage2);
 	REC?em():dd(); pr(monospace, x, y+=H, "  enc_stage3  %6.2f", time_profile.record.enc_stage3);

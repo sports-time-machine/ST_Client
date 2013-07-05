@@ -148,3 +148,15 @@ void gl::DrawSphere(float x, float y, float z, float r)
 {
 	DrawSphere(x,y,z,r, 0.0f, 0.0f, 0.0f, 0.0f);
 }
+
+
+// @gcls
+void gl::ClearGraphics(int r, int g, int b)
+{
+	glClearColor(
+		r / 255.0f,
+		g / 255.0f,
+		b / 255.0f,
+		1.00f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}

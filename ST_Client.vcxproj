@@ -39,11 +39,14 @@
     <ClCompile Include="src\mi\Timer.cpp" />
     <ClCompile Include="src\mi\Udp.cpp" />
     <ClCompile Include="src\MovingObject.cpp" />
+    <ClCompile Include="src\Msg.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="src\StClient.cpp" />
     <ClCompile Include="src\StClient_Display.cpp" />
+    <ClCompile Include="src\StClient_DisplayFunc.cpp" />
     <ClCompile Include="src\StClient_Eye.cpp" />
     <ClCompile Include="src\StClient_Input.cpp" />
     <ClCompile Include="src\StClient_Udp.cpp" />
@@ -107,7 +110,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>C:\ST\Client</OutDir>
+    <OutDir>C:\ST\Client\</OutDir>
     <IntDir>$(ProjectDir)..\Bin\Intermediate\$(Platform)-$(Configuration)\$(ProjectName)\</IntDir>
     <IncludePath>$(WindowsSdkDir)\include;$(VCInstallDir)include;C:\Users\STM\Dev\Include;C:\Dev\Include</IncludePath>
     <LibraryPath>$(LibraryPath);$(VSInstallDir);$(VSInstallDir)lib;C:\Users\STM\Dev\Lib;C:\Dev\Lib</LibraryPath>
