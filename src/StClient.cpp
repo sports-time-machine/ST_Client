@@ -287,6 +287,8 @@ void StClient::drawNormalGraphics()
 		this->drawIdleImage();
 		break;
 
+	case STATUS_READY:
+		// 出走準備ができても画面はアイドルのままとします
 	case STATUS_IDLE:{
 		// 2Dアイドル画像
 		gl::ClearGraphics(255,255,255);
@@ -743,7 +745,7 @@ bool StClient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 
 		if (global.calibration.enabled)
 		{
-			// キャリブレーション中は濃く表示する
+			// キャリブレーション中
 			if (in_x && in_y && in_z)
 				inner_color.glColorUpdate(col255>>1);
 			else

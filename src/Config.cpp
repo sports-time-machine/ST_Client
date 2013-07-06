@@ -124,12 +124,23 @@ static bool load_config_and_run(PSL::PSLVM& psl, Config& config)
 	psl.add("COMPUTER_NAME", Core::getComputerName().c_str());
 
 	// サーバーコンフィグのロード
+	//  - ロードできるまで無限ループする
 	auto server_config = PSL::string("//")+server_name.toString()+"/ST/Config.psl";
-	if (!load_psl(server_config))
+	for (;;)
 	{
-		Core::dialog("Config.psl load error.");
-		return false;
+		if (load_psl(server_config))
+		{
+			break;
+		}
+		static bool once = true;
+		if (once)
+		{
+			once = false;
+			Msg::ErrorMessage("Load error: Config.psl on server, retry.");
+		}
+		Sleep(1000);
 	}
+
 	// クライアントコンフィグのロード
 	auto client_config = PSL::string("C:/ST/")+Core::getComputerName().c_str()+".psl";
 	if (!load_psl(client_config))

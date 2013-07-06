@@ -501,8 +501,7 @@ void Command::init(Args& arg)
 	global.partner_mo.init();
 }
 
-// START -- 録画開始
-//  - ステート変更以外にはINITと同じ処理をする
+// START -- 録画開始（ゲーム開始ではない）
 void Command::start(Args& arg)
 {
 	arg_check(arg, 0);
@@ -513,7 +512,7 @@ void Command::start(Args& arg)
 
 	client->changeStatus(STATUS_GAME);
 
-	// MovingObject関係 -- INITと同じ内容
+	// MovingObject
 	global.game_start_frame = 0;
 	global.in_game_or_replay = false;
 }
@@ -578,6 +577,8 @@ void Command::gameStart(Args& arg)
 	no_check_status();
 
 	// 「よーい、ドン！」の「ドン！」の最初のフレームにshoutされる
+	// 通常プレイでも、リプレイでも、同じように使われる
+	// in_game_or_replayをtrueにする唯一のトリガー
 	global.game_start_frame = global.frame_index;
 	global.in_game_or_replay = true;
 }
