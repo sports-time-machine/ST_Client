@@ -146,13 +146,11 @@ void MovingObject::updateDistance()
 		// 加速します!!!
 		// トップスピード m/s
 		// 
-		// 2秒で35m/sまで加速した場合、
-		// トップスピードで5秒走ると175mとなり
-		// 加速中で25m走ると、7秒で200mというケニアの記録並になる
-		//const float TOP_SPEED    = 35.0f;
-		const float TOP_SPEED    = 25.0f;
-		const float ACCEL_SECOND = 1.0f;
-		const float ACCEL_FRAMES = ACCEL_SECOND * 30;
+		// だいたいの雰囲気です
+		// 30m/s＝108km/h
+		const float TOP_SPEED    = 30.0f;
+		const float ACCEL_SECOND = 2.0f;
+		const float ACCEL_FRAMES = ACCEL_SECOND * MOVIE_FPS;
 		
 		const float TOP_SPEED_PER_F = TOP_SPEED / 30.0f;
 

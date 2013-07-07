@@ -35,13 +35,12 @@ enum
 	// これ以外についてはConfig.cppのConfig::Config()に記述してあります
 	INITIAL_WIN_SIZE_X   = 640,
 	INITIAL_WIN_SIZE_Y   = 480,
-	MOVIE_MAX_SECS       = 50,
 	MOVIE_FPS            = 30,
-	MOVIE_MAX_FRAMES     = MOVIE_MAX_SECS * MOVIE_FPS,
 	MIN_VOXEL_INC        = 16,
 	MAX_VOXEL_INC        = 128,
 	ATARI_INC            = 20,
 	MAX_PICT_NUMBER      = 10,        // PICT numコマンドで送れるピクチャの数
+	AUTO_CF_THRESHOULD   = 800,       // 自動床消しの閾値
 };
 
 
@@ -110,6 +109,7 @@ struct Config
 	bool         debug_atari_ball;
 	int          person_base_alpha;
 	float        partner_y;
+	int          max_movie_second;
 
 	// クライアント個別の設定
 	string       server_name;
@@ -127,6 +127,7 @@ struct Config
 
 	float getScreenLeftMeter()  const  { return (client_number-1) * GROUND_WIDTH; }
 	float getScreenRightMeter() const  { return getScreenLeftMeter() + GROUND_WIDTH; }
+	int getMaxMovieFrames() const      { return max_movie_second * MOVIE_FPS; }
 	
 	static RunEnv* getDefaultRunEnv()  { static RunEnv re; return &re; }
 

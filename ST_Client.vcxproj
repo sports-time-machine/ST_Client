@@ -25,7 +25,7 @@
     <ClCompile Include="src\Config.cpp" />
     <ClCompile Include="src\depth.cpp" />
     <ClCompile Include="src\Depth10b6b.cpp" />
-    <ClCompile Include="src\Depth11b5b.cpp" />
+    <ClCompile Include="src\Depth10b6v_v1_1.cpp" />
     <ClCompile Include="src\file_io.cpp" />
     <ClCompile Include="src\FreeType.cpp" />
     <ClCompile Include="src\gl.cpp" />

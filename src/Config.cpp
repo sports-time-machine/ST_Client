@@ -33,6 +33,7 @@ Config::Config()
 	snapshot_life_frames   = 100;
 	auto_snapshot_interval = 0;
 	person_dot_px          = 1.5f;
+	max_movie_second       = 300; //走行前後マージン含めての秒数
 
 	// 個別の設定
 	client_number        = -1;
@@ -138,7 +139,7 @@ static bool load_config_and_run(PSL::PSLVM& psl, Config& config)
 			once = false;
 			Msg::ErrorMessage("Load error: Config.psl on server, retry.");
 		}
-		Sleep(1000);
+		Sleep(5000);
 	}
 
 	// クライアントコンフィグのロード
@@ -264,6 +265,7 @@ static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 	CONFIG_INT(auto_snapshot_interval);
 	CONFIG_INT(whitemode_voxel_threshould);
 	CONFIG_INT(person_base_alpha);
+	CONFIG_INT(max_movie_second);
 	CONFIG_BOOL(enable_kinect);
 	CONFIG_BOOL(enable_color);
 	CONFIG_BOOL(ignore_udp);

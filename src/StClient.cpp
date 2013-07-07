@@ -398,11 +398,11 @@ void StClient::processOneFrame()
 	this->drawOneFrame();
 
 	// 描画していなければ床消し追記する
-	//   - キャリブレーションモード以外で、
+	//   - アイドル時で、
 	//   - 画面にボクセルが描画されていないとき
-	if (!global.calibration.enabled)
+	if (clientStatus()==STATUS_IDLE)
 	{
-		if (global.dot_count < 500)
+		if (global.dot_count < AUTO_CF_THRESHOULD)
 		{
 			++global.auto_clear_floor_count;
 			this->dev1.updateFloorDepth();
@@ -629,7 +629,7 @@ bool StClient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 		dots[i].
 	}
 #endif
-	int atari_count = 0;
+	global.atari_count = 0;
 	global.dot_count = 0;
 	for (int i=0; i<dots.size(); ++i)
 	{
@@ -646,12 +646,10 @@ bool StClient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 			++global.dot_count;
 			if (in_z)
 			{
-				++atari_count;
+				++global.atari_count;
 			}
 		}
 	}
-
-	global.atari_count = atari_count;
 
 
 	// GAME/IDLEモードで描画すべきボクセルが少ない場合、描画をとりやめる
@@ -659,7 +657,7 @@ bool StClient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 	{
 	case STATUS_GAME:
 	case STATUS_IDLE:
-		if (atari_count < config.whitemode_voxel_threshould)
+		if (global.atari_count < config.whitemode_voxel_threshould)
 		{
 			global.voxels_alpha = 0.0f;
 			return false;
@@ -715,10 +713,9 @@ bool StClient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 		const float x = dots[i].x;
 		const float y = dots[i].y;
 		const float z = dots[i].z;
-
-		const bool in_x = (x>=GROUND_LEFT && x<=GROUND_RIGHT);
+		const bool in_x = (x>=GROUND_LEFT   && x<=GROUND_RIGHT);
 		const bool in_y = (y>=GROUND_BOTTOM && y<=GROUND_TOP);
-		const bool in_z = (z>=GROUND_NEAR && z<=GROUND_FAR);
+		const bool in_z = (z>=GROUND_NEAR   && z<=GROUND_FAR);
 
 #if 0
 		// Depth is alpha version
@@ -855,13 +852,13 @@ void StClient::CreateAtari(const Dots& dots)
 
 void StClient::MovieRecord()
 {
-	if (global.gameinfo.movie.total_frames >= MOVIE_MAX_FRAMES)
+	if (global.gameinfo.movie.total_frames >= config.getMaxMovieFrames())
 	{
 		puts("time over! record stop.");
 
 		// タイムオーバーしたときは最終アタリを送り
 		// ゲームを強制的に終わらせる
-		udp_send.send("HIT 9999 finish");
+		udp_send.send("GAME-TIMEOUT");
 		changeStatus(STATUS_READY);
 	}
 	else
