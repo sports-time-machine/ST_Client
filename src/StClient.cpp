@@ -315,10 +315,11 @@ void StClient::drawNormalGraphics()
 
 	case STATUS_INIT_FLOOR:{
 		// 実映像の表示
-		gl::ClearGraphics(255,255,255);
+		gl::ClearGraphics(0,0,0);
 		this->display3dSectionPrepare();
 		this->display3dSection();
 		static Dots dots;
+		global.gameinfo.movie.player_color_rgba.set(255,255,255,64);
 		drawRealDots(dots, config.person_dot_px);
 		
 		// 床消しのアップデート

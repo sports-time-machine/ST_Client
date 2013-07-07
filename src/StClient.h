@@ -355,7 +355,8 @@ public:
 	void init();
 	void init(const MovingObjectImage& moi);
 	bool enabled() const      { return _moi!=nullptr; }
-	
+	void initRunParam();
+
 	// getter
 	int convertRealFrameToVirtualFrame(int real_frame) const;
 	const mi::Image& getFrameImage(int virtual_frame) const;
@@ -368,7 +369,7 @@ public:
 	
 private:
 	const MovingObjectImage* _moi;
-	bool   _is_running;
+	//bool   _is_running;
 	Stage  _stage;
 	float  _distance_meter;   // 原点からの距離
 	float  _speed;            // 毎フレームの移動速度 m/frame

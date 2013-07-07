@@ -581,6 +581,7 @@ void Command::gameStart(Args& arg)
 	// in_game_or_replay‚ğtrue‚É‚·‚é—Bˆê‚ÌƒgƒŠƒK[
 	global.game_start_frame = global.frame_index;
 	global.in_game_or_replay = true;
+	global.partner_mo.initRunParam();
 }
 
 // GOAL

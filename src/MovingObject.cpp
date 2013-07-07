@@ -35,24 +35,25 @@ MovingObject::MovingObject()
 	this->_moi = nullptr;
 }
 
+void MovingObject::initRunParam()
+{
+	this->_stage = STAGE_RUN1;
+	this->_speed = 0.0f;
+	this->_distance_meter = 0.5f;
+}
+
 void MovingObject::init()
 {
-	this->_moi            = nullptr;
-	this->_stage          = STAGE_RUN1;
-	this->_break_rate     = 0.0f;
-	this->_distance_meter = 0.0f;
-	this->_speed          = 0.0f;
-	this->_is_running     = false;
+	this->_moi        = nullptr;
+	this->_break_rate = 0.33f;
+	this->initRunParam();
 }
 
 void MovingObject::init(const MovingObjectImage& moi)
 {
-	this->_moi            = &moi;
-	this->_stage          = STAGE_RUN1;
-	this->_break_rate     = 0.33f;
-	this->_distance_meter = 0.5f;
-	this->_speed          = 0.0f;
-	this->_is_running     = false;
+	this->_moi        = &moi;
+	this->_break_rate = 0.33f;
+	this->initRunParam();
 }
 
 int MovingObject::convertRealFrameToVirtualFrame(int real_frame) const
