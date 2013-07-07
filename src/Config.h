@@ -12,6 +12,8 @@ namespace stclient{
 #define GROUND_DEPTH       (2.40f)
 #define GROUND_NEAR        (0.00f)
 #define GROUND_FAR         (GROUND_DEPTH)
+#define GROUND_TOP         (GROUND_HEIGHT)
+#define GROUND_BOTTOM      (0.00f)
 
 // 床付近はノイズが多いので膝丈ぐらいからのみ有効
 // 画面の左右にマージンを設けることで、画面外にいきつつある場合であっても、

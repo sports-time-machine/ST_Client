@@ -85,7 +85,15 @@ bool StClient::drawMovieFrame(const MovieData& mov, glRGBA inner, glRGBA outer, 
 	}
 	if (disp_frame>=0)
 	{
-		Depth10b6b::playback(depth1, depth2, mov.frames.find(disp_frame)->second);
+		switch (mov.ver)
+		{
+		case MovieData::VER_1_0:
+			Depth10b6b::playback(depth1, depth2, mov.frames.find(disp_frame)->second);
+			break;
+		case MovieData::VER_1_1:
+			Depth10b6b_v1_1::playback(depth1, depth2, mov.frames.find(disp_frame)->second);
+			break;
+		}
 		MixDepth(dots, depth1, mov.cam1);
 		MixDepth(dots, depth2, mov.cam2);
 		drawVoxels(dots, mov.dot_size, inner, outer, DRAW_VOXELS_MOVIE);
@@ -136,7 +144,7 @@ void StClient::display3dSection()
 
 	if (gd.show_replay)
 	{
-		if (!drawMovieFrame(global.gameinfo.movie, glRGBA(255,0,0), glRGBA(50,200,0), "replay"))
+		if (!drawMovieFrame(global.gameinfo.movie, global.gameinfo.movie.player_color_rgba, glRGBA(50,200,0), "replay"))
 		{
 			// ÉäÉvÉåÉCèIÇÌÇË
 			Msg::Notice("End replay");

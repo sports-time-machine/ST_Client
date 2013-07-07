@@ -517,6 +517,11 @@ namespace Depth10b6b{
 	void playback(RawDepthImage& dest1, RawDepthImage& dest2, const MovieData::Frame& frame);
 }//namespace VoxelRecorder
 
+namespace Depth10b6b_v1_1{
+	void record(const RawDepthImage& depth1, const RawDepthImage& depth2, MovieData::Frame& dest_frame);
+	void playback(RawDepthImage& dest1, RawDepthImage& dest2, const MovieData::Frame& frame);
+}//namespace VoxelRecorder
+
 namespace VoxelRecorder{
 	void record(const Dots& dots, MovieData::Frame& dest_frame);
 	void playback(Dots& dots, const MovieData::Frame& frame);

@@ -102,6 +102,14 @@ struct MovieData
 	// Ž¸”s‚µ‚½‚ç•‰
 	int getValidFrame(int frame) const;
 
+	enum Version
+	{
+		VER_INVALID = 0,
+		VER_1_0 = 10,
+		VER_1_1 = 11,
+	};
+
+	Version     ver;           // ver 1.0 == 10
 	string      player_id;     // 0000ABCD
 	string      game_id;       // 00000XYZ23
 	float       dot_size;

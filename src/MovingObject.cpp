@@ -151,8 +151,8 @@ void MovingObject::updateDistance()
 		// 加速中で25m走ると、7秒で200mというケニアの記録並になる
 		//const float TOP_SPEED    = 35.0f;
 		const float TOP_SPEED    = 25.0f;
-		const float ACCEL_SECOND = 2.0f;
-		const float ACCEL_FRAMES = ACCEL_SECOND * 60;
+		const float ACCEL_SECOND = 1.0f;
+		const float ACCEL_FRAMES = ACCEL_SECOND * 30;
 		
 		const float TOP_SPEED_PER_F = TOP_SPEED / 30.0f;
 

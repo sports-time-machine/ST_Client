@@ -3,6 +3,11 @@
 using namespace mi;
 using namespace stclient;
 
+
+// バージョン
+//   v1.0    Depth10b6b_v1_0
+//   v1.1    Depth10b6b_v1_1
+
 static const char
 	STMOVIE_MAGIC_ID[6] = {
 		'S','T','M','V',' ',' '},
@@ -21,8 +26,8 @@ void stclient::saveToFile(File& f, const MovieData& movie)
 	FileHeader header;
 	memcpy(header.signature, STMOVIE_MAGIC_ID, sizeof(header.signature));
 	memcpy(header.format,    DEPTH_2D_10B6B,   sizeof(header.format));
-	header.ver_major = 1;
-	header.ver_minor = 0;
+	header.ver_major = movie.ver / 10;
+	header.ver_minor = movie.ver % 10;
 	header.total_frames = TOTAL_FRAMES;
 	header.total_msec   = TOTAL_FRAMES * 1000 / 30;
 	f.write(header);
@@ -126,6 +131,7 @@ void MovieData::clearMovie()
 void MovieData::clearAll()
 {
 	clearMovie();
+	ver               = VER_INVALID;
 	dot_size          = 1.0f;
 	player_color      = "default";
 	player_color_rgba = config.color.default_player_color;
@@ -162,9 +168,17 @@ bool MovieData::load(const string& id)
 	}
 
 	this->total_frames = header.total_frames;
+	this->ver = VER_INVALID;
 
 	if (header.ver_major==1 && header.ver_minor==0)
 	{
+		this->ver = VER_1_0;
+		load_ver1_0(f, header, *this);
+	}
+	else if (header.ver_major==1 && header.ver_minor==1)
+	{
+		// ロード自体はv1.0と同じ
+		this->ver = VER_1_1;
 		load_ver1_0(f, header, *this);
 	}
 	else

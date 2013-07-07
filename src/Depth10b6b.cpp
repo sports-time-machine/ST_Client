@@ -15,6 +15,10 @@ struct VoxelToCube
 
 static void depth_to_store_aux(const RawDepthImage& depth, uint8*& store)
 {
+	//@bug@
+	// v1.0‚É‚¨‚¯‚éƒoƒO‚Í‚±‚±‚Å‚·
+	// v1.1‚Å‚Í‚±‚Ì‰‰Z®‚ªC³‚³‚ê‚Ä‚¢‚Ü‚·
+
 	// in:  0<=x<=10000
 	// out: 0<=x<=1023
 	auto depth_convert = [](int x)->int{

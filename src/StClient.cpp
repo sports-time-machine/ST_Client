@@ -717,8 +717,8 @@ bool StClient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 		const float z = dots[i].z;
 
 		const bool in_x = (x>=GROUND_LEFT && x<=GROUND_RIGHT);
-		const bool in_y = (y>=0.0f && y<=GROUND_HEIGHT);
-		const bool in_z = (z>=0.0f && z<=GROUND_DEPTH);
+		const bool in_y = (y>=GROUND_BOTTOM && y<=GROUND_TOP);
+		const bool in_z = (z>=GROUND_NEAR && z<=GROUND_FAR);
 
 #if 0
 		// Depth is alpha version
@@ -743,7 +743,6 @@ bool StClient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 		if (col>0.90f) col=0.90f;
 		col = 1.00f - col;
 		const int col255 = (int)(col * config.person_base_alpha);
-
 		if (global.calibration.enabled)
 		{
 			// キャリブレーション中
@@ -757,6 +756,8 @@ bool StClient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, 
 			// ゲーム中はエリア内だけ表示する
 			if (in_x && in_y && in_z)
 				inner_color.glColorUpdate(col255);
+			else
+				continue;
 		}
 #endif
 
@@ -869,7 +870,11 @@ void StClient::MovieRecord()
 		mov.dot_size = config.person_dot_px;
 		mov.cam1 = cal_cam1.curr;
 		mov.cam2 = cal_cam2.curr;
-		Depth10b6b::record(dev1.raw_cooked, dev2.raw_cooked, mov.frames[global.frame_index]);
+		
+		// 録画はつねに最新形式で行う
+		mov.ver = MovieData::VER_1_1;
+		Depth10b6b_v1_1::record(dev1.raw_cooked, dev2.raw_cooked, mov.frames[global.frame_index]);
+
 		mov.total_frames = max(mov.total_frames, global.frame_index);
 	}
 }
