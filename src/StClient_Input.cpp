@@ -143,6 +143,7 @@ void StClient::processKeyInput()
 	case SK_CTRL + 'S'://Ctrl+S
 		if (!recordingNow())
 		{
+			global.gameinfo.prepareForSave("TESTPLYR","TEST1!");
 			Msg::Notice("録画スタート!!");
 			global.frame_auto_increment = true;
 			global.frame_index = 0;
@@ -154,20 +155,22 @@ void StClient::processKeyInput()
 			global.frame_auto_increment = false;
 			global.frame_index = 0;
 			recordingStop();
+			global.gameinfo.save();
 		}
 		break;
 	case SK_CTRL + 'T'://Ctrl+T
-		global.gameinfo.prepareForSave("0000ABCD", "00000QWERT");
+		global.gameinfo.prepareForSave("TESTPLYR", "TEST2!");
 		global.gameinfo.save();
 		break;
 	case SK_CTRL + 'L'://Ctrl+L
-		global.gameinfo.movie.load("00000QWERT");
+		global.gameinfo.movie.load("TEST1!");
 		break;
 	case SK_CTRL + 'K'://Ctrl+K
-		global.gameinfo.partner1.load("00000QWERT");
+		global.gameinfo.partner1.load("TEST2!");
 		break;
 	case SK_CTRL + 'R'://Ctrl+R
 		Msg::Notice("リプレイ!!");
+		global.gameinfo.movie.player_color_rgba.set(230,180,100, 160);
 		global.frame_auto_increment = true;
 		global.frame_index = 0;
 		recordingReplay();
