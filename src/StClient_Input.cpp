@@ -169,7 +169,7 @@ void StClient::processKeyInput()
 		global.gameinfo.partner1.load("TEST2!");
 		break;
 	case SK_CTRL + 'R'://Ctrl+R
-		Msg::Notice("リプレイ!!");
+		Msg::Notice("リプレイ!!"); 
 		global.gameinfo.movie.player_color_rgba.set(230,180,100, 160);
 		global.frame_auto_increment = true;
 		global.frame_index = 0;
