@@ -213,6 +213,74 @@ struct MovieData
 	bool load(const string& id);
 };
 
+
+class AppCore
+{
+public:
+	static bool initGraphics(bool full_screen, const std::string& title);
+	static void MyGetKeyboardState(BYTE* kbd);
+};
+
+
+class VoxGrafix
+{
+public:
+	enum DrawStyle
+	{
+		//DRAW_VOXELS_QUAD = 2,
+		DRAW_VOXELS_PERSON = 1,
+		DRAW_VOXELS_MOVIE  = 2,
+	};
+
+	struct OutData
+	{
+		int atari_count;
+		int dot_count;
+	};
+
+	struct DrawParam
+	{
+		mgl::glRGBA  inner_color;
+		mgl::glRGBA  outer_color;
+		float        dot_size;
+		bool         mute_if_veryfew;
+		int          mute_threshould;
+		int          person_inc;
+		int          movie_inc;
+		float        partner_y;
+		float        person_base_alpha;
+		bool         is_calibration;
+
+		DrawParam()
+		{
+			inner_color.set(240,160,80, 160);
+			outer_color.set(60,60,60, 120);
+			dot_size          = 1.0f;
+			mute_if_veryfew   = false;
+			mute_threshould   = 0;
+			person_inc        = 16;
+			movie_inc         = 16;
+			partner_y         = 0.0f;
+			person_base_alpha = 1.0f;
+			is_calibration    = false;
+		}
+	};
+
+	struct Static
+	{
+		int   atari_count;
+		int   dot_count;
+	};
+
+	static Static global;
+
+	static bool DrawMovieFrame(const MovieData& mov, int frame_index, mgl::glRGBA inner, mgl::glRGBA outer, const char* movie_type, DrawStyle style);
+	static void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam);
+	static bool DrawVoxels(const Dots& dots, const DrawParam& param, mgl::glRGBA inner, mgl::glRGBA outer, DrawStyle style = DRAW_VOXELS_PERSON);
+};
+
+
+
 namespace Depth10b6b{
 	void record(const RawDepthImage& depth1, const RawDepthImage& depth2, MovieData::Frame& dest_frame);
 	void playback(RawDepthImage& dest1, RawDepthImage& dest2, const MovieData::Frame& frame);

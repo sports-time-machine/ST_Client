@@ -1,0 +1,11 @@
+*.obj
+
+*.log
+
+*.pch
+
+*.tlog
+
+*.pdb
+
+*.ipch

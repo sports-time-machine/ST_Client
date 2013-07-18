@@ -8,7 +8,6 @@
 using namespace mgl;
 using namespace mi;
 using namespace stclient;
-using namespace vector_and_matrix;
 
 
 
@@ -343,9 +342,8 @@ void StClient::drawMovingObject()
 //============
 // Dotsの描画
 //============
-void StClient::drawRealDots(Dots& dots, float dot_size)
+void StClient::drawRealDots(Dots& dots, const glRGBA color_body, float dot_size)
 {
-	const glRGBA color_body = global.gameinfo.movie.player_color_rgba;
 	const glRGBA color_cam1(80,190,250);
 	const glRGBA color_cam2(250,190,80);
 	const glRGBA color_other(170,170,170);
@@ -360,6 +358,10 @@ void StClient::drawRealDots(Dots& dots, float dot_size)
 	dev1.CreateCookedImage();
 	dev2.CreateCookedImage();
 
+	VoxGrafix::DrawParam param;
+	this->initDrawParamFromGlobal(param, dot_size);
+
+	// スナップショットの描画
 	if (this->snapshot_life>0)
 	{
 		--snapshot_life;
@@ -367,12 +369,13 @@ void StClient::drawRealDots(Dots& dots, float dot_size)
 		if (snapshot_life>0)
 		{
 			dots.init();
-			MixDepth(dots, dev1.raw_snapshot, cam1);
-			MixDepth(dots, dev2.raw_snapshot, cam2);
+			VoxGrafix::MixDepth(dots, dev1.raw_snapshot, cam1);
+			VoxGrafix::MixDepth(dots, dev2.raw_snapshot, cam2);
 
 			glRGBA color = config.color.snapshot;
 			color.a = color.a * snapshot_life / config.snapshot_life_frames;
-			drawVoxels(dots, dot_size, color, color_outer, DRAW_VOXELS_PERSON);
+
+			VoxGrafix::DrawVoxels(dots, param, color, color_outer);
 		}
 	}
 
@@ -383,11 +386,11 @@ void StClient::drawRealDots(Dots& dots, float dot_size)
 		{
 			Timer tm(&time_profile.drawing.mix1);
 			dots.init();
-			MixDepth(dots, image1, cam1);
+			VoxGrafix::MixDepth(dots, image1, cam1);
 		}
 		{
 			Timer tm(&time_profile.drawing.mix2);
-			MixDepth(dots, image2, cam2);
+			VoxGrafix::MixDepth(dots, image2, cam2);
 		}
 
 		float avg_x = 0.0f;
@@ -427,7 +430,7 @@ void StClient::drawRealDots(Dots& dots, float dot_size)
 		
 		{
 			Timer tm(&time_profile.drawing.drawvoxels);
-			drawVoxels(dots, dot_size, color_body, color_outer, DRAW_VOXELS_PERSON);
+			VoxGrafix::DrawVoxels(dots, param, color_body, color_outer);
 		}
 	}
 	else
@@ -435,20 +438,20 @@ void StClient::drawRealDots(Dots& dots, float dot_size)
 		if (active_camera==CAM_A)
 		{
 			dots.init();
-			MixDepth(dots, image1, cam1);
-			drawVoxels(dots, dot_size, color_cam1, color_outer, DRAW_VOXELS_PERSON);
+			VoxGrafix::MixDepth(dots, image1, cam1);
+			VoxGrafix::DrawVoxels(dots, param, color_cam1, color_outer);
 			dots.init();
-			MixDepth(dots, image2, cam2);
-			drawVoxels(dots, dot_size, color_other, color_other, DRAW_VOXELS_PERSON);
+			VoxGrafix::MixDepth(dots, image2, cam2);
+			VoxGrafix::DrawVoxels(dots, param, color_other, color_other);
 		}
 		else
 		{
 			dots.init();
-			MixDepth(dots, image1, cam1);
-			drawVoxels(dots, dot_size, color_other, color_other, DRAW_VOXELS_PERSON);
+			VoxGrafix::MixDepth(dots, image1, cam1);
+			VoxGrafix::DrawVoxels(dots, param, color_other, color_other);
 			dots.init();
-			MixDepth(dots, image2, cam2);
-			drawVoxels(dots, dot_size, color_cam2, color_outer, DRAW_VOXELS_PERSON);
+			VoxGrafix::MixDepth(dots, image2, cam2);
+			VoxGrafix::DrawVoxels(dots, param, color_cam2, color_outer);
 		}
 	}
 }

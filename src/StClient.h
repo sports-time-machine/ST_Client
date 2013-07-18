@@ -3,7 +3,6 @@
 #include "mi/mi.h"
 #include "FreeType.h"
 #include "Config.h"
-#include "vec4.h"
 #include "file_io.h"
 #include "gl_funcs.h"
 #include "psl_if.h"
@@ -26,14 +25,6 @@ const float PI = 3.14159265f;
 const int UDP_CLIENT_TO_CONTROLLER = 38702;
 const int UDP_CONTROLLER_TO_CLIENT = 38708;
 
-
-
-enum MovieMode
-{
-	MOVIE_READY,
-	MOVIE_RECORD,
-	MOVIE_PLAYBACK,
-};
 
 // WINNT.H
 #undef STATUS_TIMEOUT
@@ -319,11 +310,7 @@ struct Global
 	mgl::glRGBA    color_overlay;
 	size_t         idle_image_number;
 	int            total_frames;
-	int            atari_count;
-	float          voxels_alpha;
-	bool           voxel_drew;
 	int            auto_clear_floor_count;
-	int            dot_count;
 	MovingObject   partner_mo;
 	MovinbObjectImages moi_lib;
 
@@ -343,13 +330,9 @@ struct Global
 		calibration.enabled    = false;
 		idle_image_number      = 0;
 		total_frames           = 0;
-		atari_count            = 0;
-		voxels_alpha           = 1.0f;
-		voxel_drew             = false;
 		auto_clear_floor_count = 0;
 		in_game_or_replay      = false;
 		game_start_frame       = 0;
-		dot_count              = 0;
 		color_overlay.set(0,0,0,0);  // transparent
 	}
 };
@@ -458,16 +441,14 @@ private:
 	void display2dSectionPrepare();
 	void display2dSection();
 	void displayDebugInfo();
-	void processOneFrame();
+	void displayBlackScreen();
+	void displayPictureScreen();
 
+	void processOneFrame();
 	void processKeyInput();
 	bool processKeyInput_Calibration(int key);
 	void processMouseInput();
-
 	void processUdpCommands();
-
-	void displayBlackScreen();
-	void displayPictureScreen();
 
 	void recordingStart();
 	void recordingStop();
@@ -487,28 +468,18 @@ private:
 	void drawRunEnv();
 	void draw3dWall();
 	void drawFieldGrid(int size_cm);
-	void drawRealDots(Dots& dots, float dot_size);
+	void drawRealDots(Dots& dots, glRGBA color_body, float dot_size);
 	void drawIdleImage();
 	void drawMovingObject();
 	void drawNormalGraphics();
 	void drawNormalGraphicsObi();
 	void drawManyTriangles();
-	bool drawMovieFrame(const MovieData& mov, glRGBA inner, glRGBA outer, const char* movie_type);
-
-	enum DrawVoxelsStyle
-	{
-		//DRAW_VOXELS_QUAD = 2,
-		DRAW_VOXELS_PERSON = 1,
-		DRAW_VOXELS_MOVIE  = 2,
-	};
-
-	bool drawVoxels(const Dots& dots, float dot_size,
-		glRGBA inner_color, glRGBA outer_color,
-		DrawVoxelsStyle style);
 
 	void CreateAtari(const Dots& dots);
 	void CreateAtariFromBodyCenter();
 	void CreateAtariFromDepthMatrix(const Dots& dots);
+
+	void initDrawParamFromGlobal(VoxGrafix::DrawParam& param, float dot_size);
 
 public:
 	static string GetCamConfigPath();
@@ -516,9 +487,6 @@ public:
 
 const char* to_s(int x);
 
-
-void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam);
-void myGetKeyboardState(BYTE* kbd);
 
 }//namespace stclient
 

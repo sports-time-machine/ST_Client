@@ -22,12 +22,14 @@
     <None Include="..\..\..\..\..\..\ST\STMx64.psl" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\AppCore.cpp" />
     <ClCompile Include="src\Config.cpp" />
     <ClCompile Include="src\depth.cpp" />
     <ClCompile Include="src\Depth10b6b.cpp" />
     <ClCompile Include="src\Depth10b6v_v1_1.cpp" />
     <ClCompile Include="src\file_io.cpp" />
     <ClCompile Include="src\FreeType.cpp" />
+    <ClCompile Include="src\GameInfo.cpp" />
     <ClCompile Include="src\gl.cpp" />
     <ClCompile Include="src\gl_funcs.cpp" />
     <ClCompile Include="src\main.cpp" />
@@ -45,6 +47,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="src\St3dData.cpp" />
     <ClCompile Include="src\StClient.cpp" />
     <ClCompile Include="src\StClient_Display.cpp" />
     <ClCompile Include="src\StClient_DisplayFunc.cpp" />
@@ -53,6 +56,7 @@
     <ClCompile Include="src\StClient_Udp.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\ConstValue.h" />
     <ClInclude Include="src\mi\Clipboard.h" />
     <ClInclude Include="src\mi\Console.h" />
     <ClInclude Include="src\mi\Core.h" />
@@ -63,6 +67,7 @@
     <ClInclude Include="src\mi\Timer.h" />
     <ClInclude Include="src\mi\Udp.h" />
     <ClInclude Include="src\pch.h" />
+    <ClInclude Include="src\St3dData.h" />
     <ClInclude Include="src\stclient.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

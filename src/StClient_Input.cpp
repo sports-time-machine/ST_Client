@@ -75,7 +75,7 @@ void StClient::processKeyInput()
 		const int KEYS = 256;
 		static bool prev[KEYS] = {};
 		BYTE curr_kbd[KEYS] = {};
-		myGetKeyboardState(curr_kbd);
+		AppCore::MyGetKeyboardState(curr_kbd);
 		for (int i=0; i<KEYS; ++i)
 		{
 			down[i] = ((curr_kbd[i] & 0x80)!=0);
@@ -353,7 +353,7 @@ void StClient::processMouseInput()
 		cal_cam2.prev = cal_cam2.curr;		
 	}
 	BYTE kbd[256];
-	myGetKeyboardState(kbd);
+	AppCore::MyGetKeyboardState(kbd);
 
 	const bool shift = (kbd[VK_SHIFT  ] & 0x80)!=0;
 

@@ -13,7 +13,6 @@
 using namespace mgl;
 using namespace mi;
 using namespace stclient;
-using namespace vector_and_matrix;
 
 
 const int TEXTURE_SIZE = 512;
@@ -21,16 +20,18 @@ const int TEXTURE_SIZE = 512;
 
 
 
-void stclient::myGetKeyboardState(BYTE* kbd)
+
+void StClient::initDrawParamFromGlobal(VoxGrafix::DrawParam& param, float dot_size)
 {
-	if (glfwGetWindowParam(GLFW_ACTIVE))
-	{
-		GetKeyboardState(kbd);
-	}
-	else
-	{
-		memset(kbd, 0, 256);
-	}
+	param = VoxGrafix::DrawParam();
+	param.dot_size          = dot_size;
+	param.is_calibration    = global.calibration.enabled;
+	param.movie_inc         = config.movie_inc;
+	param.person_inc        = config.person_inc;
+	param.mute_if_veryfew   = (clientStatus()==STATUS_GAME || clientStatus()==STATUS_IDLE);
+	param.mute_threshould   = config.whitemode_voxel_threshould;
+	param.partner_y         = config.partner_y;
+	param.person_base_alpha = config.person_base_alpha;
 }
 
 
@@ -294,13 +295,13 @@ void StClient::drawNormalGraphics()
 		this->drawIdleImage();
 		//# this->drawManyTriangles();
 
-		// アイドル用ボディ
-		global.gameinfo.movie.player_color_rgba.set(80,70,50);
-
 		// 実映像の表示
 		this->display3dSectionPrepare();
 		static Dots dots;
-		drawRealDots(dots, config.person_dot_px);
+		drawRealDots(
+			dots,
+			glRGBA(80,70,50),
+			config.person_dot_px);
 		break;}
 
 	case STATUS_PICT:{
@@ -317,8 +318,10 @@ void StClient::drawNormalGraphics()
 		this->display3dSectionPrepare();
 		this->display3dSection();
 		static Dots dots;
-		global.gameinfo.movie.player_color_rgba.set(255,255,255,64);
-		drawRealDots(dots, config.person_dot_px);
+		drawRealDots(
+			dots,
+			glRGBA(255,255,255,64),
+			config.person_dot_px);
 		
 		// 床消しのアップデート
 		dev1.updateFloorDepth();
@@ -392,6 +395,10 @@ void StClient::processOneFrame()
 	// キネクト情報はつねにもらっておく
 	this->displayEnvironment();
 
+	// 描画したドットの数
+	VoxGrafix::global.atari_count = 0;
+	VoxGrafix::global.dot_count   = 0;
+
 	// 1フレ描画
 	this->drawOneFrame();
 
@@ -400,7 +407,7 @@ void StClient::processOneFrame()
 	//   - 画面にボクセルが描画されていないとき
 	if (clientStatus()==STATUS_IDLE)
 	{
-		if (global.dot_count < AUTO_CF_THRESHOULD)
+		if (VoxGrafix::global.dot_count < AUTO_CF_THRESHOULD)
 		{
 			++global.auto_clear_floor_count;
 			this->dev1.updateFloorDepth();
@@ -417,9 +424,6 @@ void StClient::processOneFrame()
 
 void StClient::drawOneFrame()
 {
-	// 描画したかのフラグ
-	global.voxel_drew = false;
-
 	if (global.calibration.enabled)
 	{
 		glfwEnable(GLFW_MOUSE_CURSOR);
@@ -434,7 +438,7 @@ void StClient::drawOneFrame()
 
 		// 実映像の表示 -- キャリブレーション時はドットサイズ固定
 		static Dots dots;
-		this->drawRealDots(dots, 1.5f);
+		this->drawRealDots(dots, glRGBA(70,80,100), 1.5f);
 	}
 	else
 	{
@@ -565,7 +569,7 @@ void StClient::displayPictureScreen()
 void ChangeCalParamKeys::init()
 {
 	BYTE kbd[256]={};
-	myGetKeyboardState(kbd);
+	AppCore::MyGetKeyboardState(kbd);
 
 	this->ctrl   = (kbd[VK_CONTROL] & 0x80)!=0;
 	this->rot_xy = (kbd['T'] & 0x80)!=0;
@@ -574,217 +578,6 @@ void ChangeCalParamKeys::init()
 	this->scalex = (kbd['J'] & 0x80)!=0;
 }
 
-
-
-
-
-void stclient::MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam)
-{
-	const mat4x4 trans = mat4x4::create(
-			cam.rot.x, cam.rot.y, cam.rot.z,
-			cam.pos.x, cam.pos.y, cam.pos.z,
-			cam.scale.x, cam.scale.y, cam.scale.z);
-
-	int index = 0;
-	for (int y=0; y<480; ++y)
-	{
-		for (int x=0; x<640; ++x)
-		{
-			int z = src.image[index++];
-
-			// no depth -- ignore
-			if (z==0) continue;
-
-			Point3D p;
-			float fx = (320-x)/640.0f;
-			float fy = (240-y)/640.0f;
-			float fz = z/1000.0f; // milli-meter(mm) to meter(m)
-
-			// -0.5 <= fx <= 0.5
-			// -0.5 <= fy <= 0.5
-			//  0.0 <= fz <= 10.0  (10m)
-
-			// 四角錐にする
-			fx = fx * fz;
-			fy = fy * fz;
-
-			// 回転、拡縮、平行移動
-			vec4 point = trans * vec4(fx, fy, fz, 1.0f);
-			p.x = point[0];
-			p.y = point[1];
-			p.z = point[2];
-			dots.push(p);
-		}
-	}
-}
-
-bool StClient::drawVoxels(const Dots& dots, float dot_size, glRGBA inner_color, glRGBA outer_color, DrawVoxelsStyle style)
-{
-#if 0
-	// Create histogram
-	for (int i=0; i<dots.size(); ++i)
-	{
-		dots[i].
-	}
-#endif
-	global.atari_count = 0;
-	global.dot_count = 0;
-	for (int i=0; i<dots.size(); ++i)
-	{
-		const float x = dots[i].x;
-		const float y = dots[i].y;
-		const float z = dots[i].z;
-
-		const bool in_x = (x>=GROUND_LEFT && x<=GROUND_RIGHT);
-		const bool in_y = (y>=0.0f && y<=GROUND_HEIGHT);
-		const bool in_z = (z>=0.0f && z<=GROUND_DEPTH);
-
-		if (in_x && in_y)
-		{
-			++global.dot_count;
-			if (in_z)
-			{
-				++global.atari_count;
-			}
-		}
-	}
-
-
-	// GAME/IDLEモードで描画すべきボクセルが少ない場合、描画をとりやめる
-	switch (clientStatus())
-	{
-	case STATUS_GAME:
-	case STATUS_IDLE:
-		if (global.atari_count < config.whitemode_voxel_threshould)
-		{
-			global.voxels_alpha = 0.0f;
-			return false;
-		}
-		break;
-	}
-
-
-
-	// 描画しましたフラグ
-	global.voxel_drew = true;
-
-
-
-	if (global.voxels_alpha<1.0f)
-	{
-		global.voxels_alpha = minmax(global.voxels_alpha + 0.07f, 0.0f, 1.0f);
-	}
-
-
-
-
-	// @voxel @dot
-	const bool quad = false;
-	if (quad)
-	{
-		gl::Texture(true);
-		glBindTexture(GL_TEXTURE_2D, global.images.dot);
-		glBegin(GL_QUADS);
-	}
-	else
-	{
-		gl::Texture(false);
-		glPointSize(dot_size);
-		glBegin(GL_POINTS);
-	}
-
-	const int inc = 
-		(style==DRAW_VOXELS_PERSON)
-			? mi::minmax(config.person_inc, MIN_VOXEL_INC, MAX_VOXEL_INC)
-			: mi::minmax(config.movie_inc,  MIN_VOXEL_INC, MAX_VOXEL_INC); 
-	const int SIZE16 = dots.size() << 4;
-
-	const float add_y = 
-		(style==DRAW_VOXELS_PERSON)
-			? 0.0f
-			: config.partner_y;
-	
-	for (int i16=0; i16<SIZE16; i16+=inc)
-	{
-		const int i = (i16 >> 4);
-
-		const float x = dots[i].x;
-		const float y = dots[i].y;
-		const float z = dots[i].z;
-		const bool in_x = (x>=GROUND_LEFT   && x<=GROUND_RIGHT);
-		const bool in_y = (y>=GROUND_BOTTOM && y<=GROUND_TOP);
-		const bool in_z = (z>=GROUND_NEAR   && z<=GROUND_FAR);
-
-#if 0
-		// Depth is alpha version
-		float col = z/4;
-		if (col<0.25f) col=0.25f;
-		if (col>0.90f) col=0.90f;
-		col = 1.00f - col;
-		const int col255 = (int)(col*220);
-
-		if (in_x && in_y && in_z)
-		{
-			inner_color.glColorUpdate(col255);
-		}
-		else
-		{
-			outer_color.glColorUpdate(col255>>2);
-		}
-#else
-		// Depth is alpha version
-		float col = global.voxels_alpha * z/4;
-		if (col<0.25f) col=0.25f;
-		if (col>0.90f) col=0.90f;
-		col = 1.00f - col;
-		const int col255 = (int)(col * config.person_base_alpha);
-		if (global.calibration.enabled)
-		{
-			// キャリブレーション中
-			if (in_x && in_y && in_z)
-				inner_color.glColorUpdate(col255>>1);
-			else
-				outer_color.glColorUpdate(col255>>2);
-		}
-		else
-		{
-			// ゲーム中はエリア内だけ表示する
-			if (in_x && in_y && in_z)
-				inner_color.glColorUpdate(col255);
-			else
-				continue;
-		}
-#endif
-
-		if (quad)
-		{
-			const float K = 0.01f;
-			glTexCoord2f(0,0); glVertex3f(x-K,y-K,-z);
-			glTexCoord2f(1,0); glVertex3f(x+K,y-K,-z);
-			glTexCoord2f(1,1); glVertex3f(x+K,y+K,-z);
-			glTexCoord2f(0,1); glVertex3f(x-K,y+K,-z);
-		}
-		else
-		{
-			glVertex3f(x,y+add_y,-z);
-		}
-	}
-
-	glEnd();
-	return true;
-}
-
-// ゲーム情報の破棄、初期化
-void GameInfo::init()
-{
-	movie.clearAll();
-	partner1.clearAll();
-	partner2.clearAll();
-	partner3.clearAll();
-	movie.frames.clear();
-	movie.cam1 = CamParam();
-	movie.cam2 = CamParam();
-}
 
 void StClient::createSnapshot()
 {
@@ -875,89 +668,6 @@ void StClient::MovieRecord()
 }
 
 
-
-string GameInfo::GetFolderName(const string& id)
-{
-	string folder = string("//")+config.server_name+"/ST/Movie/";
-
-	// 逆順で追加
-	// 0000012345 => '5/4/3/2/1/0/0/0/0/0/'
-	const size_t LEN = id.size();	
-	for (size_t i=0; i<LEN; ++i)
-	{
-		folder += id[LEN-1-i];
-		folder += '/';
-	}
-
-	return folder;
-}
-
-string GameInfo::GetMovieFileName(const string& id)
-{
-	return GetFolderName(id) + id + ".stmov";
-}
-
-// サムネ保存
-//  - ファイル名: "0000012345-1.jpg"
-void GameInfo::save_Thumbnail(const string& basename, const string& suffix, int)
-{
-	string path = basename + "-" + suffix + ".jpg";
-
-	File f;
-	if (!f.openForWrite(path.c_str()))
-	{
-		Console::printf(CON_RED, "Cannot open file '%s' (save_Thumbnail)\n", path.c_str());
-		return;
-	}
-}
-
-bool GameInfo::prepareForSave(const string& player_id, const string& game_id)
-{
-	this->movie.game_id   = game_id;
-	this->movie.player_id = player_id;
-
-	Msg::SystemMessage("Prepare for save!");
-	printf("Game-ID: %s\n", game_id.c_str());
-
-	// Folder name: ${BaseFolder}/E/D/C/B/A/0/0/0/0/0/
-	const string folder = GetFolderName(game_id);
-	printf("Folder: %s\n", folder.c_str());
-	mi::Folder::createFolder(folder.c_str());
-
-	// Base name: ${BaseFolder}/E/D/C/B/A/0/0/0/0/0/00000ABCDE
-	this->basename = folder + game_id;
-
-	// Open: 00000ABCDE-1.stmov
-	const string filename = this->basename + "-" + to_s(config.client_number) + ".stmov";
-	printf("Movie: %s\n", filename.c_str());
-	if (!movie_file.openForWrite(filename))
-	{
-		Msg::ErrorMessage("Cannot open file (preapreForSave)", filename);
-		return false;
-	}
-
-	return true;
-}
-
-void GameInfo::save()
-{
-	Msg::SystemMessage("Save to file!");
-
-	// Save Movie
-	saveToFile(movie_file, global.gameinfo.movie);
-	movie_file.close();
-	Msg::Notice("Saved!");
-
-	// Save Thumbnail
-#if 0
-	save_Thumbnail(basename,"1",0);
-	save_Thumbnail(basename,"2",0);
-	save_Thumbnail(basename,"3",0);
-	save_Thumbnail(basename,"4",0);
-	save_Thumbnail(basename,"5",0);
-	save_Thumbnail(basename,"6",0);
-#endif
-}
 
 static void CreateDummyDepth(RawDepthImage& depth)
 {
@@ -1155,74 +865,14 @@ void StClient::SaveCamConfig()
 	}
 }
 
-
-static void init_open_gl_params()
-{
-	glEnable(GL_TEXTURE_2D);
-	glHint(GL_LINE_SMOOTH_HINT,            GL_NICEST);
-	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-	glHint(GL_POLYGON_SMOOTH_HINT,         GL_NICEST);
-	gl::AlphaBlending(true);
-}
-
-
-
-HWND GetGlfwHwnd(void)
-{
-	const int buffer_size = 1024;
-	static char new_title[buffer_size];
-
-	wsprintf(new_title,"%d/%d", GetTickCount(), GetCurrentProcessId());
-	glfwSetWindowTitle(new_title);
-	Sleep(40);
-	return FindWindow(NULL, new_title);
-}
-
-void FullScreen()
-{
-	const HWND hwnd = GetGlfwHwnd();
-	SetWindowLong(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
-	const int dispx = GetSystemMetrics(SM_CXSCREEN);
-	const int dispy = GetSystemMetrics(SM_CYSCREEN);
-	glfwSetWindowSize(dispx, dispy);
-}
-
-
 bool StClient::initGraphics()
 {
-	auto open_window = [&]()->int{
-		printf("Initial Fullscreen: %d\n", config.initial_fullscreen);
-		return glfwOpenWindow(
-			640,
-			480,
-			0, 0, 0,
-			0, 0, 0,
-			GLFW_WINDOW);
-	};
+	string name;
+	name += "スポーツタイムマシン クライアント";
+	name += " (";
+	name += Core::getComputerName();
+	name += ")";
+	glfwSetWindowTitle(name.c_str());
 
-	if (glfwInit()==GL_FALSE)
-	{
-		return false;
-	}
-	if (open_window()==GL_FALSE)
-	{
-		return false;
-	}
-
-	if (config.initial_fullscreen)
-	{
-		FullScreen();
-	}
-	else
-	{
-		string name;
-		name += "スポーツタイムマシン クライアント";
-		name += " (";
-		name += Core::getComputerName();
-		name += ")";
-		glfwSetWindowTitle(name.c_str());
-	}
-
-	init_open_gl_params();
-	return true;
+	return AppCore::initGraphics(config.initial_fullscreen, name);
 }

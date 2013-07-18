@@ -1,0 +1,134 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{9E78A583-7EA2-4B58-ADBB-367151214CDC}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>ST_Viewer</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(WindowsSdkDir)\include;$(VCInstallDir)include;C:\Dev\Include</IncludePath>
+    <LibraryPath>$(LibraryPath);$(VSInstallDir);$(VSInstallDir)lib;C:\Dev\Lib</LibraryPath>
+    <SourcePath>$(VCInstallDir)atlmfc\src\mfc;$(VCInstallDir)atlmfc\src\mfcm;$(VCInstallDir)atlmfc\src\atl;$(VCInstallDir)crt\src;C:\Dev\Project\ST_Client\ST_Client\src</SourcePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(WindowsSdkDir)\include;$(VCInstallDir)include;C:\Dev\Include</IncludePath>
+    <LibraryPath>$(LibraryPath);$(VSInstallDir);$(VSInstallDir)lib;C:\Dev\Lib</LibraryPath>
+    <ReferencePath>
+    </ReferencePath>
+    <SourcePath>$(VCInstallDir)atlmfc\src\mfc;$(VCInstallDir)atlmfc\src\mfcm;$(VCInstallDir)atlmfc\src\atl;$(VCInstallDir)crt\src;C:\Dev\Project\ST_Client\ST_Client\src</SourcePath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeaderFile>viewer_pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>viewer_pch.h</ForcedIncludeFiles>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\ST_Client\src\AppCore.cpp" />
+    <ClCompile Include="..\ST_Client\src\Depth10b6b.cpp" />
+    <ClCompile Include="..\ST_Client\src\Depth10b6v_v1_1.cpp" />
+    <ClCompile Include="..\ST_Client\src\file_io.cpp" />
+    <ClCompile Include="..\ST_Client\src\FreeType.cpp" />
+    <ClCompile Include="..\ST_Client\src\gl.cpp" />
+    <ClCompile Include="..\ST_Client\src\gl_funcs.cpp" />
+    <ClCompile Include="..\ST_Client\src\mi\Clipboard.cpp" />
+    <ClCompile Include="..\ST_Client\src\mi\Console.cpp" />
+    <ClCompile Include="..\ST_Client\src\mi\Core.cpp" />
+    <ClCompile Include="..\ST_Client\src\mi\Fps.cpp" />
+    <ClCompile Include="..\ST_Client\src\mi\Image.cpp" />
+    <ClCompile Include="..\ST_Client\src\mi\Libs.cpp" />
+    <ClCompile Include="..\ST_Client\src\mi\Timer.cpp" />
+    <ClCompile Include="..\ST_Client\src\mi\Udp.cpp" />
+    <ClCompile Include="..\ST_Client\src\MovingObject.cpp" />
+    <ClCompile Include="..\ST_Client\src\Msg.cpp" />
+    <ClCompile Include="..\ST_Client\src\StClient_Display.cpp" />
+    <ClCompile Include="..\ST_Client\src\StClient_DisplayFunc.cpp" />
+    <ClCompile Include="..\ST_Client\src\StClient_Eye.cpp" />
+    <ClCompile Include="..\ST_Client\src\StClient_Input.cpp" />
+    <ClCompile Include="..\ST_Client\src\viewer\viewer_main.cpp" />
+    <ClCompile Include="..\ST_Client\src\viewer\viewer_pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="src\St3dData.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\ST_Client\src\file_io.h" />
+    <ClInclude Include="..\ST_Client\src\FreeType.h" />
+    <ClInclude Include="..\ST_Client\src\gl_funcs.h" />
+    <ClInclude Include="..\ST_Client\src\mi\Clipboard.h" />
+    <ClInclude Include="..\ST_Client\src\mi\Console.h" />
+    <ClInclude Include="..\ST_Client\src\mi\Core.h" />
+    <ClInclude Include="..\ST_Client\src\mi\Fps.h" />
+    <ClInclude Include="..\ST_Client\src\mi\Image.h" />
+    <ClInclude Include="..\ST_Client\src\mi\Libs.h" />
+    <ClInclude Include="..\ST_Client\src\mi\mi.h" />
+    <ClInclude Include="..\ST_Client\src\mi\Timer.h" />
+    <ClInclude Include="..\ST_Client\src\mi\Udp.h" />
+    <ClInclude Include="..\ST_Client\src\St3dData.h" />
+    <ClInclude Include="..\ST_Client\src\vec4.h" />
+    <ClInclude Include="..\ST_Client\src\viewer\viewer_pch.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

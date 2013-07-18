@@ -77,6 +77,13 @@
     <ClCompile Include="src\MovingObject.cpp">
       <Filter>stcl_cmn</Filter>
     </ClCompile>
+    <ClCompile Include="src\AppCore.cpp">
+      <Filter>stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GameInfo.cpp">
+      <Filter>stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\St3dData.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\mi\Clipboard.h">
@@ -110,6 +117,8 @@
       <Filter>mi</Filter>
     </ClInclude>
     <ClInclude Include="src\pch.h" />
+    <ClInclude Include="src\ConstValue.h" />
+    <ClInclude Include="src\St3dData.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\..\..\..\..\ST\STMx64.psl" />

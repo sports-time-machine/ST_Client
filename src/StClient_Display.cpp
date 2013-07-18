@@ -52,55 +52,6 @@ static void DrawCenterOfPerson()
 		1.0f);
 }
 
-// 単発ムービーの描画
-bool StClient::drawMovieFrame(const MovieData& mov, glRGBA inner, glRGBA outer, const char* movie_type)
-{
-	if (mov.total_frames==0)
-	{
-		// Empty movie.
-		return false;
-	}
-
-	if (global.frame_index >= mov.total_frames)
-	{
-		printf("movie is end. [%s] %d/%d\n",
-			movie_type,
-			global.frame_index,
-			mov.total_frames);
-
-		// ムービーおわり
-		return false;
-	}
-
-	// 描画用の独立したドット空間、デプスイメージをもっておく
-	static RawDepthImage depth1, depth2;
-	static Dots dots;
-	dots.init();
-	
-	// 有効なフレームを探す
-	int disp_frame = mov.getValidFrame(global.frame_index);
-	if (global.frame_index != disp_frame)
-	{
-		printf("フレーム補正 frame %d => %d\n",  global.frame_index, disp_frame);
-	}
-	if (disp_frame>=0)
-	{
-		switch (mov.ver)
-		{
-		case MovieData::VER_1_0:
-			Depth10b6b::playback(depth1, depth2, mov.frames.find(disp_frame)->second);
-			break;
-		case MovieData::VER_1_1:
-			Depth10b6b_v1_1::playback(depth1, depth2, mov.frames.find(disp_frame)->second);
-			break;
-		}
-		MixDepth(dots, depth1, mov.cam1);
-		MixDepth(dots, depth2, mov.cam2);
-		drawVoxels(dots, mov.dot_size, inner, outer, DRAW_VOXELS_MOVIE);
-	}
-	return true;
-}
-
 //========================
 // 3D描画メイン
 //========================
@@ -122,7 +73,10 @@ void StClient::display3dSection()
 	if (gd.show_realmovie)
 	{
 		static Dots dots;
-		this->drawRealDots(dots, config.person_dot_px);
+		this->drawRealDots(
+			dots,
+			global.gameinfo.movie.player_color_rgba,
+			config.person_dot_px);
 
 		// センター座標(@Center)の取得
 		this->CreateAtari(dots);
@@ -135,20 +89,30 @@ void StClient::display3dSection()
 	// 並走者
 	if (gd.show_partner)
 	{
-		drawMovieFrame(
+		VoxGrafix::DrawMovieFrame(
 			global.gameinfo.partner1,
+			global.frame_index,
 			config.color.movie1,
 			glRGBA(50,50,50),
-			"partner1");
+			"partner1",
+			VoxGrafix::DRAW_VOXELS_MOVIE);
 	}
 
 	if (gd.show_replay)
 	{
-		if (!drawMovieFrame(global.gameinfo.movie, global.gameinfo.movie.player_color_rgba, glRGBA(50,200,0), "replay"))
+		const bool res = VoxGrafix::DrawMovieFrame(
+			global.gameinfo.movie,
+			global.frame_index,
+			global.gameinfo.movie.player_color_rgba,
+			glRGBA(50,200,0),
+			"replay",
+			VoxGrafix::DRAW_VOXELS_PERSON);
+		if (!res)
 		{
 			// リプレイ終わり
 			Msg::Notice("End replay");
 			changeStatus(STATUS_READY);
+			global.frame_auto_increment = false;
 		}
 	}
 
@@ -401,9 +365,9 @@ void StClient::displayDebugInfo()
 	pr(monospace, 20, y+=H,
 		"TOTAL [%d frames] [WVTac=%3d][WVT=%4d][DrawCnt=%5d][auto-CF=%d]",
 			global.total_frames,
-			global.atari_count,
+			VoxGrafix::global.atari_count,
 			config.whitemode_voxel_threshould,
-			global.dot_count,
+			VoxGrafix::global.dot_count,
 			global.auto_clear_floor_count);
 
 	// @fps
