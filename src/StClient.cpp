@@ -37,8 +37,6 @@ void stclient::myGetKeyboardState(BYTE* kbd)
 typedef std::vector<openni::RGB888Pixel> RgbScreen;
 typedef std::map<int,RgbScreen> RgbScreenMovie;
 
-local openni::RGB888Pixel* moviex = nullptr;
-
 
 // @constructor, @init
 StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
@@ -50,10 +48,10 @@ StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 	_private_client_status(STATUS_SLEEP)
 {
 	eye.view_2d_run();
-	cal_cam1.curr = config.cam1;
-	cal_cam2.curr = config.cam2;
 	udp_recv.init(UDP_CONTROLLER_TO_CLIENT);
-	mode.mirroring   = config.mirroring;
+	cal_cam1.curr    = config.cam1;
+	cal_cam2.curr    = config.cam2;
+	global.mirroring = config.mirroring;
 }
 
 StClient::~StClient()
@@ -1161,27 +1159,13 @@ void StClient::SaveCamConfig()
 static void init_open_gl_params()
 {
 	glEnable(GL_TEXTURE_2D);
-	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+	glHint(GL_LINE_SMOOTH_HINT,            GL_NICEST);
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
+	glHint(GL_POLYGON_SMOOTH_HINT,         GL_NICEST);
 	gl::AlphaBlending(true);
 }
 
 
- HWND GetConsoleHwnd(void)
-{
-	const int buffer_size = 1024;
-	static char new_title[buffer_size];
-	static char old_title[buffer_size];
-
-	GetConsoleTitle(old_title, buffer_size);
-	wsprintf(new_title,"%d/%d", GetTickCount(), GetCurrentProcessId());
-	SetConsoleTitle(new_title);
-	Sleep(40);
-	HWND hwndFound = FindWindow(NULL, new_title);
-	SetConsoleTitle(old_title);
-	return hwndFound;
-}
 
 HWND GetGlfwHwnd(void)
 {

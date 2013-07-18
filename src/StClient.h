@@ -7,6 +7,7 @@
 #include "file_io.h"
 #include "gl_funcs.h"
 #include "psl_if.h"
+#include "St3dData.h"
 #pragma warning(disable:4244) //conversion
 
 
@@ -71,25 +72,6 @@ namespace Msg
 }
 
 
-
-struct RawDepthImage
-{
-	std::vector<uint16> image;
-	uint16 min_value;
-	uint16 max_value;
-	uint16 range;        // max_value - min_value
-
-	RawDepthImage()
-	{
-		image.resize(640*480);
-		min_value = 0;
-		max_value = 0;
-		range = 0;
-	}
-
-	void CalcDepthMinMax();
-};
-
 struct HitObject
 {
 	bool         enable;
@@ -150,121 +132,23 @@ private:
 
 struct Kdev
 {
-	openni::Device device;
-	openni::VideoStream depth;
-	openni::VideoStream color;
-
-	openni::VideoFrameRef depthFrame;
-	openni::VideoFrameRef colorFrame;
-
-	RawDepthImage raw_depth;
-	RawDepthImage raw_floor;
-	RawDepthImage raw_cooked;
-	RawDepthImage raw_snapshot;
-
-	uint vram_tex;
-	uint vram_floor;
+	openni::Device         device;
+	openni::VideoStream    depth;
+	openni::VideoStream    color;
+	openni::VideoFrameRef  depthFrame;
+	openni::VideoFrameRef  colorFrame;
+	RawDepthImage          raw_depth;
+	RawDepthImage          raw_floor;
+	RawDepthImage          raw_cooked;
+	RawDepthImage          raw_snapshot;
 
 	void initRam();
-
 	void CreateRawDepthImage_Read();
 	void CreateRawDepthImage();
-
 	void clearFloorDepth();
 	void updateFloorDepth();
-
 	void CreateCookedImage();
 };
-
-struct Mode
-{
-	bool mirroring;
-
-	Mode()
-	{
-	}
-};
-
-
-struct Eye
-{
-	Eye()
-	{
-		go_pos = -1;
-		fast_set = true;
-	}
-
-	float x,y,z;    // Ž‹ü‚ÌŒ´“_
-	float rh;       // Ž‹ü‚Ì…•½•ûŒü(rad)
-	float v;        // Ž‹ü‚Ì‚’¼•ûŒü
-
-	struct Go
-	{
-		float x,y,z,rh,v;
-	} from,to;
-	int go_pos;
-	bool fast_set;
-
-	enum { GO_FRAMES=25 };
-
-	void set(float go_x, float go_y, float go_z, float go_rh, float go_v)
-	{
-		if (fast_set)
-		{
-			this->x  = go_x;
-			this->y  = go_y;
-			this->z  = go_z;
-			this->rh = go_rh;
-			this->v  = go_v;
-		}
-		else
-		{
-			this->from.x  = this->x;
-			this->from.y  = this->y;
-			this->from.z  = this->z;
-			this->from.rh = this->rh;
-			this->from.v  = this->v;
-			this->to.x  = go_x;
-			this->to.y  = go_y;
-			this->to.z  = go_z;
-			this->to.rh = go_rh;
-			this->to.v  = go_v;
-			this->go_pos = GO_FRAMES;
-		}
-	}
-
-	void updateCameraMove()
-	{
-		if (go_pos>=0)
-		{
-			const float i =
-				(go_pos==GO_FRAMES)
-					?  1.0f
-					: (1.0f * go_pos  / GO_FRAMES);
-			const float j =
-				(go_pos==0)
-					?  1.0f
-					: (1.0f * (GO_FRAMES-go_pos) / GO_FRAMES);
-			x  = j*to.x  + i*from.x;
-			y  = j*to.y  + i*from.y;
-			z  = j*to.z  + i*from.z;
-			rh = j*to.rh + i*from.rh;
-			v  = j*to.v  + i*from.v;
-			--go_pos;
-		}
-	}
-
-	void gluLookAt();
-
-	void view_2d_left();
-	void view_2d_top();
-	void view_2d_front();
-	void view_2d_run();
-	void view_3d_left();
-	void view_3d_right();
-	void view_3d_front();
-};
-
 
 struct ChangeCalParamKeys
 {
@@ -409,6 +293,7 @@ struct Global
 	typedef const Config::RunEnv* RunEnvPtr;
 	typedef std::map<string,MovingObjectImage> MovinbObjectImages;
 	
+	bool           mirroring;
 	int            idle_select;
 	RunEnvPtr      run_env;
 	Calibration    calibration;
@@ -444,6 +329,7 @@ struct Global
 
 	Global()
 	{
+		mirroring              = false;
 		idle_select            = 0;
 		run_env                = Config::getDefaultRunEnv();
 		view_mode              = VM_2D_RUN;
@@ -508,24 +394,9 @@ struct TimeProfile
 };
 
 SmartExtern Global       global;
-SmartExtern Mode         mode;
 SmartExtern TimeProfile  time_profile;
 
 
-namespace Depth10b6b{
-	void record(const RawDepthImage& depth1, const RawDepthImage& depth2, MovieData::Frame& dest_frame);
-	void playback(RawDepthImage& dest1, RawDepthImage& dest2, const MovieData::Frame& frame);
-}//namespace VoxelRecorder
-
-namespace Depth10b6b_v1_1{
-	void record(const RawDepthImage& depth1, const RawDepthImage& depth2, MovieData::Frame& dest_frame);
-	void playback(RawDepthImage& dest1, RawDepthImage& dest2, const MovieData::Frame& frame);
-}//namespace VoxelRecorder
-
-namespace VoxelRecorder{
-	void record(const Dots& dots, MovieData::Frame& dest_frame);
-	void playback(Dots& dots, const MovieData::Frame& frame);
-}//namespace VoxelRecorder
 
 
 class StClient
@@ -608,8 +479,6 @@ private:
 
 	void BuildDepthImage(uint8* dest);
 	void do_calibration(float mx, float my);
-
-	void loadAgent(int slot);
 
 	void MovieRecord();
 	void SaveCamConfig();

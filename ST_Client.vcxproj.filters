@@ -1,0 +1,128 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="src\pch.cpp" />
+    <ClCompile Include="src\mi\Clipboard.cpp">
+      <Filter>mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Console.cpp">
+      <Filter>mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Core.cpp">
+      <Filter>mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Fps.cpp">
+      <Filter>mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Libs.cpp">
+      <Filter>mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Image.cpp">
+      <Filter>mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\StClient.cpp">
+      <Filter>stclient</Filter>
+    </ClCompile>
+    <ClCompile Include="src\StClient_Udp.cpp">
+      <Filter>stclient</Filter>
+    </ClCompile>
+    <ClCompile Include="src\StClient_Display.cpp">
+      <Filter>stclient</Filter>
+    </ClCompile>
+    <ClCompile Include="src\StClient_DisplayFunc.cpp">
+      <Filter>stclient</Filter>
+    </ClCompile>
+    <ClCompile Include="src\StClient_Eye.cpp">
+      <Filter>stclient</Filter>
+    </ClCompile>
+    <ClCompile Include="src\StClient_Input.cpp">
+      <Filter>stclient</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Timer.cpp">
+      <Filter>mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Udp.cpp">
+      <Filter>mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Config.cpp">
+      <Filter>stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Msg.cpp">
+      <Filter>stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\depth.cpp">
+      <Filter>stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Depth10b6b.cpp">
+      <Filter>stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Depth10b6v_v1_1.cpp">
+      <Filter>stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\file_io.cpp">
+      <Filter>stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\FreeType.cpp">
+      <Filter>stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gl.cpp">
+      <Filter>stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gl_funcs.cpp">
+      <Filter>stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MovingObject.cpp">
+      <Filter>stcl_cmn</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\mi\Clipboard.h">
+      <Filter>mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Console.h">
+      <Filter>mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Core.h">
+      <Filter>mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Fps.h">
+      <Filter>mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Libs.h">
+      <Filter>mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Image.h">
+      <Filter>mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\stclient.h">
+      <Filter>stclient</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Udp.h">
+      <Filter>mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Timer.h">
+      <Filter>mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\mi.h">
+      <Filter>mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pch.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\..\..\..\ST\STMx64.psl" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="mi">
+      <UniqueIdentifier>{39e48a65-803b-44c9-b47f-8cb34b49f5c5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="stclient">
+      <UniqueIdentifier>{da16d0b0-c2dd-4900-ac70-7d24e71e9f7a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="stcl_cmn">
+      <UniqueIdentifier>{b3010896-0af0-411f-b77a-4dcfda81e860}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

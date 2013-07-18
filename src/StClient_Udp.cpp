@@ -141,7 +141,7 @@ void Command::ping(Args& arg)
 void Command::mirror(Args& arg)
 {
 	arg_check(arg, 0);
-	Lib::toggle(mode.mirroring);
+	Lib::toggle(global.mirroring);
 }
 
 // DISKINFO

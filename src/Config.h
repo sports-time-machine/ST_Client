@@ -2,6 +2,8 @@
 #include "gl_funcs.h"
 #include "file_io.h"
 #include "psl_if.h"
+#include "mi/Core.h"
+#include "mi/Image.h"
 
 namespace stclient{
 
@@ -61,6 +63,7 @@ struct Config
 	{
 		NamedImage background;
 	};
+
 
 	typedef std::map<string,mgl::glRGBA> PlayerColors;
 	typedef std::map<int,NamedImage> IdleImages;

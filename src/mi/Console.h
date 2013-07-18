@@ -35,6 +35,7 @@ public:
 	static void printf(int color, const char* f, ...);
 	static void puts(int color, const std::string& s);
 	static void nl();
+	static void* getConsoleHwnd();	
 };
 
 }//namespace mi

@@ -1,3 +1,4 @@
+#include "St3dData.h"
 #include "StClient.h"
 #include "gl_funcs.h"
 #include "Config.h"
@@ -29,11 +30,12 @@ void Kdev::CreateRawDepthImage_Read()
 //  - Depthデータは0-10000程度の整数でもらえ単位はmmとなる。
 //    したがって3.23mの位置にあるドットは3230というDepthになる
 //===========================================================
+#ifndef ST_VIEWER_APP
 void Kdev::CreateRawDepthImage()
 {
 	using namespace openni;
 
-	const bool mirroring = mode.mirroring ^ config.mirroring;
+	const bool mirroring = global.mirroring ^ config.mirroring;
 
 	// Create raw depth image
 	const auto* depth_row = (const DepthPixel*)depthFrame.getData();
@@ -61,6 +63,7 @@ void Kdev::CreateRawDepthImage()
 		depth_row += rowsize;
 	}
 }
+#endif
 
 //=============================================================================
 // Depthイメージから床イメージを排除する
@@ -117,8 +120,6 @@ void RawDepthImage::CalcDepthMinMax()
 
 void Kdev::initRam()
 {
-	glGenTextures(1, &this->vram_tex);
-	glGenTextures(1, &this->vram_floor);
 	clearFloorDepth();
 }
 

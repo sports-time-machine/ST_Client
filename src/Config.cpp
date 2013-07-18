@@ -1,4 +1,3 @@
-#include <OpenNI.h>
 #include "StClient.h"
 #include "Config.h"
 #include "psl_if.h"
@@ -22,7 +21,7 @@ Config::Colors::Colors()
 	text_dd.set(200,200,200);
 }
 
-Config::Config()
+stclient::Config::Config()
 {
 	// 全体的な設定
 	movie_folder           = ""; //デフォルトママだとエラーになります
@@ -38,7 +37,6 @@ Config::Config()
 	// 個別の設定
 	client_number        = -1;
 	initial_fullscreen   = false;
-	mirroring            = false;
 	ignore_udp           = false;
 	metrics.ground_px    = 480;
 	metrics.left_mm      = 0;

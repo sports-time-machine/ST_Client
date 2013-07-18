@@ -275,7 +275,7 @@ bool StClient::processKeyInput_Calibration(int key)
 	case VK_HOME:                                                  break;
 	case VK_END:                                                   break;
 	case 'I':            toggle(eye.fast_set,   "視点高速移動");    break;
-	case 'M':            toggle(mode.mirroring, "ミラー");         break;
+	case 'M':            toggle(global.mirroring, "ミラー");       break;
 	case SK_CTRL | 'C':  SaveCamConfig();                          break;
 
 #if 0

@@ -79,3 +79,18 @@ void Console::nl()
 {
 	fputs("\n", stderr);
 }
+
+void* Console::getConsoleHwnd()
+{
+	const int buffer_size = 1024;
+	static char new_title[buffer_size];
+	static char old_title[buffer_size];
+
+	GetConsoleTitle(old_title, buffer_size);
+	wsprintf(new_title,"%d/%d", GetTickCount(), GetCurrentProcessId());
+	SetConsoleTitle(new_title);
+	Sleep(40);
+	HWND hwndFound = FindWindow(NULL, new_title);
+	SetConsoleTitle(old_title);
+	return static_cast<void*>(hwndFound);
+}
