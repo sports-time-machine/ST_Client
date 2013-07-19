@@ -1,5 +1,6 @@
 #include "Libs.h"
 #include <cctype>
+#include <cstdlib>     // _ltoa_s
 
 using namespace mi;
 
@@ -101,4 +102,11 @@ bool Lib::splitString(const std::string& rawstring, std::string& cmd, std::vecto
 		arg.push_back(temp);
 	}
 	return true;
+}
+
+const char* Lib::to_s(int x)
+{
+	static char to_s_buf[1000];
+	_ltoa_s(x, to_s_buf, 10);
+	return to_s_buf;
 }

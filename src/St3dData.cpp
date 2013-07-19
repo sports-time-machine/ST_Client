@@ -2,6 +2,7 @@
 #include "vec4.h"
 #include "ConstValue.h"
 #include "mi/Libs.h"
+#include <gl/glfw.h>
 
 
 using namespace mgl;
@@ -244,4 +245,14 @@ bool VoxGrafix::DrawVoxels(const Dots& dots, const DrawParam& param, glRGBA inne
 
 	glEnd();
 	return true;
+}
+
+void EyeCore::gluLookAt()
+{
+	const float eye_depth = LOOKAT_EYE_DEPTH;
+	const float ex = x + cosf(rh) * eye_depth;
+	const float ez = z + sinf(rh) * eye_depth;
+	const float ey = y + v;
+
+	::gluLookAt(x,y,z, ex,ey,ez, 0,1,0);
 }

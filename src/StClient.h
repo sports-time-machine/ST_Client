@@ -51,18 +51,6 @@ enum ActiveCamera
 };
 
 
-namespace Msg
-{
-	extern void BarMessage   (const string&, int width=70, int first_half=3);
-	extern void Notice       (const string&);
-	extern void SystemMessage(const string&);
-	extern void ErrorMessage (const string&);
-	extern void Notice       (const string&, const string&);
-	extern void SystemMessage(const string&, const string&);
-	extern void ErrorMessage (const string&, const string&);
-}
-
-
 struct HitObject
 {
 	bool         enable;
@@ -164,35 +152,6 @@ enum ViewMode
 	VM_3D_LEFT,
 	VM_3D_RIGHT,
 	VM_3D_FRONT,
-};
-
-// ゲームひとつひとつの情報
-struct GameInfo
-{
-	string     basename;      // ${BaseFolder}/3/2/Z/Y/X/0/0/0/0/0/00000XYZ23
-	MovieData  movie;
-	MovieData  partner1;
-	MovieData  partner2;
-	MovieData  partner3;
-	mi::File   movie_file;
-
-	// ゲーム情報の破棄、初期化
-	void init();
-
-	GameInfo()
-	{
-		init();
-	}
-
-	static string GetFolderName(const string& id);
-	static string GetMovieFileName(const string& id);
-
-	bool prepareForSave(const string& player_id, const string& game_id);
-	void save();
-
-private:
-	void save_Movie(const string& basename);
-	void save_Thumbnail(const string& basename, const string& suffix, int );
 };
 
 // チーターなど実体
@@ -381,6 +340,17 @@ SmartExtern TimeProfile  time_profile;
 
 
 
+class Eye : public EyeCore
+{
+public:
+	void view_2d_left();
+	void view_2d_top();
+	void view_2d_front();
+	void view_2d_run();
+	void view_3d_left();
+	void view_3d_right();
+	void view_3d_front();
+};
 
 class StClient
 {
@@ -484,8 +454,6 @@ private:
 public:
 	static string GetCamConfigPath();
 };
-
-const char* to_s(int x);
 
 
 }//namespace stclient

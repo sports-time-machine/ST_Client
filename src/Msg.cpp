@@ -1,4 +1,5 @@
-#include "StClient.h"
+#include "St3dData.h"
+#include "mi/Console.h"
 
 using namespace mi;
 using namespace stclient;

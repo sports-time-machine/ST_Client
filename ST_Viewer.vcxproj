@@ -86,10 +86,9 @@
   <ItemGroup>
     <ClCompile Include="..\ST_Client\src\AppCore.cpp" />
     <ClCompile Include="..\ST_Client\src\Depth10b6b.cpp" />
-    <ClCompile Include="..\ST_Client\src\Depth10b6v_v1_1.cpp" />
+    <ClCompile Include="src\Depth10b6b_v1_1.cpp" />
     <ClCompile Include="..\ST_Client\src\file_io.cpp" />
     <ClCompile Include="..\ST_Client\src\FreeType.cpp" />
-    <ClCompile Include="..\ST_Client\src\gl.cpp" />
     <ClCompile Include="..\ST_Client\src\gl_funcs.cpp" />
     <ClCompile Include="..\ST_Client\src\mi\Clipboard.cpp" />
     <ClCompile Include="..\ST_Client\src\mi\Console.cpp" />
@@ -99,12 +98,7 @@
     <ClCompile Include="..\ST_Client\src\mi\Libs.cpp" />
     <ClCompile Include="..\ST_Client\src\mi\Timer.cpp" />
     <ClCompile Include="..\ST_Client\src\mi\Udp.cpp" />
-    <ClCompile Include="..\ST_Client\src\MovingObject.cpp" />
     <ClCompile Include="..\ST_Client\src\Msg.cpp" />
-    <ClCompile Include="..\ST_Client\src\StClient_Display.cpp" />
-    <ClCompile Include="..\ST_Client\src\StClient_DisplayFunc.cpp" />
-    <ClCompile Include="..\ST_Client\src\StClient_Eye.cpp" />
-    <ClCompile Include="..\ST_Client\src\StClient_Input.cpp" />
     <ClCompile Include="..\ST_Client\src\viewer\viewer_main.cpp" />
     <ClCompile Include="..\ST_Client\src\viewer\viewer_pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -127,6 +121,7 @@
     <ClInclude Include="..\ST_Client\src\St3dData.h" />
     <ClInclude Include="..\ST_Client\src\vec4.h" />
     <ClInclude Include="..\ST_Client\src\viewer\viewer_pch.h" />
+    <ClInclude Include="src\ConstValue.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

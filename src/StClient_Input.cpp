@@ -16,7 +16,7 @@ void toggle(bool& ref, const char* s)
 static void quitApplication()
 {
 	puts("QUIT!!");
-	exit(0);
+	exit(0); 
 }
 
 static void saveScreenShot()
@@ -163,10 +163,10 @@ void StClient::processKeyInput()
 		global.gameinfo.save();
 		break;
 	case SK_CTRL + 'L'://Ctrl+L
-		global.gameinfo.movie.load("TEST1!");
+		global.gameinfo.movie.load(MovieData::getStandardFilePath("TEST1!", 1));
 		break;
 	case SK_CTRL + 'K'://Ctrl+K
-		global.gameinfo.partner1.load("TEST2!");
+		global.gameinfo.partner1.load(MovieData::getStandardFilePath("TEST2!", 1));
 		break;
 	case SK_CTRL + 'R'://Ctrl+R
 		Msg::Notice("ƒŠƒvƒŒƒC!!"); 

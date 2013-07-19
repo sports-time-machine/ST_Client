@@ -1,4 +1,6 @@
-#include "StClient.h"
+#include "file_io.h"
+#include "St3dData.h"
+#include "mi/Libs.h"
 
 using namespace mi;
 using namespace stclient;
@@ -18,33 +20,32 @@ static const char
 		'/','6','b',' '};
 
 
-void stclient::saveToFile(File& f, const MovieData& movie)
+void MovieData::saveToFile(File& f) const
 {
-	const int TOTAL_FRAMES = movie.total_frames;
+	const int TOTAL_FRAMES = this->total_frames;
 
 	// ファイルヘッダ
 	FileHeader header;
 	memcpy(header.signature, STMOVIE_MAGIC_ID, sizeof(header.signature));
 	memcpy(header.format,    DEPTH_2D_10B6B,   sizeof(header.format));
-	header.ver_major = movie.ver / 10;
-	header.ver_minor = movie.ver % 10;
+	header.ver_major = this->ver / 10;
+	header.ver_minor = this->ver % 10;
 	header.total_frames = TOTAL_FRAMES;
 	header.total_msec   = TOTAL_FRAMES * 1000 / 30;
 	f.write(header);
 
 	// メタ情報
-	f.write(movie.cam1);
-	f.write(movie.cam2);
-	f.write(movie.dot_size);
-//	f.write(movie.player_color);
+	f.write(this->cam1);
+	f.write(this->cam2);
+	f.write(this->dot_size);
 
 	// フレーム情報
 	printf("Save %d frames.\n", TOTAL_FRAMES);
 	for (int i=0; i<TOTAL_FRAMES; ++i)
 	{
 		// map[i]はnon-constなのでfindする
-		const auto itr = movie.frames.find(i);
-		if (itr==movie.frames.end())
+		const auto itr = this->frames.find(i);
+		if (itr==this->frames.end())
 		{
 			// フレームスキップした分は保存されない
 			f.put32(0);  // no voxels
@@ -128,23 +129,22 @@ void MovieData::clearMovie()
 	total_frames = 0;
 }
 
-void MovieData::clearAll()
+void MovieData::clearAll(mgl::glRGBA default_player_color)
 {
 	clearMovie();
 	ver               = VER_INVALID;
 	dot_size          = 1.0f;
 	player_color      = "default";
-	player_color_rgba = config.color.default_player_color;
+	player_color_rgba = default_player_color;
 }
 
-bool MovieData::load(const string& id)
+bool MovieData::load(const string& path)
 {
-	string name = GameInfo::GetFolderName(id) + id + "-" + to_s(config.client_number) + ".stmov";
-	Msg::Notice("Movie load", name.c_str());
+	Msg::Notice("Movie load", path.c_str());
 	File f;
-	if (!f.open(name))
+	if (!f.open(path))
 	{
-		Msg::ErrorMessage("Cannot open file (MovieData::load)", name);
+		Msg::ErrorMessage("Cannot open file (MovieData::load)", path);
 		return false;
 	}
 

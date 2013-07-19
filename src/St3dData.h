@@ -1,5 +1,7 @@
 #pragma once
 #include "gl_funcs.h"
+#include "ConstValue.h"
+#include "mi/Core.h"
 
 namespace stclient{
 
@@ -71,27 +73,26 @@ struct RawDepthImage
 	void CalcDepthMinMax();
 };
 
-
-struct Eye
+class EyeCore
 {
-	Eye()
+public:
+	EyeCore()
 	{
 		go_pos = -1;
 		fast_set = true;
 	}
-
-	float x,y,z;    // 視線の原点
-	float rh;       // 視線の水平方向(rad)
-	float v;        // 視線の垂直方向
-
 	struct Go
 	{
 		float x,y,z,rh,v;
-	} from,to;
-	int go_pos;
-	bool fast_set;
-
+	};
 	enum { GO_FRAMES=25 };
+
+	float  x,y,z;    // 視線の原点
+	float  rh;       // 視線の水平方向(rad)
+	float  v;        // 視線の垂直方向
+	Go     from,to;
+	int    go_pos;
+	bool   fast_set;
 
 	void set(float go_x, float go_y, float go_z, float go_rh, float go_v)
 	{
@@ -141,14 +142,6 @@ struct Eye
 	}
 
 	void gluLookAt();
-
-	void view_2d_left();
-	void view_2d_top();
-	void view_2d_front();
-	void view_2d_run();
-	void view_3d_left();
-	void view_3d_right();
-	void view_3d_front();
 };
 
 struct CamParam
@@ -204,13 +197,44 @@ struct MovieData
 
 	MovieData()
 	{
-		clearAll();
+		clearAll(TIMEMACHINE_ORANGE);
 	}
 
 	void clearMovie();
-	void clearAll();
+	void clearAll(mgl::glRGBA default_player_color);
+	
+	bool load(const string& path);
+	void saveToFile(mi::File& f) const;
+};
 
-	bool load(const string& id);
+// ゲームひとつひとつの情報
+struct GameInfo
+{
+	string     basename;      // ${BaseFolder}/3/2/Z/Y/X/0/0/0/0/0/00000XYZ23
+	MovieData  movie;
+	MovieData  partner1;
+	MovieData  partner2;
+	MovieData  partner3;
+	mi::File   movie_file;
+
+	// ゲーム情報の破棄、初期化
+	void init();
+
+	GameInfo()
+	{
+		init();
+	}
+
+	static string GetFolderName(const string& id);
+	static string GetMovieFileName(const string& id);
+	static string GetStandardFilePath(const string& id, int subnumber);
+
+	bool prepareForSave(const string& player_id, const string& game_id);
+	void save();
+
+private:
+	void save_Movie(const string& basename);
+	void save_Thumbnail(const string& basename, const string& suffix, int );
 };
 
 
@@ -221,6 +245,16 @@ public:
 	static void MyGetKeyboardState(BYTE* kbd);
 };
 
+namespace Msg
+{
+	extern void BarMessage   (const string&, int width=70, int first_half=3);
+	extern void Notice       (const string&);
+	extern void SystemMessage(const string&);
+	extern void ErrorMessage (const string&);
+	extern void Notice       (const string&, const string&);
+	extern void SystemMessage(const string&, const string&);
+	extern void ErrorMessage (const string&, const string&);
+}
 
 class VoxGrafix
 {

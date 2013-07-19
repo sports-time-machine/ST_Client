@@ -9,10 +9,10 @@ using namespace stclient;
 // ƒQ[ƒ€î•ñ‚Ì”jŠüA‰Šú‰»
 void GameInfo::init()
 {
-	movie.clearAll();
-	partner1.clearAll();
-	partner2.clearAll();
-	partner3.clearAll();
+	movie   .clearAll(config.color.default_player_color);
+	partner1.clearAll(config.color.default_player_color);
+	partner2.clearAll(config.color.default_player_color);
+	partner3.clearAll(config.color.default_player_color);
 	movie.frames.clear();
 	movie.cam1 = CamParam();
 	movie.cam2 = CamParam();
@@ -37,6 +37,11 @@ string GameInfo::GetFolderName(const string& id)
 string GameInfo::GetMovieFileName(const string& id)
 {
 	return GetFolderName(id) + id + ".stmov";
+}
+
+string GameInfo::GetStandardFilePath(const string& id, int subnumber)
+{
+	return GetFolderName(id) + id + "-" + Lib::to_s(subnumber) + ".stmov";
 }
 
 // ƒTƒ€ƒl•Û‘¶
@@ -70,7 +75,7 @@ bool GameInfo::prepareForSave(const string& player_id, const string& game_id)
 	this->basename = folder + game_id;
 
 	// Open: 00000ABCDE-1.stmov
-	const string filename = this->basename + "-" + to_s(config.client_number) + ".stmov";
+	const string filename = this->basename + "-" + Lib::to_s(config.client_number) + ".stmov";
 	printf("Movie: %s\n", filename.c_str());
 	if (!movie_file.openForWrite(filename))
 	{
@@ -86,7 +91,7 @@ void GameInfo::save()
 	Msg::SystemMessage("Save to file!");
 
 	// Save Movie
-	saveToFile(movie_file, global.gameinfo.movie);
+	global.gameinfo.movie.saveToFile(movie_file);
 	movie_file.close();
 	Msg::Notice("Saved!");
 

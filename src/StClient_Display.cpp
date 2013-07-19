@@ -219,7 +219,7 @@ void StClient::display2dSection()
 				s += "HIT ";
 				s += ho.text;
 				s += " ";
-				s += to_s(ho.next_id);
+				s += Lib::to_s(ho.next_id);
 				udp_send.send(s);
 
 				printf("HIT!! hit object %d, point (%d,%d)\n",

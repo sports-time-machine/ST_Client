@@ -24,15 +24,6 @@ static glRGBA getPlayerColorFromString(const std::string& name)
 }
 
 
-
-const char* stclient::to_s(int x)
-{
-	static char to_s_buf[1000];
-	_ltoa(x, to_s_buf, 10);
-	return to_s_buf;
-}
-
-
 enum Invalid
 {
 	INVALID_FORMAT,
@@ -129,7 +120,7 @@ void Command::ping(Args& arg)
 		s += " ";
 		s += mi::Udp::getIpAddress();
 		s += " ";
-		s += to_s(config.client_number);
+		s += Lib::to_s(config.client_number);
 		udp_send->init(arg[0].to_s(), UDP_CLIENT_TO_CONTROLLER);
 		udp_send->send(s);
 		Msg::Notice(s);
@@ -173,9 +164,9 @@ void Command::diskInfo(Args& arg)
 			total);
 	string s;
 	s += "DISKSIZE ";
-	s += to_s(free);
+	s += Lib::to_s(free);
 	s += " ";
-	s += to_s(total);
+	s += Lib::to_s(total);
 	udp_send->send(s);
 }
 
@@ -414,7 +405,7 @@ void Command::partner(Args& arg)
 
 		Msg::Notice("Loading partner movie", partner_game);
 		mi::File f;
-		if (!global.gameinfo.partner1.load(partner_game))
+		if (!global.gameinfo.partner1.load(partner_game, config.client_number))
 		{
 			Msg::ErrorMessage("Cannot open partner movie", partner_game);
 		}
@@ -487,10 +478,10 @@ void Command::init(Args& arg)
 	global.run_env = Config::getDefaultRunEnv();
 
 	// •À‘–ŽÒ‚Ìíœ
-	global.gameinfo.movie.clearAll();
-	global.gameinfo.partner1.clearAll();
-	global.gameinfo.partner2.clearAll();
-	global.gameinfo.partner3.clearAll();
+	global.gameinfo.movie   .clearAll(config.color.default_player_color);
+	global.gameinfo.partner1.clearAll(config.color.default_player_color);
+	global.gameinfo.partner2.clearAll(config.color.default_player_color);
+	global.gameinfo.partner3.clearAll(config.color.default_player_color);
 
 	Msg::SystemMessage("Init!");
 	client->changeStatus(STATUS_IDLE);

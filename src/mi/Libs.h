@@ -63,6 +63,8 @@ public:
 	static bool splitString(const std::string& rawstring, std::string& cmd, std::vector<VariantType>& arg);
 
 	static void toggle(bool& ref)     { ref = !ref; }
+
+	static const char* to_s(int x);
 };
 
 }//namespace mi

@@ -45,37 +45,16 @@
     <ClCompile Include="..\ST_Client\src\mi\Udp.cpp">
       <Filter>ソース ファイル\mi</Filter>
     </ClCompile>
-    <ClCompile Include="..\ST_Client\src\Depth10b6v_v1_1.cpp">
-      <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClCompile>
     <ClCompile Include="..\ST_Client\src\file_io.cpp">
       <Filter>ソース ファイル\stcl_cmn</Filter>
     </ClCompile>
     <ClCompile Include="..\ST_Client\src\FreeType.cpp">
       <Filter>ソース ファイル\stcl_cmn</Filter>
     </ClCompile>
-    <ClCompile Include="..\ST_Client\src\gl.cpp">
-      <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClCompile>
     <ClCompile Include="..\ST_Client\src\gl_funcs.cpp">
       <Filter>ソース ファイル\stcl_cmn</Filter>
     </ClCompile>
-    <ClCompile Include="..\ST_Client\src\MovingObject.cpp">
-      <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClCompile>
     <ClCompile Include="..\ST_Client\src\Msg.cpp">
-      <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\StClient_Display.cpp">
-      <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\StClient_DisplayFunc.cpp">
-      <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\StClient_Eye.cpp">
-      <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\StClient_Input.cpp">
       <Filter>ソース ファイル\stcl_cmn</Filter>
     </ClCompile>
     <ClCompile Include="..\ST_Client\src\viewer\viewer_main.cpp">
@@ -92,6 +71,9 @@
     </ClCompile>
     <ClCompile Include="src\St3dData.cpp">
       <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Depth10b6b_v1_1.cpp">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -139,6 +121,9 @@
     </ClInclude>
     <ClInclude Include="..\ST_Client\src\viewer\viewer_pch.h">
       <Filter>ソース ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ConstValue.h">
+      <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -5,6 +5,7 @@
 #include "mi/Core.h"
 #include "mi/Image.h"
 #include "ConstValue.h"
+#include "St3dData.h"
 
 namespace stclient{
 

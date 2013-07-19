@@ -56,9 +56,6 @@
     <ClCompile Include="src\Depth10b6b.cpp">
       <Filter>stcl_cmn</Filter>
     </ClCompile>
-    <ClCompile Include="src\Depth10b6v_v1_1.cpp">
-      <Filter>stcl_cmn</Filter>
-    </ClCompile>
     <ClCompile Include="src\file_io.cpp">
       <Filter>stcl_cmn</Filter>
     </ClCompile>
@@ -84,6 +81,9 @@
       <Filter>stcl_cmn</Filter>
     </ClCompile>
     <ClCompile Include="src\St3dData.cpp" />
+    <ClCompile Include="src\Depth10b6b_v1_1.cpp">
+      <Filter>stcl_cmn</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\mi\Clipboard.h">

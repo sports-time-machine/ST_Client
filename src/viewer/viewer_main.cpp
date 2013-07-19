@@ -12,7 +12,7 @@ static bool run_app()
 	AppCore::initGraphics(false, "ST 3D Viewer");
 
 
-
+	return true;
 }
 
 int WINAPI WinMain(HINSTANCE,HINSTANCE,LPSTR,int)

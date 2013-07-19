@@ -1,3 +1,6 @@
+#pragma once
+#include "gl_funcs.h"
+
 namespace stclient{
 
 static const float
@@ -25,6 +28,9 @@ static const float
 static const float
 	LOOKAT_EYE_DEPTH   = (4.0f),
 	IDLE_IMAGE_Z       = (5.0f);
+
+static mgl::glRGBA
+	TIMEMACHINE_ORANGE(240,160,80, 160);
 
 enum NonameEnum
 {

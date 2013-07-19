@@ -291,7 +291,7 @@ static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 		DEF_IMAGE(sleep);
 		for (int i=0; i<MAX_PICT_NUMBER; ++i)
 		{
-			string pic_no = (string("pic") + to_s(i));
+			string pic_no = (string("pic") + Lib::to_s(i));
 			config.images.pic[i] = toString(src[pic_no.c_str()]);
 		}
 #undef DEF_IMAGE

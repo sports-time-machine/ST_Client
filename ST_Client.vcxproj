@@ -26,7 +26,7 @@
     <ClCompile Include="src\Config.cpp" />
     <ClCompile Include="src\depth.cpp" />
     <ClCompile Include="src\Depth10b6b.cpp" />
-    <ClCompile Include="src\Depth10b6v_v1_1.cpp" />
+    <ClCompile Include="src\Depth10b6b_v1_1.cpp" />
     <ClCompile Include="src\file_io.cpp" />
     <ClCompile Include="src\FreeType.cpp" />
     <ClCompile Include="src\GameInfo.cpp" />
@@ -133,8 +133,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>C:\ST\Client\</OutDir>
     <IntDir>$(ProjectDir)..\Bin\Intermediate\$(Platform)-$(Configuration)\$(ProjectName)\</IntDir>
-    <IncludePath>$(WindowsSdkDir)\include;$(VCInstallDir)include;C:\Users\STM\Dev\Include;C:\Dev\Include</IncludePath>
-    <LibraryPath>$(LibraryPath);$(VSInstallDir);$(VSInstallDir)lib;C:\Users\STM\Dev\Lib;C:\Dev\Lib</LibraryPath>
+    <IncludePath>$(WindowsSdkDir)\include;$(VCInstallDir)include;C:\Dev\Include</IncludePath>
+    <LibraryPath>$(LibraryPath);$(VSInstallDir);$(VSInstallDir)lib;C:\Dev\Lib</LibraryPath>
     <TargetName>$(ProjectName)_x32</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

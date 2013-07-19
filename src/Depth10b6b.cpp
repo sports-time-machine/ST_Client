@@ -1,17 +1,13 @@
-#include "StClient.h"
+#include "St3dData.h"
 #include "file_io.h"
 #include "mi/Timer.h"
+#ifdef TIME_PROFILE
+#include "StClient.h"
+#endif
 
 
 using namespace stclient;
 
-
-struct VoxelToCube
-{
-	int inner_voxels;
-	int outer_voxels;
-	int duplex_voxels;
-};
 
 static void depth_to_store_aux(const RawDepthImage& depth, uint8*& store)
 {
@@ -72,17 +68,23 @@ static void depth_to_store(const RawDepthImage& depth1, const RawDepthImage& dep
 
 void Depth10b6b::record(const RawDepthImage& depth1, const RawDepthImage& depth2, MovieData::Frame& dest_frame)
 {
+#ifdef TIME_PROFILE
 	mi::Timer tm(&time_profile.record.total);
+#endif
 
 	const uint8* store = nullptr;
 	int store_bytes = 0;
 	{
+#ifdef TIME_PROFILE
 		mi::Timer tm(&time_profile.record.enc_stage1);
+#endif
 		depth_to_store(depth1, depth2, &store, &store_bytes);
 	}
 
 	{
+#ifdef TIME_PROFILE
 		mi::Timer tm(&time_profile.record.enc_stage2);
+#endif
 		dest_frame.voxel_count = 0;
 		dest_frame.compressed.resize(store_bytes);
 		memcpy(dest_frame.compressed.data(), store, store_bytes);
@@ -102,9 +104,13 @@ void Depth10b6b::playback(RawDepthImage& dest1, RawDepthImage& dest2, const Movi
 	int dest_index_save[2] = {};
 #endif
 
+#ifdef TIME_PROFILE
 	mi::Timer tm(&time_profile.playback.total);
+#endif
 	{
+#ifdef TIME_PROFILE
 		mi::Timer tm(&time_profile.playback.dec_stage1);
+#endif
 
 		size_t src_index = 0;
 		const uint8* src = frame.compressed.data();
