@@ -405,7 +405,7 @@ void Command::partner(Args& arg)
 
 		Msg::Notice("Loading partner movie", partner_game);
 		mi::File f;
-		if (!global.gameinfo.partner1.load(partner_game, config.client_number))
+		if (!global.gameinfo.partner1.load(GameInfo::GetStandardFilePath(partner_game, config.client_number)))
 		{
 			Msg::ErrorMessage("Cannot open partner movie", partner_game);
 		}

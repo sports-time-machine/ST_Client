@@ -13,117 +13,105 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="ソース ファイル\mi">
-      <UniqueIdentifier>{b4e6d1bc-3736-4149-98d8-84b4da3cfa01}</UniqueIdentifier>
-    </Filter>
     <Filter Include="ソース ファイル\stcl_cmn">
-      <UniqueIdentifier>{b0d32d9e-c43b-4018-a8e7-b12b14da9d2e}</UniqueIdentifier>
+      <UniqueIdentifier>{b2ccf14a-5733-4c09-8092-fa91c2ddfc61}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\mi">
+      <UniqueIdentifier>{233c33c8-4dc9-42e1-b9a9-e034cc3c1868}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\ST_Client\src\mi\Clipboard.cpp">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\mi\Console.cpp">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\mi\Core.cpp">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\mi\Fps.cpp">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\mi\Image.cpp">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\mi\Libs.cpp">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\mi\Timer.cpp">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\mi\Udp.cpp">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\file_io.cpp">
+    <ClCompile Include="src\AppCore.cpp">
       <Filter>ソース ファイル\stcl_cmn</Filter>
     </ClCompile>
-    <ClCompile Include="..\ST_Client\src\FreeType.cpp">
+    <ClCompile Include="src\Depth10b6b.cpp">
       <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\gl_funcs.cpp">
-      <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\Msg.cpp">
-      <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\viewer\viewer_main.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\viewer\viewer_pch.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\Depth10b6b.cpp">
-      <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ST_Client\src\AppCore.cpp">
-      <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClCompile>
-    <ClCompile Include="src\St3dData.cpp">
-      <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="src\Depth10b6b_v1_1.cpp">
       <Filter>ソース ファイル\stcl_cmn</Filter>
     </ClCompile>
+    <ClCompile Include="src\file_io.cpp">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\FreeType.cpp">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gl_funcs.cpp">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Msg.cpp">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\St3dData.cpp">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Clipboard.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Console.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Core.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Fps.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Image.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Libs.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Timer.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Udp.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\viewer\viewer_pch.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\viewer\viewer_main.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\ST_Client\src\mi\Clipboard.h">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ST_Client\src\mi\Console.h">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ST_Client\src\mi\Core.h">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ST_Client\src\mi\Fps.h">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ST_Client\src\mi\Image.h">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ST_Client\src\mi\Libs.h">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ST_Client\src\mi\mi.h">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ST_Client\src\mi\Timer.h">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ST_Client\src\mi\Udp.h">
-      <Filter>ソース ファイル\mi</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ST_Client\src\file_io.h">
-      <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ST_Client\src\FreeType.h">
-      <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ST_Client\src\gl_funcs.h">
-      <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ST_Client\src\vec4.h">
-      <Filter>ソース ファイル\stcl_cmn</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ST_Client\src\St3dData.h">
-      <Filter>ソース ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ST_Client\src\viewer\viewer_pch.h">
-      <Filter>ソース ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="src\ConstValue.h">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClInclude>
+    <ClInclude Include="src\St3dData.h">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Clipboard.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Console.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Core.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Fps.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Image.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Libs.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\mi.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Timer.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Udp.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\viewer\viewer_pch.h">
+      <Filter>ソース ファイル</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -39,7 +39,7 @@ enum NonameEnum
 	INITIAL_WIN_SIZE_Y   = 480,
 	MOVIE_FPS            = 30,
 	MIN_VOXEL_INC        = 16,
-	MAX_VOXEL_INC        = 128,
+	MAX_VOXEL_INC        = 1024,
 	ATARI_INC            = 20,
 	MAX_PICT_NUMBER      = 10,        // PICT numコマンドで送れるピクチャの数
 	AUTO_CF_THRESHOULD   = 800,       // 自動床消しの閾値

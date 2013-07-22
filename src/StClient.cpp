@@ -578,7 +578,6 @@ void ChangeCalParamKeys::init()
 	this->scalex = (kbd['J'] & 0x80)!=0;
 }
 
-
 void StClient::createSnapshot()
 {
 	this->snapshot_life = config.snapshot_life_frames;

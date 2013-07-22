@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{9E78A583-7EA2-4B58-ADBB-367151214CDC}</ProjectGuid>
+    <ProjectGuid>{ED2B8ABE-DD9C-454E-B305-9A69B93E7FC0}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>ST_Viewer</RootNamespace>
   </PropertyGroup>
@@ -19,13 +19,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>MultiByte</CharacterSet>
+    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -39,17 +39,13 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(WindowsSdkDir)\include;$(VCInstallDir)include;C:\Dev\Include</IncludePath>
-    <LibraryPath>$(LibraryPath);$(VSInstallDir);$(VSInstallDir)lib;C:\Dev\Lib</LibraryPath>
-    <SourcePath>$(VCInstallDir)atlmfc\src\mfc;$(VCInstallDir)atlmfc\src\mfcm;$(VCInstallDir)atlmfc\src\atl;$(VCInstallDir)crt\src;C:\Dev\Project\ST_Client\ST_Client\src</SourcePath>
+    <IncludePath>$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include;C:\Dev\Include</IncludePath>
+    <LibraryPath>$(VCInstallDir)lib;$(VCInstallDir)atlmfc\lib;$(WindowsSdkDir)lib;$(FrameworkSDKDir)\lib;C:\Dev\Lib</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(WindowsSdkDir)\include;$(VCInstallDir)include;C:\Dev\Include</IncludePath>
-    <LibraryPath>$(LibraryPath);$(VSInstallDir);$(VSInstallDir)lib;C:\Dev\Lib</LibraryPath>
-    <ReferencePath>
-    </ReferencePath>
-    <SourcePath>$(VCInstallDir)atlmfc\src\mfc;$(VCInstallDir)atlmfc\src\mfcm;$(VCInstallDir)atlmfc\src\atl;$(VCInstallDir)crt\src;C:\Dev\Project\ST_Client\ST_Client\src</SourcePath>
+    <IncludePath>$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include;C:\Dev\Include</IncludePath>
+    <LibraryPath>$(VCInstallDir)lib;$(VCInstallDir)atlmfc\lib;$(WindowsSdkDir)lib;$(FrameworkSDKDir)\lib;C:\Dev\Lib</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -57,13 +53,17 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PrecompiledHeaderFile>viewer_pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>viewer_pch.h</ForcedIncludeFiles>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PreLinkEvent>
+      <Command>
+      </Command>
+    </PreLinkEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -84,44 +84,40 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\ST_Client\src\AppCore.cpp" />
-    <ClCompile Include="..\ST_Client\src\Depth10b6b.cpp" />
+    <ClCompile Include="src\AppCore.cpp" />
+    <ClCompile Include="src\Depth10b6b.cpp" />
     <ClCompile Include="src\Depth10b6b_v1_1.cpp" />
-    <ClCompile Include="..\ST_Client\src\file_io.cpp" />
-    <ClCompile Include="..\ST_Client\src\FreeType.cpp" />
-    <ClCompile Include="..\ST_Client\src\gl_funcs.cpp" />
-    <ClCompile Include="..\ST_Client\src\mi\Clipboard.cpp" />
-    <ClCompile Include="..\ST_Client\src\mi\Console.cpp" />
-    <ClCompile Include="..\ST_Client\src\mi\Core.cpp" />
-    <ClCompile Include="..\ST_Client\src\mi\Fps.cpp" />
-    <ClCompile Include="..\ST_Client\src\mi\Image.cpp" />
-    <ClCompile Include="..\ST_Client\src\mi\Libs.cpp" />
-    <ClCompile Include="..\ST_Client\src\mi\Timer.cpp" />
-    <ClCompile Include="..\ST_Client\src\mi\Udp.cpp" />
-    <ClCompile Include="..\ST_Client\src\Msg.cpp" />
-    <ClCompile Include="..\ST_Client\src\viewer\viewer_main.cpp" />
-    <ClCompile Include="..\ST_Client\src\viewer\viewer_pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
-    </ClCompile>
+    <ClCompile Include="src\file_io.cpp" />
+    <ClCompile Include="src\FreeType.cpp" />
+    <ClCompile Include="src\gl_funcs.cpp" />
+    <ClCompile Include="src\mi\Clipboard.cpp" />
+    <ClCompile Include="src\mi\Console.cpp" />
+    <ClCompile Include="src\mi\Core.cpp" />
+    <ClCompile Include="src\mi\Fps.cpp" />
+    <ClCompile Include="src\mi\Image.cpp" />
+    <ClCompile Include="src\mi\Libs.cpp" />
+    <ClCompile Include="src\mi\Timer.cpp" />
+    <ClCompile Include="src\mi\Udp.cpp" />
+    <ClCompile Include="src\Msg.cpp" />
     <ClCompile Include="src\St3dData.cpp" />
+    <ClCompile Include="src\viewer\viewer_main.cpp" />
+    <ClCompile Include="src\viewer\viewer_pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\ST_Client\src\file_io.h" />
-    <ClInclude Include="..\ST_Client\src\FreeType.h" />
-    <ClInclude Include="..\ST_Client\src\gl_funcs.h" />
-    <ClInclude Include="..\ST_Client\src\mi\Clipboard.h" />
-    <ClInclude Include="..\ST_Client\src\mi\Console.h" />
-    <ClInclude Include="..\ST_Client\src\mi\Core.h" />
-    <ClInclude Include="..\ST_Client\src\mi\Fps.h" />
-    <ClInclude Include="..\ST_Client\src\mi\Image.h" />
-    <ClInclude Include="..\ST_Client\src\mi\Libs.h" />
-    <ClInclude Include="..\ST_Client\src\mi\mi.h" />
-    <ClInclude Include="..\ST_Client\src\mi\Timer.h" />
-    <ClInclude Include="..\ST_Client\src\mi\Udp.h" />
-    <ClInclude Include="..\ST_Client\src\St3dData.h" />
-    <ClInclude Include="..\ST_Client\src\vec4.h" />
-    <ClInclude Include="..\ST_Client\src\viewer\viewer_pch.h" />
     <ClInclude Include="src\ConstValue.h" />
+    <ClInclude Include="src\mi\Clipboard.h" />
+    <ClInclude Include="src\mi\Console.h" />
+    <ClInclude Include="src\mi\Core.h" />
+    <ClInclude Include="src\mi\Fps.h" />
+    <ClInclude Include="src\mi\Image.h" />
+    <ClInclude Include="src\mi\Libs.h" />
+    <ClInclude Include="src\mi\mi.h" />
+    <ClInclude Include="src\mi\Timer.h" />
+    <ClInclude Include="src\mi\Udp.h" />
+    <ClInclude Include="src\St3dData.h" />
+    <ClInclude Include="src\viewer\viewer_pch.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

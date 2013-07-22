@@ -9,3 +9,15 @@
 *.pdb
 
 *.ipch
+
+*.exe
+
+/Debug/*.manifest
+
+/Debug/ST_Viewer.exe.embed.manifest.res
+/Debug/ST_Viewer.ilk
+/Debug/ST_Viewer.lastbuildstate
+/Debug/ST_Viewer_manifest.rc
+/Debug/vc100.idb
+/Release/ST_Viewer.exe.intermediate.manifest
+/Release/ST_Viewer.lastbuildstate

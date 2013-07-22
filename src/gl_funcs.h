@@ -2,10 +2,11 @@
 #include "mi/Core.h"
 #include <windows.h>		//(the GL headers need it)
 #include <GL/gl.h>
-
+#include <gl/glfw.h>
+#pragma comment(lib,"opengl32.lib")
+#pragma comment(lib,"glu32.lib")
 
 namespace mgl{
-
 
 struct glRGBA
 {

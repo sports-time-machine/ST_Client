@@ -13,7 +13,7 @@ using namespace vector_and_matrix;
 VoxGrafix::Static VoxGrafix::global;
 
 
-bool VoxGrafix::DrawMovieFrame(const MovieData& mov, int frame_index, glRGBA inner, glRGBA outer, const char* movie_type, DrawStyle style)
+bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam& param_, int frame_index, glRGBA inner, glRGBA outer, const char* movie_type, DrawStyle style, float add_x)
 {
 	if (mov.total_frames==0)
 	{
@@ -57,7 +57,7 @@ bool VoxGrafix::DrawMovieFrame(const MovieData& mov, int frame_index, glRGBA inn
 		VoxGrafix::MixDepth(dots, depth1, mov.cam1);
 		VoxGrafix::MixDepth(dots, depth2, mov.cam2);
 		
-		VoxGrafix::DrawParam param;
+		VoxGrafix::DrawParam param = param_;
 		param.dot_size = mov.dot_size;
 		VoxGrafix::DrawVoxels(dots, param, inner, outer, style);
 	}
@@ -173,6 +173,7 @@ bool VoxGrafix::DrawVoxels(const Dots& dots, const DrawParam& param, glRGBA inne
 		(style==DRAW_VOXELS_PERSON)
 			? 0.0f
 			: param.partner_y;
+	const float add_x = param.add_x;
 	
 	for (int i16=0; i16<SIZE16; i16+=inc)
 	{
@@ -239,7 +240,10 @@ bool VoxGrafix::DrawVoxels(const Dots& dots, const DrawParam& param, glRGBA inne
 		else
 #endif
 		{
-			glVertex3f(x,y+add_y,-z);
+			glVertex3f(
+				x + add_x,
+				y + add_y,
+				-z);
 		}
 	}
 

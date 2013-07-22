@@ -44,13 +44,7 @@
     <ClCompile Include="src\mi\Udp.cpp">
       <Filter>mi</Filter>
     </ClCompile>
-    <ClCompile Include="src\Config.cpp">
-      <Filter>stcl_cmn</Filter>
-    </ClCompile>
     <ClCompile Include="src\Msg.cpp">
-      <Filter>stcl_cmn</Filter>
-    </ClCompile>
-    <ClCompile Include="src\depth.cpp">
       <Filter>stcl_cmn</Filter>
     </ClCompile>
     <ClCompile Include="src\Depth10b6b.cpp">
@@ -62,27 +56,32 @@
     <ClCompile Include="src\FreeType.cpp">
       <Filter>stcl_cmn</Filter>
     </ClCompile>
-    <ClCompile Include="src\gl.cpp">
-      <Filter>stcl_cmn</Filter>
-    </ClCompile>
     <ClCompile Include="src\gl_funcs.cpp">
-      <Filter>stcl_cmn</Filter>
-    </ClCompile>
-    <ClCompile Include="src\main.cpp">
-      <Filter>stcl_cmn</Filter>
-    </ClCompile>
-    <ClCompile Include="src\MovingObject.cpp">
       <Filter>stcl_cmn</Filter>
     </ClCompile>
     <ClCompile Include="src\AppCore.cpp">
       <Filter>stcl_cmn</Filter>
     </ClCompile>
-    <ClCompile Include="src\GameInfo.cpp">
-      <Filter>stcl_cmn</Filter>
-    </ClCompile>
-    <ClCompile Include="src\St3dData.cpp" />
     <ClCompile Include="src\Depth10b6b_v1_1.cpp">
       <Filter>stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\St3dData.cpp">
+      <Filter>stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Config.cpp">
+      <Filter>stclient</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>stclient</Filter>
+    </ClCompile>
+    <ClCompile Include="src\depth.cpp">
+      <Filter>stclient</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GameInfo.cpp">
+      <Filter>stclient</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MovingObject.cpp">
+      <Filter>stclient</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -117,8 +116,12 @@
       <Filter>mi</Filter>
     </ClInclude>
     <ClInclude Include="src\pch.h" />
-    <ClInclude Include="src\ConstValue.h" />
-    <ClInclude Include="src\St3dData.h" />
+    <ClInclude Include="src\ConstValue.h">
+      <Filter>stcl_cmn</Filter>
+    </ClInclude>
+    <ClInclude Include="src\St3dData.h">
+      <Filter>stcl_cmn</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\..\..\..\..\ST\STMx64.psl" />

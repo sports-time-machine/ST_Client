@@ -163,10 +163,10 @@ void StClient::processKeyInput()
 		global.gameinfo.save();
 		break;
 	case SK_CTRL + 'L'://Ctrl+L
-		global.gameinfo.movie.load(MovieData::getStandardFilePath("TEST1!", 1));
+		global.gameinfo.movie.load(GameInfo::GetStandardFilePath("TEST1!", 1));
 		break;
 	case SK_CTRL + 'K'://Ctrl+K
-		global.gameinfo.partner1.load(MovieData::getStandardFilePath("TEST2!", 1));
+		global.gameinfo.partner1.load(GameInfo::GetStandardFilePath("TEST2!", 1));
 		break;
 	case SK_CTRL + 'R'://Ctrl+R
 		Msg::Notice("ƒŠƒvƒŒƒC!!"); 

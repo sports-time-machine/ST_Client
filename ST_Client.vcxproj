@@ -30,7 +30,6 @@
     <ClCompile Include="src\file_io.cpp" />
     <ClCompile Include="src\FreeType.cpp" />
     <ClCompile Include="src\GameInfo.cpp" />
-    <ClCompile Include="src\gl.cpp" />
     <ClCompile Include="src\gl_funcs.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\mi\Clipboard.cpp" />
