@@ -310,7 +310,16 @@ public:
 
 	static Static global;
 
-	static bool DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam& param, int frame_index, mgl::glRGBA inner, mgl::glRGBA outer, const char* movie_type, DrawStyle style, float add_x=0.0f);
+	static bool DrawMovieFrame(
+		const MovieData& mov,
+		const VoxGrafix::DrawParam& param,
+		int frame_index,
+		mgl::glRGBA inner,
+		mgl::glRGBA outer,
+		const char* movie_type,
+		DrawStyle style,
+		float  add_x    = 0.0f,
+		Dots** dots_ref = nullptr);
 	static void MixDepth(Dots& dots, const RawDepthImage& src, const CamParam& cam);
 	static bool DrawVoxels(const Dots& dots, const DrawParam& param, mgl::glRGBA inner, mgl::glRGBA outer, DrawStyle style = DRAW_VOXELS_PERSON);
 };

@@ -13,7 +13,7 @@ using namespace vector_and_matrix;
 VoxGrafix::Static VoxGrafix::global;
 
 
-bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam& param_, int frame_index, glRGBA inner, glRGBA outer, const char* movie_type, DrawStyle style, float add_x)
+bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam& param_, int frame_index, glRGBA inner, glRGBA outer, const char* movie_type, DrawStyle style, float add_x, Dots** dots_ref)
 {
 	if (mov.total_frames==0)
 	{
@@ -60,6 +60,11 @@ bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam&
 		VoxGrafix::DrawParam param = param_;
 		param.dot_size = mov.dot_size;
 		VoxGrafix::DrawVoxels(dots, param, inner, outer, style);
+	
+		if (dots_ref!=nullptr)
+		{
+			*dots_ref = &dots;
+		}
 	}
 	return true;
 }

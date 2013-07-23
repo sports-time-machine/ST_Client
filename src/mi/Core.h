@@ -149,6 +149,7 @@ public:
 	static void dialog(const char* title, const char* text=nullptr);
 	static void abort(const char* title, const char* text=nullptr);
 	static const std::string& getComputerName();
+	static const std::string& getDesktopFolder();
 };
 
 
