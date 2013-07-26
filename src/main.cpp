@@ -2,6 +2,11 @@
 #include <OpenNI.h>
 #include "StClient.h"
 
+///begin config///
+#define KINECT_ENABLED
+#define TWO_KINECT_REQUIRED
+///end of config///
+
 #ifdef _M_X64
 #pragma comment(lib,"OpenNI2_x64.lib")
 #else
@@ -136,7 +141,7 @@ static void init_kinect(const char* uri, Kdev& k)
 static bool run_app()
 {
 	Kdev dev1, dev2;
-
+#ifdef KINECT_ENABLED
 	if (config.enable_kinect)
 	{
 		Msg::BarMessage("Init Kinect");
@@ -150,11 +155,13 @@ static bool run_app()
 			Core::dialog("Kinectが見つかりません。起動を中止します。");
 			return false;
 		}
+#ifdef TWO_KINECT_REQUIRED
 		if (second.empty())
 		{
 			Core::dialog("Kinectが2台見つかりません。起動を中止します。");
 			return false;
 		}
+#endif
 
 		if (!first.empty())
 		{
@@ -169,9 +176,26 @@ static bool run_app()
 				dev2);
 		}
 	}
-
+#endif
 	StClient st_client(dev1, dev2);
-	if (st_client.init()==false)
+
+	// init1_GraphicsOnlyがconfig.fullscreenを見るため
+	// 先立って行うこと
+	if (!load_config())
+	{
+		return false;
+	}
+
+	// Configに依存する
+	if (!st_client.init1_GraphicsOnly())
+	{
+		return false;
+	}
+
+	// MovingObjectsのロードにはOpenGLの初期化が必要となる
+	load_moving_objects();
+
+	if (st_client.init2()==false)
 	{
 		if (config.enable_kinect)
 		{
@@ -179,6 +203,7 @@ static bool run_app()
 		}
 		return false;
 	}
+
 	st_client.run();
 	return true;
 }
@@ -186,9 +211,5 @@ static bool run_app()
 int main()
 {
 	mi::Console::setTitle("スポーツタイムマシン コンソール");
-	if (!load_config())
-	{
-		return EXIT_FAILURE;
-	}
 	return run_app() ? EXIT_SUCCESS : EXIT_FAILURE;
 }

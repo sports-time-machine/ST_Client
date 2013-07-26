@@ -28,8 +28,8 @@ void MovieData::saveToFile(File& f) const
 	FileHeader header;
 	memcpy(header.signature, STMOVIE_MAGIC_ID, sizeof(header.signature));
 	memcpy(header.format,    DEPTH_2D_10B6B,   sizeof(header.format));
-	header.ver_major = this->ver / 10;
-	header.ver_minor = this->ver % 10;
+	header.ver_major = static_cast<uint8>(this->ver / 10);
+	header.ver_minor = static_cast<uint8>(this->ver % 10);
 	header.total_frames = TOTAL_FRAMES;
 	header.total_msec   = TOTAL_FRAMES * 1000 / 30;
 	f.write(header);

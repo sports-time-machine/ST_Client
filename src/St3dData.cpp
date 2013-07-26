@@ -59,6 +59,7 @@ bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam&
 		
 		VoxGrafix::DrawParam param = param_;
 		param.dot_size = mov.dot_size;
+		param.add_x    = add_x;
 		VoxGrafix::DrawVoxels(dots, param, inner, outer, style);
 	
 		if (dots_ref!=nullptr)

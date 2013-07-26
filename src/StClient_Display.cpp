@@ -91,6 +91,7 @@ void StClient::display3dSection()
 	{
 		VoxGrafix::DrawMovieFrame(
 			global.gameinfo.partner1,
+			VoxGrafix::DrawParam(),
 			global.frame_index,
 			config.color.movie1,
 			glRGBA(50,50,50),
@@ -102,6 +103,7 @@ void StClient::display3dSection()
 	{
 		const bool res = VoxGrafix::DrawMovieFrame(
 			global.gameinfo.movie,
+			VoxGrafix::DrawParam(),
 			global.frame_index,
 			global.gameinfo.movie.player_color_rgba,
 			glRGBA(50,200,0),
@@ -363,11 +365,12 @@ void StClient::displayDebugInfo()
 			global.person_center.x,
 			global.person_center.y);
 	pr(monospace, 20, y+=H,
-		"TOTAL [%d frames] [WVTac=%3d][WVT=%4d][DrawCnt=%5d][auto-CF=%d]",
+		"[%d frames][white=%3d/%4d][DrawCnt=%5d][%s=%d]",
 			global.total_frames,
 			VoxGrafix::global.atari_count,
 			config.whitemode_voxel_threshould,
 			VoxGrafix::global.dot_count,
+			config.auto_cf_enabled ? "auto-CF" : "auto-cf-disabled",
 			global.auto_clear_floor_count);
 
 	// @fps

@@ -33,6 +33,9 @@ stclient::Config::Config()
 	auto_snapshot_interval = 0;
 	person_dot_px          = 1.5f;
 	max_movie_second       = 300; //走行前後マージン含めての秒数
+	obi_top_ratio          = 0.10f;
+	obi_bottom_ratio       = 0.90f;
+	auto_cf_threshould     = 300; //自動床消しの閾値
 
 	// 個別の設定
 	client_number        = -1;
@@ -44,6 +47,7 @@ stclient::Config::Config()
 	metrics.top_mm       = 2500;
 	enable_kinect        = true;
 	enable_color         = false;
+	auto_cf_enabled      = true;    //自動床消しはデフォルトでは有効にしておく
 
 	server_name          = "localhost";
 	person_inc           = 32;
@@ -192,6 +196,76 @@ static void ApplyRunEnvs(Config::RunEnvs& envs, const string& folder, PSLv var)
 
 
 
+//===================================
+// PSLデータをmoving_objectに適用する
+//===================================
+template<typename T> static void _assert(T val, const char* name)
+{
+	if (val==(T)0)
+	{
+		mi::Core::dialog("config.pslの書式エラー",name);
+	}
+}
+
+static void load_moving_objects_graphics(PSLv var)
+{
+	const string basefolder = "C:/ST/Picture/MovingObject/";
+
+	PSLv keys = var.keys();
+	for (size_t i=0; i<keys.length(); ++i)
+	{
+		PSL::string key = keys[i];
+		PSLv def = var[key];
+
+		string id = key.c_str();
+
+		auto& moi = global.moi_lib[id];
+		MoiInitStruct mis;
+		mis.reverse      = def["reverse"];
+		mis.anim_speed   = def["anim_speed"];
+		mis.top_speed    = (float)def["top_speed"];
+		mis.accel_second = (float)def["accel_second"];
+		mis.break_rate   = (float)def["break_rate"];
+		mis.size_meter   = (float)def["size_meter"];
+		mis.disp_y       = (float)def["disp_y"];
+
+#define _assert_(N) _assert(mis.N, #N)
+		_assert_(accel_second);
+		_assert_(anim_speed);
+		_assert_(break_rate);
+		_assert_(disp_y);
+		_assert_(size_meter);
+		_assert_(top_speed);
+
+		moi.init(id, mis);
+#if 1
+		Msg::BarMessage(id.c_str());
+#endif
+
+		PSLv images = def["images"];
+		for (size_t i=0; i<images.length(); ++i)
+		{
+			const int      length = images[i][0].toInt();
+			const string filename = images[i][1].toString();
+			const string     path = basefolder + id + "/" + filename;
+			moi.addFrame(length, path);
+#if 1
+			printf("moi['%s'].images[%d]=[%d,'%s']\n",
+				id.c_str(),
+				i,
+				length,
+				path.c_str());
+#endif
+		}
+#if 1
+		Msg::BarMessage(string("End of ")+id);
+#endif
+	}
+}
+
+
+
+
 //================================
 // PSLデータをコンフィグに適用する
 //================================
@@ -264,15 +338,19 @@ static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 	CONFIG_INT(whitemode_voxel_threshould);
 	CONFIG_INT(person_base_alpha);
 	CONFIG_INT(max_movie_second);
+	CONFIG_INT(auto_cf_threshould);
 	CONFIG_BOOL(enable_kinect);
 	CONFIG_BOOL(enable_color);
 	CONFIG_BOOL(ignore_udp);
 	CONFIG_BOOL(debug_info_text);
 	CONFIG_BOOL(debug_atari_ball);
+	CONFIG_BOOL(auto_cf_enabled);
 	CONFIG_STRING(picture_folder);
 	CONFIG_STRING(movie_folder);
 	CONFIG_FLOAT(person_dot_px);
 	CONFIG_FLOAT(partner_y);
+	CONFIG_FLOAT(obi_top_ratio);
+	CONFIG_FLOAT(obi_bottom_ratio);
 
 	config.person_base_alpha = minmax(config.person_base_alpha, 64, 255);
 
@@ -329,9 +407,15 @@ static void apply_psl_to_config(PSL::PSLVM& psl, Config& config)
 }
 
 
-//====================================
+void load_moving_objects()
+{
+	load_moving_objects_graphics(global.pslvm.get("moving_objects"));
+}
+
+
+//============================
 // コンフィグファイルのロード
-//====================================
+//============================
 #define VALIDATE(NAME) \
 	if (config.NAME.empty()){\
 		Core::dialog("コンフィグに" #NAME "がかかれていません");\

@@ -73,9 +73,13 @@ struct Config
 	int          whitemode_voxel_threshould;
 	bool         debug_info_text;
 	bool         debug_atari_ball;
+	bool         auto_cf_enabled;
 	int          person_base_alpha;
 	float        partner_y;
 	int          max_movie_second;
+	float        obi_top_ratio;
+	float        obi_bottom_ratio;
+	int          auto_cf_threshould;
 
 	// クライアント個別の設定
 	string       server_name;

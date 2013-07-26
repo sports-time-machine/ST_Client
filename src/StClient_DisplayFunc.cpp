@@ -274,8 +274,8 @@ void StClient::drawManyTriangles()
 //====================================
 void StClient::drawNormalGraphicsObi()
 {
-	const int top_line = 95*480/768;
-	const int bottom_line = 701*480/768;
+	const int top_line    = config.obi_top_ratio    * 480;
+	const int bottom_line = config.obi_bottom_ratio * 480;
 	this->display2dSectionPrepare();
 	glRGBA::black();
 	glBegin(GL_QUADS);
@@ -292,9 +292,10 @@ void StClient::drawNormalGraphicsObi()
 }
 
 
-//================================
+//=================================
 // チーターなどのMovingObjectの描画
-//================================
+//=================================
+#pragma optimize("",off)
 void StClient::drawMovingObject()
 {
 	volatile int frame = global.frame_index - global.game_start_frame;
@@ -305,6 +306,8 @@ void StClient::drawMovingObject()
 		: 0;
 
 	MovingObject& mo = global.partner_mo;
+	const auto& moi = mo.getMoi();
+
 	auto& image = mo.getFrameImage(mo_frame);
 	float real_meter = mo.getDistance();
 
@@ -312,24 +315,19 @@ void StClient::drawMovingObject()
 	bool forward = (real_meter<TURN);
 	float virtual_meter = forward ? real_meter : (TURN-(real_meter-TURN));
 
-	//体長110-140センチメートル
-	//
-//	int mo_size_cm = 125;
-//	int mo_pixel = 640/4 * mo_size_cm;
-
-	const int w = 320 * (forward ? +1 : -1);
-	const int h = 320;
+	const int texture_size = moi.getSizeMeter() * 640 / GROUND_WIDTH;
+	const int w = texture_size * (forward ? +1 : -1) * (moi.isReverse() ? -1 : +1);
+	const int h = texture_size;
 
 	// Xの中央
 	const float x = virtual_meter - config.getScreenLeftMeter();
 
 	// このYの「上」に表示される
-	const int y = 390;
+	const int y = static_cast<int>(moi.getDisplayY() * 480);
 
 	const float dx = x/4.0*640;
 	image.drawDepth(dx-w/2, y-h, w, h, -1.0f);
-	image.draw(0,0, 50,50);
-
+	//#printf("moi dist=%f\n", x);
 
 	if (global.in_game_or_replay)
 	{
@@ -338,6 +336,7 @@ void StClient::drawMovingObject()
 		mo.updateDistance();
 	}
 }
+#pragma optimize("",on)
 
 //============
 // Dotsの描画

@@ -8,10 +8,18 @@ inline float minmaxf(float x, float min, float max)
 }
 
 
-
-void MovingObjectImage::init(const string& id)
+MovingObjectImage::MovingObjectImage()
 {
-	this->_id = id;
+	MoiInitStruct zero = {};
+
+	this->_id  = "(non-id-string)";
+	this->_mis = zero;
+}
+
+void MovingObjectImage::init(const string& id, const MoiInitStruct& mis)
+{
+	this->_id  = id;
+	this->_mis = mis;
 }
 
 void MovingObjectImage::addFrame(int length, const string& filepath)
@@ -44,28 +52,31 @@ void MovingObject::initRunParam()
 
 void MovingObject::init()
 {
-	this->_moi        = nullptr;
-	this->_break_rate = 0.33f;
+	this->_moi = nullptr;
 	this->initRunParam();
 }
 
 void MovingObject::init(const MovingObjectImage& moi)
 {
-	this->_moi        = &moi;
-	this->_break_rate = 0.33f;
+	this->_moi = &moi;
 	this->initRunParam();
 }
 
 int MovingObject::convertRealFrameToVirtualFrame(int real_frame) const
 {
-	int fr = real_frame % _moi->_frames.size();
+	if (_moi->_frames.empty())
+	{
+		return 0;
+	}
 
+	int fr = real_frame % _moi->_frames.size();
 	return _moi->_frames[fr];
 }
 
 const mi::Image& MovingObject::getFrameImage(int real_frame) const
 {
-	const int frame = convertRealFrameToVirtualFrame((int)(_speed * real_frame * 45));
+	const int x = (int)(_speed * real_frame * getMoi().getAnimSpeed());
+	const int frame = convertRealFrameToVirtualFrame(x);
 
 	auto itr = _moi->_images.find(frame);
 	if (itr==_moi->_images.end())
@@ -97,13 +108,19 @@ float MovingObject::getDistance() const
 
 void MovingObject::updateDistance()
 {
+	// Ignore
+	if (this->_moi==nullptr)
+		return;
+
 	this->_distance_meter += this->_speed;
 
 	bool accelarate = false;
+#if 0
 	printf("%f, %f, %d\n",
 		_distance_meter,
 		_speed,
 		_stage);
+#endif
 
 	// ステージの終了条件
 	switch (this->_stage)
@@ -117,10 +134,10 @@ void MovingObject::updateDistance()
 		}
 		break;
 	case STAGE_BREAK:
-		this->_speed *= this->_break_rate;
+		this->_speed *= this->_moi->getBreakRate();
 		// 秒速0.1m未満になったら止まったと判断する
 		// 30Fあたりだと0.00333m
-		if (this->_speed <= 0.1f/30)
+		if (this->_speed <= 0.1f/MOVIE_FPS)
 		{
 			// 一定速度未満まで減速したら次へ
 			this->_stage = STAGE_RUN2;
@@ -148,11 +165,10 @@ void MovingObject::updateDistance()
 		// 
 		// だいたいの雰囲気です
 		// 30m/s＝108km/h
-		const float TOP_SPEED    = 30.0f;
-		const float ACCEL_SECOND = 2.0f;
-		const float ACCEL_FRAMES = ACCEL_SECOND * MOVIE_FPS;
-		
-		const float TOP_SPEED_PER_F = TOP_SPEED / 30.0f;
+		const float TOP_SPEED       = this->_moi->getTopSpeed();
+		const float ACCEL_SECOND    = this->_moi->getAccelSecond();
+		const float ACCEL_FRAMES    = ACCEL_SECOND * MOVIE_FPS;
+		const float TOP_SPEED_PER_F = TOP_SPEED / MOVIE_FPS;
 
 		this->_speed = minmaxf(
 			this->_speed + TOP_SPEED_PER_F/ACCEL_FRAMES,

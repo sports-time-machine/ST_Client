@@ -154,19 +154,41 @@ enum ViewMode
 	VM_3D_FRONT,
 };
 
+struct MoiInitStruct
+{
+	bool  reverse;
+	float top_speed;
+	float accel_second;
+	float break_rate;
+	float size_meter;
+	int   anim_speed;
+	float disp_y;
+};
+
 // チーターなど実体
 class MovingObjectImage
 {
 	friend class MovingObject;
 public:
+	MovingObjectImage();
+
 	// 初期化
-	void init(const string& id);
+	void init(const string& id, const MoiInitStruct& mis);
 	void addFrame(int length, const string& filepath);
+
+	bool  isReverse()      const     { return _mis.reverse;      }
+	float getTopSpeed()    const     { return _mis.top_speed;    }
+	float getAccelSecond() const     { return _mis.accel_second; }
+	float getBreakRate()   const     { return _mis.break_rate;   }
+	float getDisplayY()    const     { return _mis.disp_y;       }
+	int   getAnimSpeed()   const     { return _mis.anim_speed;   }
+	float getSizeMeter()   const     { return _mis.size_meter;   }
 
 private:
 	typedef std::map<int,mi::Image> Images;
 	typedef std::vector<int> Frames;
 
+	MoiInitStruct _mis;
 	string  _id;               // M:CHEETAH-1
 	Images  _images;
 	Frames  _frames;
@@ -194,8 +216,11 @@ public:
 	// getter
 	int convertRealFrameToVirtualFrame(int real_frame) const;
 	const mi::Image& getFrameImage(int virtual_frame) const;
-	float getDistance() const;
-	float getTurnPosition() const  { return 28.0f; }
+	float getDistance()      const;
+	const MovingObjectImage& getMoi() const { return *_moi; }
+
+	// 28.0fメートル目でターンする
+	float getTurnPosition()  const  { return 28.0f; }
 
 	// command
 	void resetDistance();
@@ -203,11 +228,9 @@ public:
 	
 private:
 	const MovingObjectImage* _moi;
-	//bool   _is_running;
 	Stage  _stage;
 	float  _distance_meter;   // 原点からの距離
 	float  _speed;            // 毎フレームの移動速度 m/frame
-	float  _break_rate;       // ブレーキの良さ 0.0-1.0
 };
 
 
@@ -358,7 +381,8 @@ public:
 	StClient(Kdev& dev1, Kdev& dev2);
 	virtual ~StClient();
 
-	bool init();
+	bool init1_GraphicsOnly();
+	bool init2();
 	bool run();
 
 	// コマンドクラスからよばれます
@@ -401,8 +425,6 @@ private:
 	int                   snapshot_life;
 	ClientStatus          _private_client_status;
 
-
-	bool initGraphics();
 
 	void display();
 	void displayEnvironment();
@@ -461,3 +483,4 @@ public:
 
 
 extern bool load_config();
+extern void load_moving_objects();

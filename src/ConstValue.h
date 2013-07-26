@@ -42,7 +42,6 @@ enum NonameEnum
 	MAX_VOXEL_INC        = 1024,
 	ATARI_INC            = 20,
 	MAX_PICT_NUMBER      = 10,        // PICT numコマンドで送れるピクチャの数
-	AUTO_CF_THRESHOULD   = 800,       // 自動床消しの閾値
 };
 
 }//namespace stclient

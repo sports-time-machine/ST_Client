@@ -50,8 +50,6 @@ StClient::StClient(Kdev& dev1_, Kdev& dev2_) :
 {
 	eye.view_2d_run();
 	udp_recv.init(UDP_CONTROLLER_TO_CLIENT);
-	cal_cam1.curr    = config.cam1;
-	cal_cam2.curr    = config.cam2;
 	global.mirroring = config.mirroring;
 }
 
@@ -60,7 +58,7 @@ StClient::~StClient()
 }
 
 
-bool StClient::init()
+bool StClient::init2()
 {
 	Msg::BarMessage("Init StClient");
 
@@ -80,11 +78,6 @@ bool StClient::init()
 	}
 #endif
 
-	if (!initGraphics())
-	{
-		return false;
-	}
-
 	dev1.initRam();
 	dev2.initRam();
 
@@ -101,26 +94,6 @@ bool StClient::init()
 	Msg::BarMessage("Init done!");
 	Console::nl();
 
-
-	{	
-		auto& moi = global.moi_lib["CHEETAH-1"];
-		moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/Cheetah01.png");
-		moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/Cheetah02.png");
-		moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/Cheetah03.png");
-		moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/Cheetah04.png");
-		moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/Cheetah05.png");
-		moi.addFrame(20, "C:/ST/Picture/MovingObject/CHEETAH-1/Cheetah06.png");
-	}
-	{	
-		auto& moi = global.moi_lib["MUSAGI"];
-		moi.addFrame(40, "C:/ST/Picture/MovingObject/MUSAGI/01.png");
-		moi.addFrame(30, "C:/ST/Picture/MovingObject/MUSAGI/02.png");
-		moi.addFrame(20, "C:/ST/Picture/MovingObject/MUSAGI/03.png");
-		moi.addFrame(20, "C:/ST/Picture/MovingObject/MUSAGI/04.png");
-		moi.addFrame(20, "C:/ST/Picture/MovingObject/MUSAGI/05.png");
-		moi.addFrame(10, "C:/ST/Picture/MovingObject/MUSAGI/06.png");
-		moi.addFrame(15, "C:/ST/Picture/MovingObject/MUSAGI/07.png");
-	}
 
 	return true;
 }
@@ -340,7 +313,7 @@ void StClient::drawNormalGraphics()
 			this->display2dSectionPrepare();
 			this->drawRunEnv();
 		}
-			
+
 		if (global.partner_mo.enabled())
 		{
 			this->display2dSectionPrepare();
@@ -405,9 +378,9 @@ void StClient::processOneFrame()
 	// 描画していなければ床消し追記する
 	//   - アイドル時で、
 	//   - 画面にボクセルが描画されていないとき
-	if (clientStatus()==STATUS_IDLE)
+	if (clientStatus()==STATUS_IDLE && config.auto_cf_enabled)
 	{
-		if (VoxGrafix::global.dot_count < AUTO_CF_THRESHOULD)
+		if (VoxGrafix::global.dot_count < config.auto_cf_threshould)
 		{
 			++global.auto_clear_floor_count;
 			this->dev1.updateFloorDepth();
@@ -477,6 +450,9 @@ void StClient::initGameInfo()
 
 bool StClient::run()
 {
+	this->cal_cam1.curr    = config.cam1;
+	this->cal_cam2.curr    = config.cam2;
+
 	global.pslvm.addFunction("CreateHitWall", CreateHitWall);
 
 	int window_w = 0;
@@ -864,7 +840,7 @@ void StClient::SaveCamConfig()
 	}
 }
 
-bool StClient::initGraphics()
+bool StClient::init1_GraphicsOnly()
 {
 	string name;
 	name += "スポーツタイムマシン クライアント";
