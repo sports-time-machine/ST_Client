@@ -14,13 +14,18 @@ using namespace stclient;
 // 色はconfig.pslのcolorsセクションで指定しておくこと
 static glRGBA getPlayerColorFromString(const std::string& name)
 {
+	Msg::Notice("getPlayerColorFromString", name);
 	const auto itr = config.player_colors.find(name);
 	if (itr==config.player_colors.end())
 	{
+		Msg::ErrorMessage("Color not found!", name);
 		// 見つからなかったときのデフォルト色
 		return config.color.default_player_color;
 	}
-	return itr->second;
+
+	glRGBA col = itr->second;
+	printf("{r:%d, g:%d, b:%d, a:%d}\n", col.r, col.g, col.b, col.a);
+	return col;
 }
 
 

@@ -124,9 +124,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\..\..\..\..\ST\STMx64.psl" />
-  </ItemGroup>
-  <ItemGroup>
     <Filter Include="mi">
       <UniqueIdentifier>{39e48a65-803b-44c9-b47f-8cb34b49f5c5}</UniqueIdentifier>
     </Filter>

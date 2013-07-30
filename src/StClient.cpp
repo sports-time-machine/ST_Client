@@ -273,7 +273,7 @@ void StClient::drawNormalGraphics()
 		static Dots dots;
 		drawRealDots(
 			dots,
-			glRGBA(80,70,50),
+			glRGBA(80,70,50, 160),
 			config.person_dot_px);
 		break;}
 

@@ -230,7 +230,8 @@ bool VoxGrafix::DrawVoxels(const Dots& dots, const DrawParam& param, glRGBA inne
 			if (!(in_x && in_y && in_z))
 				continue;
 
-			param.inner_color.glColorUpdate(col255);
+			//param.inner_color.glColorUpdate(col255);
+			inner.glColorUpdate(col255);
 		}
 #endif
 

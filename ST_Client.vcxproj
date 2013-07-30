@@ -19,9 +19,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\..\..\..\..\ST\STMx64.psl" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="src\AppCore.cpp" />
     <ClCompile Include="src\Config.cpp" />
     <ClCompile Include="src\depth.cpp" />
