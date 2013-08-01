@@ -3,6 +3,7 @@
 #include "../gl_funcs.h"
 #include "../FreeType.h"
 #include "../mi/Timer.h"
+#include "../mi/Libs.h"
 #pragma warning(disable:4244)
 
 template<typename T> T minmax(T val, T min, T max)
@@ -19,7 +20,7 @@ using namespace mgl;
 class ViewerApp
 {
 public:
-	MovieData mov;
+	std::map<int,MovieData> mov;
 	EyeCore eye;
 	freetype::font_data font;
 	int frame;
@@ -36,12 +37,27 @@ public:
 	{
 		font.init("C:/Windows/Fonts/Cour.ttf", 12);
 		eye.set(-4.2f, 1.5f, 5.4f, -1.0f, -0.2f);
+		eye.setTransitionTime(80);
 		eye.fast_set = false;
+	}
+
+	static void DenugPrintln(const char* s)
+	{
+		OutputDebugString(s);
+		OutputDebugString("\n");
 	}
 
 	void load(const string& basename)
 	{
-		mov.load(basename + "-1.stmov");
+		DenugPrintln("load");
+		DenugPrintln(basename.c_str());
+		for (int i=0; i<6; ++i)
+		{
+			if (!mov[i].load(basename+"-"+mi::Lib::to_s(1+i)+".stmov"))
+			{
+				DenugPrintln("load failed");
+			}
+		}
 	}
 
 	struct Data
@@ -173,13 +189,17 @@ public:
 		}
 
 		if (kbd['1'])
-		{
-			eye.set(-4.2f, 1.5f, 5.4f, -1.0f, -0.2f);
-		}
+			{ eye.set(-4.2f, 1.5f, 5.4f, -1.0f, -0.2f); }
 		if (kbd['2'])
-		{
-			eye.set(4.2f, 1.5f, 5.4f, -2.1f, -0.2f);
-		}
+			{ eye.set(4.2f, 1.5f, 5.4f, -2.1f, -0.2f); }
+		if (kbd['3'])
+			{ eye.set(-4.4f, +16.5f, +17.9f, -1.0f, -2.6f); }
+		if (kbd['4'])
+			{ eye.set(-10.8f, 7.0f, 6.3f, -0.5f, -1.6f); }
+		if (kbd['5'])
+			{ eye.set(29.9f, 7.0f, 7.9f, -2.6f, -1.6f); }
+		if (kbd['6'])
+			{ eye.set(-7.1f, 1.5f, 1.7f, -0.4f, -0.2f); }
 
 		const float mv = 0.1f;
 		const float mr = 0.025f;
@@ -195,10 +215,10 @@ public:
 		if (kbd['W'])  move(0);
 		if (kbd['A'])  move(270);
 		if (kbd['D'])  move(90);
-		if (kbd['Q'])  { eye.rh -= mr; move( 90); }
-		if (kbd['E'])  { eye.rh += mr; move(270); }
-		if (kbd['R'])  { eye.y += mv; eye.v -= mv; }
-		if (kbd['F'])  { eye.y -= mv; eye.v += mv; }
+		if (kbd['Q'])  { eye.rh += mr; move(270); }
+		if (kbd['E'])  { eye.rh -= mr; move( 90); }
+		if (kbd['R'])  { eye.y += mv; eye.v -= mr; }
+		if (kbd['F'])  { eye.y -= mv; eye.v += mr; }
 
 		if (kbd['N'])  output_dot_size = minmax(output_dot_size-0.1f, 0.1f, 10.0f);
 		if (kbd['M'])  output_dot_size = minmax(output_dot_size+0.1f, 0.1f, 10.0f);
@@ -240,72 +260,145 @@ public:
 		display2d();
 	}
 
-	void drawFieldGrid()
+	void drawFieldCube(float x_base)
 	{
-		glBegin(GL_LINES);
-		const float F = 400/100.0f;
+		// delta
+		const float D = 0.0001f;
 
-		glRGBA line_color(0.8f, 0.8f, 0.8f);
+		glRGBA  gline_color(0.0f, 0.1f, 0.3f);
 		glRGBA center_color(0.9f, 0.3f, 0.2f);
+		glRGBA   wall_color(0.92f, 0.85f, 0.88f, 0.25f);
+#if 0
+		// 「向こう側」の壁
+		glBegin(GL_QUADS);
+			wall_color();
+			glVertex3f(GROUND_LEFT +x_base+D,               D, -GROUND_FAR-D);
+			glVertex3f(GROUND_RIGHT+x_base-D,               D, -GROUND_FAR-D);
+			glVertex3f(GROUND_RIGHT+x_base-D, GROUND_HEIGHT-D, -GROUND_FAR-D);
+			glVertex3f(GROUND_LEFT +x_base+D, GROUND_HEIGHT-D, -GROUND_FAR-D);
+		glEnd();
+#endif
+		// 床の格子
+		glLineWidth(0.5f);
+		glBegin(GL_LINES);
+			gline_color();
 
-		line_color();
-		glLineWidth(1.0f);
+			// 前後のライン
+			for (double i=GROUND_LEFT; i<=GROUND_RIGHT; i+=0.5)
+			{
+				glVertex3d(i+x_base, 0, -GROUND_DEPTH);
+				glVertex3d(i+x_base, 0,  0);
+			}
 
-		// 前後のライン
-		for (double i=GROUND_LEFT; i<=GROUND_RIGHT; i+=0.5)
-		{
-			glVertex3d(i, 0, -GROUND_DEPTH);
-			glVertex3d(i, 0,  0);
-		}
-
-		// 左右のライン
-		for (double i=0; i<=GROUND_DEPTH; i+=GROUND_DEPTH/4)
-		{
-			glVertex3d(GROUND_LEFT,  0, -i);
-			glVertex3d(GROUND_RIGHT, 0, -i);
-		}
-
+			// 左右のライン
+			for (double i=0; i<=GROUND_DEPTH; i+=GROUND_DEPTH/4)
+			{
+				glVertex3d(GROUND_LEFT +x_base, 0, -i);
+				glVertex3d(GROUND_RIGHT+x_base, 0, -i);
+			}
 		glEnd();
 
-		line_color();
 		// Left and right box
+		glLineWidth(1.0f);
 		for (int i=0; i<2; ++i)
 		{
 			const float x = (i==0) ? GROUND_LEFT : GROUND_RIGHT;
 			glBegin(GL_LINE_LOOP);
-				glVertex3f(x, GROUND_HEIGHT, -GROUND_NEAR);
-				glVertex3f(x, GROUND_HEIGHT, -GROUND_FAR);
-				glVertex3f(x,          0.0f, -GROUND_FAR);
-				glVertex3f(x,          0.0f, -GROUND_NEAR);
+				glTranslatef(x_base, 0.0f, 0.0f);
+				glVertex3f(x+x_base, GROUND_HEIGHT, -GROUND_NEAR);
+				glVertex3f(x+x_base, GROUND_HEIGHT, -GROUND_FAR);
+				glVertex3f(x+x_base,          0.0f, -GROUND_FAR);
+				glVertex3f(x+x_base,          0.0f, -GROUND_NEAR);
 			glEnd();
 		}
 
-		// Ceil bar
+		// Ceil wires
 		glBegin(GL_LINES);
-			glVertex3f(GROUND_LEFT,  GROUND_HEIGHT, -GROUND_NEAR);
-			glVertex3f(GROUND_RIGHT, GROUND_HEIGHT, -GROUND_NEAR);
-			glVertex3f(GROUND_LEFT,  GROUND_HEIGHT, -GROUND_FAR);
-			glVertex3f(GROUND_RIGHT, GROUND_HEIGHT, -GROUND_FAR);
+			glVertex3f(GROUND_LEFT +x_base, GROUND_HEIGHT, -GROUND_NEAR);
+			glVertex3f(GROUND_RIGHT+x_base, GROUND_HEIGHT, -GROUND_NEAR);
+			glVertex3f(GROUND_LEFT +x_base, GROUND_HEIGHT, -GROUND_FAR);
+			glVertex3f(GROUND_RIGHT+x_base, GROUND_HEIGHT, -GROUND_FAR);
 		glEnd();
 
-
-
-		// run space, @green
-#if 0
-		glRGBA(0.25f, 1.00f, 0.25f, 0.25f).glColorUpdate();
 		glBegin(GL_QUADS);
-			glVertex3f(GROUND_LEFT,  0, -GROUND_NEAR);
-			glVertex3f(GROUND_LEFT,  0, -GROUND_FAR);
-			glVertex3f(GROUND_RIGHT, 0, -GROUND_FAR);
-			glVertex3f(GROUND_RIGHT, 0, -GROUND_NEAR);
+			glRGBA(0.25f, 1.00f, 0.25f, 0.25f)();
+			glVertex3f(GROUND_LEFT +x_base, 0, -GROUND_NEAR);
+			glVertex3f(GROUND_LEFT +x_base, 0, -GROUND_FAR);
+			glVertex3f(GROUND_RIGHT+x_base, 0, -GROUND_FAR);
+			glVertex3f(GROUND_RIGHT+x_base, 0, -GROUND_NEAR);
 		glEnd();
-#endif
+	}
+
+	void drawFieldGroundLarge()
+	{
+		const float D = 999.0f;
+		const float x1 = -D;
+		const float x2 = +D;
+		const float z1 = -D;
+		const float z2 = +D;
+		const float y  = -0.002f;
+		glBegin(GL_QUADS);
+			glRGBA(0.3f, 0.2f, 0.2f)();
+			glVertex3f(x1, y, z1);
+			glVertex3f(x2, y, z1);
+			glVertex3f(x2, y, z2);
+			glVertex3f(x1, y, z2);
+		glEnd();
+	}
+
+	void drawFieldGroundSmall()
+	{
+		const float x1 = -2.0f - 1;
+		const float x2 = -2.0f + 1 + 4*6;
+		const float z1 = -1.0f - GROUND_FAR;
+		const float z2 = +1.0f;
+		const float y  = -0.001f;
+		glBegin(GL_QUADS);
+			glRGBA(0.3f, 0.4f, 0.3f)();
+			glVertex3f(x1, y, z1);
+			glVertex3f(x2, y, z1);
+			glVertex3f(x2, y, z2);
+			glVertex3f(x1, y, z2);
+		glEnd();
+	}
+
+	void drawFarSprite()
+	{
+		float x = 1.2f;
+		float y = 1.2f;
+		float x1 = x-0.5f;
+		float x2 = x+0.5f;
+		float y1 = y-0.5f;
+		float y2 = y+0.5f;
+		float z = -GROUND_FAR;
+		glBegin(GL_QUADS);
+			glRGBA(0.8f, 0.2f, 0.1f)();
+			glVertex3f(x1, y1, z);
+			glVertex3f(x2, y1, z);
+			glVertex3f(x2, y2, z);
+			glVertex3f(x1, y2, z);
+		glEnd();
+	}
+
+	void drawFieldGrid()
+	{
+		drawFieldGroundLarge();
+		drawFieldGroundSmall();
+
+		for (int i=0; i<6; ++i)
+		{
+			drawFieldCube(4.0f * i);
+		}
+
+		//drawFarSprite();
 	}
 
 	void display2d()
 	{
-		glRGBA(200,100,50)();
+		glEnable(GL_LINE_SMOOTH);
+
 		glBegin(GL_TRIANGLE_STRIP);
+			glRGBA(200,100,50)();
 			glVertex2f(0.25, 0.25);
 			glVertex2f(0.5, 0.25);
 			glVertex2f(0.25, 0.5);
@@ -325,11 +418,12 @@ public:
 			VoxGrafix::global.dot_count);
 
 		freetype::print(font, 10,y+=h,
-			"eye={x:%+5.1f,y:%+5.1f,z:%+5.1f,rh:%+5.1f} [a/s/d/w]",
+			"eye={x:%.1f,y:%.1f,z:%.1f,rh:%.1f,%.1f} [a/s/d/w]",
 			eye.x,
 			eye.y,
 			eye.z,
-			eye.rh);
+			eye.rh,
+			eye.v);
 
 		freetype::print(font, 10,y+=h,
 			"output dot size = %.1f [n/m]",
@@ -351,28 +445,46 @@ public:
 		pr("[X]  prev frame");
 	}
 
-	void display3d()
+	void drawMovie(MovieData& mov, float add_x, glRGBA color)
 	{
 		VoxGrafix::DrawParam param;
-		param.movie_inc = 2500;
-		param.person_inc = 500;
-		mov.dot_size = 8.0f;
-
+		param.movie_inc  = 16;
+		param.person_inc = 16;
 		this->dots_original = nullptr;
+		mov.dot_size = 1.6f;
 		const bool res = VoxGrafix::DrawMovieFrame(
 			mov,
 			param,
 			data.frame_index,
-			mov.player_color_rgba,
+			//mov.player_color_rgba,
+			color,
 			glRGBA(50,200,0, 80),
 			"replay",
 			VoxGrafix::DRAW_VOXELS_PERSON,
-			+0.0f,
+			add_x,
 			&this->dots_original);
 		if (!res)
 		{
 			data.frame_index = 0;
 			data.frame_auto = Data::NO_DIR;
+		}
+	}
+
+	void display3d()
+	{
+		int a = 230;
+		int x = 180;
+		glRGBA colors[6];
+		colors[0].set(a,x,x, 160);
+		colors[1].set(x,a,x, 160);
+		colors[2].set(x,x,a, 160);
+		colors[3].set(a,a,x, 160);
+		colors[4].set(a,x,a, 160);
+		colors[5].set(a,a,x, 160);
+
+		for (int i=0; i<6; ++i)
+		{
+			drawMovie(mov[i], i*4, colors[i]);
 		}
 	}
 
@@ -413,13 +525,26 @@ static string getBaseName(const char* _s)
 	return s.substr(0, s.length()-8);
 }
 
-static bool run_app(const char* arg)
+static bool run_app(string arg)
 {
 	AppCore::initGraphics(false, "ST 3D Viewer");
+	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
+	glHint(GL_LINE_SMOOTH_HINT,    GL_NICEST);
 
 	ViewerApp app;
 	app.init();
-	app.load(getBaseName(arg));
+	if (arg.length()>0)
+	{
+		if (arg[0]=='"')
+		{
+			arg = arg.substr(1, arg.length()-2);
+		}
+
+		app.load(getBaseName(arg.c_str()));
+	}
+
+	int win_w,win_h;
+	glfwGetWindowSize(&win_w, &win_h);
 
 	glfwSwapInterval(1);
 	double prev_msec = 0.0;
@@ -434,6 +559,17 @@ static bool run_app(const char* arg)
 			Sleep((int)sleep_msec);
 		}
 		prev_msec = curr_msec;
+
+		{
+			int w,h;
+			glfwGetWindowSize(&w, &h);
+			if (!(win_w==w && win_h==h))
+			{
+				win_w = w;
+				win_h = h;
+				glViewport(0, 0, win_w, win_h);
+			}
+		}
 
 		app.runFrame();
 		glfwSwapBuffers();

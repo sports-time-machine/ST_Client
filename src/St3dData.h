@@ -80,13 +80,20 @@ public:
 	{
 		go_pos = -1;
 		fast_set = true;
+		setTransitionTime(25);  // default transition time
 	}
+
+	void setTransitionTime(int t)
+	{
+		this->transition_time = t;
+	}
+
 	struct Go
 	{
 		float x,y,z,rh,v;
 	};
-	enum { GO_FRAMES=25 };
 
+	int    transition_time;
 	float  x,y,z;    // Ž‹ü‚ÌŒ´“_
 	float  rh;       // Ž‹ü‚Ì…•½•ûŒü(rad)
 	float  v;        // Ž‹ü‚Ì‚’¼•ûŒü
@@ -116,7 +123,7 @@ public:
 			this->to.z  = go_z;
 			this->to.rh = go_rh;
 			this->to.v  = go_v;
-			this->go_pos = GO_FRAMES;
+			this->go_pos = transition_time;
 		}
 	}
 
@@ -125,13 +132,13 @@ public:
 		if (go_pos>=0)
 		{
 			const float i =
-				(go_pos==GO_FRAMES)
+				(go_pos==transition_time)
 					?  1.0f
-					: (1.0f * go_pos  / GO_FRAMES);
+					: (1.0f * go_pos  / transition_time);
 			const float j =
 				(go_pos==0)
 					?  1.0f
-					: (1.0f * (GO_FRAMES-go_pos) / GO_FRAMES);
+					: (1.0f * (transition_time-go_pos) / transition_time);
 			x  = j*to.x  + i*from.x;
 			y  = j*to.y  + i*from.y;
 			z  = j*to.z  + i*from.z;
