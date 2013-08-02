@@ -6,8 +6,8 @@
     <LocalDebuggerCommandArguments>C:\000Yamaguchi\00000AVYV0-1.stmov</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerCommandArguments>C:\YAM_Movies\0\3\8\G\F\0\0\0\0\0\00000FG830-2.stmov</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>C:\ST\Viewer\00000SC7Y0-1.stmov</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerWorkingDirectory>C:\ST\Client</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\ST\Viewer</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
 </Project>

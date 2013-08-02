@@ -110,6 +110,7 @@ public:
 			this->z  = go_z;
 			this->rh = go_rh;
 			this->v  = go_v;
+			this->go_pos = -1;
 		}
 		else
 		{

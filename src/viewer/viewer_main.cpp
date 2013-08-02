@@ -4,6 +4,8 @@
 #include "../FreeType.h"
 #include "../mi/Timer.h"
 #include "../mi/Libs.h"
+#include <FreeImage.h>
+#include <direct.h>
 #pragma warning(disable:4244)
 
 template<typename T> T minmax(T val, T min, T max)
@@ -21,16 +23,22 @@ class ViewerApp
 {
 public:
 	std::map<int,MovieData> mov;
-	EyeCore eye;
 	freetype::font_data font;
-	int frame;
-	Dots* dots_original;
-	float output_dot_size;
+	EyeCore    eye;
+	int        frame;
+	Dots*      dots_original;
+	float      output_dot_size;
+	int        view2d_width;
+	int        picture_interval;
+	bool       debug_show;
 
 	ViewerApp()
 	{
 		frame = 0;
 		output_dot_size = 1.0f;
+		view2d_width = 0;
+		picture_interval = 1;
+		debug_show = true;
 	}
 
 	void init()
@@ -39,6 +47,7 @@ public:
 		eye.set(-4.2f, 1.5f, 5.4f, -1.0f, -0.2f);
 		eye.setTransitionTime(80);
 		eye.fast_set = false;
+		view2d_width = 0;
 	}
 
 	static void DenugPrintln(const char* s)
@@ -68,23 +77,20 @@ public:
 			INCR,
 			DECR,
 		};
-		FrameDir frame_auto;
-		int frame_index;
+		FrameDir  frame_auto;
+		int       frame_index;
+		bool      output_picture;
 
 		Data()
 		{
 			frame_auto = NO_DIR;
 			frame_index = 0;
+			output_picture = false;
 		}
 	} data;
 
-	void runFrame()
+	void processFrameIncrement()
 	{
-		processUserInput();
-		processGraphics();
-
-		eye.updateCameraMove();
-
 		switch (data.frame_auto)
 		{
 		case Data::INCR:
@@ -99,6 +105,71 @@ public:
 			}
 			break;
 		}
+	}
+
+	void saveScreenShot(int frame_number)
+	{
+		int w,h;
+		glfwGetWindowSize(&w, &h);
+
+		FIBITMAP* bmp = FreeImage_Allocate(w,h,24);
+
+		// バックバッファを読む
+		glReadBuffer(GL_BACK);
+
+		std::vector<RGBQUAD> vram;
+		vram.resize(640*480);
+		
+		// バッファの内容を
+		// bmpオブジェクトのピクセルデータが格納されている領域に直接コピーする。
+		glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, vram.data());
+
+		int addr = 0;
+		for (int y=0; y<h; ++y)
+		{
+			for (int x=0; x<w; ++x)
+			{
+				RGBQUAD color;
+				color.rgbRed   = vram[addr].rgbRed;
+				color.rgbGreen = vram[addr].rgbGreen;
+				color.rgbBlue  = vram[addr].rgbBlue;
+				FreeImage_SetPixelColor(bmp, x, y, &color);
+				++addr;
+			}
+		}
+
+		char num[100];
+		sprintf_s(num, "%05d", frame_number);
+
+		string foldername;
+		foldername += mi::Core::getDesktopFolder();
+		foldername += "/Pictures";
+		_mkdir(foldername.c_str());
+
+		string filename;
+		filename += foldername;
+		filename += "/picture";
+		filename += num;
+		filename += ".png";
+
+		FreeImage_Save(FIF_PNG, bmp, filename.c_str());
+
+		FreeImage_Unload(bmp);
+	}
+
+	void runFrame()
+	{
+		processUserInput();
+		processGraphics();
+		if (data.output_picture)
+		{
+			if (data.frame_index % picture_interval==0)
+			{
+				saveScreenShot(data.frame_index);
+			}
+		}
+		eye.updateCameraMove();
+		processFrameIncrement();
 	}
 
 	void createDots(Dots& dest, const Dots& src)
@@ -174,9 +245,110 @@ public:
 		outputDots(f, dots);
 	}
 
+	void eye3d(float x, float y, float z, float h, float v)
+	{
+		eye.fast_set = (view2d_width==0);
+		view2d_width = 0;
+		eye.set(x,y,z,h,v);
+	}
+
+	void eye2d(float x, float y, float z, float h, float v, int w)
+	{
+		eye.fast_set = true;
+		view2d_width = w;
+		eye.set(x,y,z,h,v);
+	}
+
 	void processUserInput()
 	{
-		bool kbd[256] = {};
+		processUserKeyInput();
+		processUserMouseInput();
+	}
+
+	struct MouseButton
+	{
+		bool prev,curr;
+		MouseButton()
+		{
+			prev = false;
+			curr = false;
+		}
+		void update(bool new_state)
+		{
+			prev = curr;
+			curr = new_state;
+		}
+		bool pressed() const
+		{
+			return !prev && curr;
+		}
+		operator bool() const
+		{
+			return curr;
+		}
+	};
+
+	MouseButton mleft,mright;
+	struct Point
+	{
+		int x,y;
+		void set(int x, int y)
+		{
+			this->x = x;
+			this->y = y;
+		}
+	};
+	struct MouseData
+	{
+		float rh_first;
+		float v_first;
+	} md;
+	Point mleft_pos, mright_pos;
+
+	void processUserMouseInput()
+	{
+		mleft .update(glfwGetMouseButton(GLFW_MOUSE_BUTTON_LEFT )==GLFW_PRESS);
+		mright.update(glfwGetMouseButton(GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS);
+
+		Point mpos;
+		{
+			int mx,my;
+			glfwGetMousePos(&mx, &my);
+			mpos.set(mx,my);
+		}
+
+		{
+			if (mleft.pressed())   { mleft_pos  = mpos; md.rh_first=eye.rh; md.v_first=eye.v; }
+			if (mright.pressed())  { mright_pos = mpos; }
+		}
+
+		if (mleft)
+		{
+			eye.rh = md.rh_first + (mleft_pos.x - mpos.x) * 0.0025f;
+			eye.v  = md. v_first - (mleft_pos.y - mpos.y) * 0.0050f;
+		}
+		if (mright)
+		{
+			eye.x -= cosf(eye.rh     ) * (mright_pos.y - mpos.y) * 0.025f;
+			eye.z -= sinf(eye.rh     ) * (mright_pos.y - mpos.y) * 0.025f;
+			eye.x += cosf(eye.rh+PI/2) * (mright_pos.x - mpos.x) * 0.025f;
+			eye.z += sinf(eye.rh+PI/2) * (mright_pos.x - mpos.x) * 0.025f;
+			mright_pos = mpos;
+		}
+	}
+
+	void incdec(bool dec_key, bool inc_key, int& val, int min, int max)
+	{
+		if (dec_key && val>min)
+			--val;
+		if (inc_key && val<max)
+			++val;
+	}
+
+	void processUserKeyInput()
+	{
+		static bool prev[256];
+		static bool kbd[256];
 		{
 			BYTE _kbd[256] = {};
 			GetKeyboardState(_kbd);
@@ -184,24 +356,23 @@ public:
 			for (int i=0; i<256; ++i)
 			{
 				const BYTE KON = 0x80;
+				prev[i] = kbd[i];
 				kbd[i] = (_kbd[i] & KON)!=0;
 			}
 		}
 
-		if (kbd['1'])
-			{ eye.set(-4.2f, 1.5f, 5.4f, -1.0f, -0.2f); }
-		if (kbd['2'])
-			{ eye.set(4.2f, 1.5f, 5.4f, -2.1f, -0.2f); }
-		if (kbd['3'])
-			{ eye.set(-4.4f, +16.5f, +17.9f, -1.0f, -2.6f); }
-		if (kbd['4'])
-			{ eye.set(-10.8f, 7.0f, 6.3f, -0.5f, -1.6f); }
-		if (kbd['5'])
-			{ eye.set(29.9f, 7.0f, 7.9f, -2.6f, -1.6f); }
-		if (kbd['6'])
-			{ eye.set(-7.1f, 1.5f, 1.7f, -0.4f, -0.2f); }
 
-		const float mv = 0.1f;
+		const float PI = 3.1415923f;
+		if (kbd['1'])  { eye3d(-4.2f, 1.5f, 5.4f, -1.0f, -0.2f); }
+		if (kbd['2'])  { eye3d(4.2f, 1.5f, 5.4f, -2.1f, -0.2f); }
+		if (kbd['3'])  { eye3d(-4.4f, +16.5f, +17.9f, -1.0f, -2.6f); }
+		if (kbd['4'])  { eye3d(-10.8f, 7.0f, 6.3f, -0.5f, -1.6f); }
+		if (kbd['5'])  { eye3d(29.9f, 7.0f, 7.9f, -2.6f, -1.6f); }
+		if (kbd['6'])  { eye3d(-7.1f, 1.5f, 1.7f, -0.4f, -0.2f); }
+		if (kbd['9'])  { eye2d(10.0f, 3.8f, 60.7f, -PI/2, -0.8f, 240); }
+		if (kbd['0'])  { eye2d(-25.3f, 4.1f, 20.5f, -0.55f, -0.85f, 150); }
+
+		const float mv = 0.100f;
 		const float mr = 0.025f;
 
 		auto move = [&](int r){
@@ -219,6 +390,16 @@ public:
 		if (kbd['E'])  { eye.rh -= mr; move( 90); }
 		if (kbd['R'])  { eye.y += mv; eye.v -= mr; }
 		if (kbd['F'])  { eye.y -= mv; eye.v += mr; }
+		if (kbd[VK_F11] && !prev[VK_F11]) { debug_show = !debug_show; }
+
+		incdec(
+			kbd['O'],
+			kbd['L'],
+			view2d_width, 1, 9999);
+		incdec(
+			kbd['I']&&!prev['I'],
+			kbd['K']&&!prev['K'],
+			picture_interval, 1, 30);
 
 		if (kbd['N'])  output_dot_size = minmax(output_dot_size-0.1f, 0.1f, 10.0f);
 		if (kbd['M'])  output_dot_size = minmax(output_dot_size+0.1f, 0.1f, 10.0f);
@@ -231,14 +412,21 @@ public:
 		{
 			data.frame_auto = Data::NO_DIR;
 		}
-		if (kbd[VK_F3])
+		if (kbd[VK_F3])//rewind
 		{
 			data.frame_auto = Data::NO_DIR;
 			data.frame_index = 0;
+			data.output_picture = false;
 		}
 		if (kbd[VK_F4])
 		{
 			data.frame_auto = Data::DECR;
+		}
+		if (kbd[VK_F7])//play with output
+		{
+			data.frame_auto = Data::INCR;
+			data.output_picture = true;
+			data.frame_index = 0;
 		}
 
 		if (kbd[VK_F8])
@@ -257,7 +445,7 @@ public:
 		drawFieldGrid();
 		display3d();
 		display2dSectionPrepare();
-		display2d();
+		if (debug_show) display2d();
 	}
 
 	void drawFieldCube(float x_base)
@@ -396,35 +584,38 @@ public:
 	void display2d()
 	{
 		glEnable(GL_LINE_SMOOTH);
-
+#if 0
 		glBegin(GL_TRIANGLE_STRIP);
 			glRGBA(200,100,50)();
 			glVertex2f(0.25, 0.25);
 			glVertex2f(0.5, 0.25);
 			glVertex2f(0.25, 0.5);
 		glEnd();
-
+#endif
 		const int h = 20;
 		int y = 0;
-		glRGBA(0,0,0)();
+		glRGBA(60,30,0)();
 		++frame;
 		freetype::print(font, 10,y+=h,
 			"%d frames, %d sec",
 			data.frame_index,
 			data.frame_index/30);
-
 		freetype::print(font, 10,y+=h,
 			"total dots = %d",
 			VoxGrafix::global.dot_count);
-
 		freetype::print(font, 10,y+=h,
-			"eye={x:%.1f,y:%.1f,z:%.1f,rh:%.1f,%.1f} [a/s/d/w]",
+			"eye={x:%.1f,y:%.1f,z:%.1f,rh:%.2f,%.2f} [a/s/d/w]",
 			eye.x,
 			eye.y,
 			eye.z,
 			eye.rh,
 			eye.v);
-
+		freetype::print(font, 10,y+=h,
+			"view_width=%.1f [o/l]",
+			view2d_width/10.0f);
+		freetype::print(font, 10,y+=h,
+			"picture_interval=%d frame/picture [i/k]",
+			picture_interval);
 		freetype::print(font, 10,y+=h,
 			"output dot size = %.1f [n/m]",
 			output_dot_size);
@@ -433,16 +624,17 @@ public:
 			freetype::print(font, 10,y+=h, s);
 		};
 		
-		pr("[F1] play");
-		pr("[F2] pause");
-		pr("[F3] rewind");
-		pr("[F4] reverse");
-		pr("[1]  preset cam 1");
-		pr("[2]  preset cam 2");
-		pr("[F8] save obj file");
-		pr("[Sp] next frame");
-		pr("[Z]  next frame");
-		pr("[X]  prev frame");
+		pr("[F1]  play");
+		pr("[F2]  pause");
+		pr("[F3]  rewind");
+		pr("[F4]  reverse");
+		pr("[F7]  play with save pictures");
+		pr("[F8]  save .obj");
+		pr("[1-6] preset cam (2D)");
+		pr("[9,0] preset cam (3D)");
+		pr("[spc] next frame");
+		pr("[Z]   next frame");
+		pr("[X]   prev frame");
 	}
 
 	void drawMovie(MovieData& mov, float add_x, glRGBA color)
@@ -504,7 +696,15 @@ public:
 		gl::Projection();
 		gl::LoadIdentity();
 
-		gluPerspective(30.0f, 4.0f/3.0f, 1.0f, 100.0f);
+		if (view2d_width==0)
+		{
+			gluPerspective(30.0f, 4.0f/3.0f, 1.0f, 100.0f);
+		}
+		else
+		{
+			const double w = view2d_width/10.0f;
+			glOrtho(-w/2, +w/2, 0, (w*3/4), -3.0, +120.0);
+		}
 		eye.gluLookAt();
 
 		// MODEL

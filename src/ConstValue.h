@@ -11,6 +11,8 @@ static const float
 	GROUND_DEPTH       = (2.40f),
 	GROUND_NEAR        = (0.00f),
 	GROUND_FAR         = (GROUND_DEPTH),
+	GROUND_XNEAR       = (0.00f),
+	GROUND_XFAR        = (GROUND_DEPTH-0.10f),   // •Ç‚©‚ç10cm•ª‚Í–³Ž‹‚·‚é
 	GROUND_TOP         = (GROUND_HEIGHT),
 	GROUND_BOTTOM      = (0.00f);
 
