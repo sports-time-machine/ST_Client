@@ -1,0 +1,125 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="ソース ファイル">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="リソース ファイル">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="ソース ファイル\mi">
+      <UniqueIdentifier>{e018c146-8b3a-4c0a-871d-713cf225abf2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\stcl_cmn">
+      <UniqueIdentifier>{5c94ad61-5f68-4c29-941c-21a7c7dd104d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\snapshot\snapshot_pch.h">
+      <Filter>ソース ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Clipboard.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Console.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Core.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Fps.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Image.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Libs.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\mi.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Timer.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mi\Udp.h">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ConstValue.h">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClInclude>
+    <ClInclude Include="src\St3dData.h">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\snapshot\snapshot_pch.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\snapshot\snapshot_main.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Clipboard.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Console.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Core.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Fps.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Image.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Libs.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Timer.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mi\Udp.cpp">
+      <Filter>ソース ファイル\mi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\AppCore.cpp">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Depth10b6b.cpp">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Depth10b6b_v1_1.cpp">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\file_io.cpp">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\FreeType.cpp">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gl_funcs.cpp">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Msg.cpp">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\St3dData.cpp">
+      <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32shell.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MovieLib.h">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MovieLib.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

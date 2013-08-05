@@ -99,6 +99,7 @@
     <ClCompile Include="src\mi\Libs.cpp" />
     <ClCompile Include="src\mi\Timer.cpp" />
     <ClCompile Include="src\mi\Udp.cpp" />
+    <ClCompile Include="src\MovieLib.cpp" />
     <ClCompile Include="src\Msg.cpp" />
     <ClCompile Include="src\St3dData.cpp" />
     <ClCompile Include="src\viewer\viewer_main.cpp" />
@@ -119,6 +120,9 @@
     <ClInclude Include="src\mi\mi.h" />
     <ClInclude Include="src\mi\Timer.h" />
     <ClInclude Include="src\mi\Udp.h" />
+    <ClInclude Include="src\MovieLib.h">
+      <FileType>CppCode</FileType>
+    </ClInclude>
     <ClInclude Include="src\St3dData.h" />
     <ClInclude Include="src\viewer\viewer_pch.h" />
   </ItemGroup>

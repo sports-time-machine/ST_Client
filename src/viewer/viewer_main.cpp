@@ -6,6 +6,7 @@
 #include "../mi/Libs.h"
 #include <FreeImage.h>
 #include <direct.h>
+#include "../MovieLib.h"
 #pragma warning(disable:4244)
 
 template<typename T> T minmax(T val, T min, T max)
@@ -172,64 +173,6 @@ public:
 		processFrameIncrement();
 	}
 
-	void createDots(Dots& dest, const Dots& src)
-	{
-		for (int i=0; i<src.size(); ++i)
-		{
-			const Point3D& po = src[i];
-			const float x = po.x;
-			const float y = po.y;
-			const float z = po.z;
-			const bool in_x = (x>=GROUND_LEFT && x<=GROUND_RIGHT);
-			const bool in_y = (y>=0.0f && y<=GROUND_HEIGHT);
-			const bool in_z = (z>=0.0f && z<=GROUND_DEPTH);
-
-			// out of box
-			if (!(in_x && in_y && in_z))
-				continue;
-
-			dest.push(po);
-		}
-	}
-
-	void outputDots(mi::File& f, const Dots& dots)
-	{
-		char buffer[1000];
-		const float SZ = 0.0025f * output_dot_size;
-		for (int i=0; i<dots.size(); ++i)
-		{
-			const auto& dot = dots[i];
-
-			auto wr_vec = [&](const int x, const int y, const int z){
-				const int len = sprintf_s(buffer, "v %f %f %f\n", dot.x + SZ*x, dot.y + SZ*y, dot.z + SZ*z);
-				f.write(buffer, len);
-			};
-
-			// 8*i+0 ‚©‚ç 8*i+7
-			wr_vec(-1, -1, -1);
-			wr_vec(+1, -1, -1);
-			wr_vec(-1, +1, -1);
-			wr_vec(+1, +1, -1);
-			wr_vec(-1, -1, +1);
-			wr_vec(+1, -1, +1);
-			wr_vec(-1, +1, +1);
-			wr_vec(+1, +1, +1);
-
-			const int N = 8*i;
-			auto wr_face = [&](int a, int b, int c, int d){
-				const int len = sprintf_s(buffer, "f %d %d %d %d\n", N+a, N+b, N+c, N+d);
-				f.write(buffer, len);
-			};
-
-			wr_face(1,3,4,2);
-			wr_face(1,5,7,3);
-			wr_face(2,4,8,6);
-			wr_face(1,2,6,5);
-			wr_face(3,7,8,4);
-			wr_face(5,6,8,7);
-		}
-	}
-
 	void createObj()
 	{
 		const string desktop = mi::Core::getDesktopFolder();
@@ -241,8 +184,8 @@ public:
 
 		static Dots dots;
 		dots.init();
-		createDots(dots, *dots_original);
-		outputDots(f, dots);
+		MovieLib::createDots(dots, *dots_original);
+		ObjWriter::create(output_dot_size, f, dots);
 	}
 
 	void eye3d(float x, float y, float z, float h, float v)

@@ -14,13 +14,22 @@
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
     <Filter Include="ソース ファイル\stcl_cmn">
-      <UniqueIdentifier>{b2ccf14a-5733-4c09-8092-fa91c2ddfc61}</UniqueIdentifier>
+      <UniqueIdentifier>{99b029e0-ea86-4029-9e30-d5201bf1bee8}</UniqueIdentifier>
     </Filter>
     <Filter Include="ソース ファイル\mi">
-      <UniqueIdentifier>{233c33c8-4dc9-42e1-b9a9-e034cc3c1868}</UniqueIdentifier>
+      <UniqueIdentifier>{bd595623-5d4c-45ec-9951-5bcb24cab023}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\viewer\viewer_pch.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\viewer\viewer_main.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32shell.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="src\AppCore.cpp">
       <Filter>ソース ファイル\stcl_cmn</Filter>
     </ClCompile>
@@ -69,17 +78,14 @@
     <ClCompile Include="src\mi\Udp.cpp">
       <Filter>ソース ファイル\mi</Filter>
     </ClCompile>
-    <ClCompile Include="src\viewer\viewer_pch.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\viewer\viewer_main.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\win32shell.cpp">
+    <ClCompile Include="src\MovieLib.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\viewer\viewer_pch.h">
+      <Filter>ソース ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="src\ConstValue.h">
       <Filter>ソース ファイル\stcl_cmn</Filter>
     </ClInclude>
@@ -113,7 +119,7 @@
     <ClInclude Include="src\mi\Udp.h">
       <Filter>ソース ファイル\mi</Filter>
     </ClInclude>
-    <ClInclude Include="src\viewer\viewer_pch.h">
+    <ClInclude Include="src\MovieLib.h">
       <Filter>ソース ファイル</Filter>
     </ClInclude>
   </ItemGroup>
