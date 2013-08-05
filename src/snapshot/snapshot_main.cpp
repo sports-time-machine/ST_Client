@@ -1,130 +1,183 @@
 #define THIS_IS_MAIN
-#include "../St3dData.h"
-//#include "../gl_funcs.h"
-//#include "../FreeType.h"
-#include "../mi/Timer.h"
-#include "../mi/Libs.h"
-#include "../MovieLib.h"
-#pragma warning(disable:4244)
-
-template<typename T> T minmax(T val, T min, T max)
-{
-	return (val<min) ? min : (val>max) ? max : val;
-}
-
-static void DenugPrintln(const char* s)
-{
-	OutputDebugString(s);
-	OutputDebugString("\n");
-}
+#include "../ViewerAppBase.h"
 
 
-static const float PI = 3.1415f;
-
-using namespace mi;
-using namespace stclient;
-using namespace mgl;
-
-class SixMovies
+class ViewerApp : public ViewerAppBase
 {
 public:
-	void load(const string& basename)
+	std::map<int,bool> tookPicture;
+	std::map<int,int> unitShown;
+
+	bool isPictureTake(float x, int n)
+	{
+		switch (n)
+		{
+		default: return false;
+		case 0:  return (frame==350);
+		case 1:  return (x>=0.00f);
+		case 2:  return (x>=0.00f);
+		case 3:  return (x>=0.00f);
+		case 4:  return (x>=0.00f);
+		case 5:  return (x>=0.50f);
+		}
+	}
+
+	// カメラ番号0～5
+	void eyeCamUnit(int n)
+	{
+		eye2d(4.0f*n, -0.40f, 40.0f, -PI/2, 0.0f, 40);
+	}
+
+	void onInit()
+	{
+		eyeCamUnit(1);
+		for (int i=0; i<6; ++i)
+		{
+			tookPicture[i] = false;
+			unitShown[i] = 0;
+		}
+	}
+
+	void onFrameBegin()
 	{
 		for (int i=0; i<6; ++i)
 		{
-			if (!mov[i].load(basename+"-"+mi::Lib::to_s(1+i)+".stmov"))
+			const auto& cam = cams[i];
+			if (cam.center==InvalidPoint3D())
+				continue;
+
+			++unitShown[i];
+
+			volatile float cx = cam.center.x;
+			if (unitShown[i]>=5 && cx>=-2.0f)
 			{
-				DenugPrintln("load failed");
+				eyeCamUnit(i);
+				break;
 			}
 		}
 	}
 
-private:
-	std::map<int,MovieData> mov;
-};
-
-class SnapshotApp
-{
-public:
-	SixMovies  mov;
-	int        frame;
-	Dots*      dots_original;
-	float      output_dot_size;
-	int        picture_interval;
-	bool       debug_show;
-
-	SnapshotApp()
+	void onFrameEnd()
 	{
-		frame = 0;
-		output_dot_size = 1.0f;
-		picture_interval = 1;
-		debug_show = true;
-	}
-
-	void init()
-	{
-	}
-
-	void load(const string& basename)
-	{
-		DenugPrintln("load");
-		DenugPrintln(basename.c_str());
-		mov.load(basename);
-	}
-
-	struct Data
-	{
-		enum FrameDir
+		for (int i=0; i<6; ++i)
 		{
-			NO_DIR,
-			INCR,
-			DECR,
+			const auto& cam = cams[i];
+			if (cam.center==InvalidPoint3D())
+				continue;
+
+			volatile float cx = cam.center.x;
+			if (unitShown[i]>=5 && tookPicture[i]==false && isPictureTake(cx,i))
+			{
+				tookPicture[i] = true;
+				saveScreenShot(i);
+				break;
+			}
+		}
+	}
+
+	void onProcessMouse()
+	{
+	}
+
+	void onProcessKeyboard()
+	{
+		static bool prev[256];
+		static bool kbd[256];
+		{
+			BYTE _kbd[256] = {};
+			GetKeyboardState(_kbd);
+		
+			for (int i=0; i<256; ++i)
+			{
+				const BYTE KON = 0x80;
+				prev[i] = kbd[i];
+				kbd[i] = (_kbd[i] & KON)!=0;
+			}
+		}
+
+		if (kbd['1'])  { eyeCamUnit(0); }
+		if (kbd['2'])  { eyeCamUnit(1); }
+		if (kbd['3'])  { eyeCamUnit(2); }
+		if (kbd['4'])  { eyeCamUnit(3); }
+		if (kbd['5'])  { eyeCamUnit(4); }
+		if (kbd['6'])  { eyeCamUnit(5); }
+
+		const float mv = 0.100f;
+		const float mr = 0.025f;
+
+		auto move = [&](int r){
+			eye.x += cosf(eye.rh + r*PI/180) * mv;
+			eye.z += sinf(eye.rh + r*PI/180) * mv;
 		};
-		FrameDir  frame_auto;
-		int       frame_index;
-		bool      output_picture;
 
-		Data()
+		if (kbd[' '] || kbd['Z'])  { data.frame_auto=Data::NO_DIR; ++data.frame_index; }
+		if (kbd['X'])  { data.frame_auto=Data::NO_DIR; if (--data.frame_index<0){data.frame_index=0;} }
+		if (kbd['S'])  move(180);
+		if (kbd['W'])  move(0);
+		if (kbd['A'])  move(270);
+		if (kbd['D'])  move(90);
+		if (kbd['Q'])  { eye.rh += mr; move(270); }
+		if (kbd['E'])  { eye.rh -= mr; move( 90); }
+		if (kbd['R'])  { eye.y += mv; eye.v -= mr; }
+		if (kbd['F'])  { eye.y -= mv; eye.v += mr; }
+		if (kbd[VK_F11] && !prev[VK_F11]) { debug_show = !debug_show; }
+
+		incdec(
+			kbd['O'],
+			kbd['L'],
+			view2d_width, 1, 9999);
+		incdec(
+			kbd['I']&&!prev['I'],
+			kbd['K']&&!prev['K'],
+			picture_interval, 1, 30);
+
+		if (kbd[VK_F1])
 		{
-			frame_auto = NO_DIR;
-			frame_index = 0;
-			output_picture = false;
+			data.frame_auto = Data::INCR;
 		}
-	} data;
-
-	void processFrameIncrement()
-	{
-		switch (data.frame_auto)
+		if (kbd[VK_F2])
 		{
-		case Data::INCR:
-			++data.frame_index;
-			break;
-		case Data::DECR:
-			--data.frame_index;
-			if (data.frame_index<0)
-			{
-				data.frame_index = 0;
-				data.frame_auto = Data::NO_DIR;
-			}
-			break;
+			data.frame_auto = Data::NO_DIR;
+		}
+		if (kbd[VK_F3])//rewind
+		{
+			data.frame_auto = Data::NO_DIR;
+			data.frame_index = 0;
+			data.output_picture = false;
+		}
+		if (kbd[VK_F4])
+		{
+			data.frame_auto = Data::DECR;
+		}
+		if (kbd[VK_F7])//play with output
+		{
+			data.frame_auto = Data::INCR;
+			data.output_picture = true;
+			data.frame_index = 0;
+		}
+
+		if (kbd[VK_F8])
+		{
+			createObj();
 		}
 	}
 };
 
-// 簡易的にベース名を作る
-// from: "C:/Folder/AAAAAA-1.stmov"
-//   to: "C:/Folder/AAAAAA"
-static string getBaseName(const char* _s)
-{
-	string s(_s);
 
-	// erase "-1.stmov$"
-	return s.substr(0, s.length()-8);
+Point2D glfwGetWindowSize()
+{
+	int w,h;
+	glfwGetWindowSize(&w,&h);
+	return Point2D(w,h);
 }
 
 static bool run_app(string arg)
 {
-	SnapshotApp app;
+	AppCore::initGraphics(false, "ST 3D Viewer");
+	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
+	glHint(GL_LINE_SMOOTH_HINT,    GL_NICEST);
+
+	ViewerApp app;
 	app.init();
 	if (arg.length()>0)
 	{
@@ -133,9 +186,35 @@ static bool run_app(string arg)
 			arg = arg.substr(1, arg.length()-2);
 		}
 
-		app.load(getBaseName(arg.c_str()));
+		app.load(ViewerAppBase::getBaseName(arg.c_str()));
 	}
 
+	Point2D win_size = glfwGetWindowSize();
+
+	glfwSwapInterval(1);
+	double prev_msec = 0.0;
+	while (glfwGetWindowParam(GLFW_OPENED))
+	{
+		const double curr_msec = mi::Timer::getMsec();
+
+		double sleep_msec = (prev_msec + 1000/30.0f) - curr_msec;
+		if (sleep_msec>0)
+		{
+			Sleep((int)sleep_msec);
+		}
+		prev_msec = curr_msec;
+
+		Point2D tmp = glfwGetWindowSize();
+		if (win_size!=tmp)
+		{
+			win_size = tmp;
+			glViewport(0, 0, win_size.x, win_size.y);
+		}
+
+		app.runFrame();
+		glfwSwapBuffers();
+	}
+	glfwTerminate();
 	return true;
 }
 

@@ -124,6 +124,7 @@
       <FileType>CppCode</FileType>
     </ClInclude>
     <ClInclude Include="src\St3dData.h" />
+    <ClInclude Include="src\ViewerAppBase.h" />
     <ClInclude Include="src\viewer\viewer_pch.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

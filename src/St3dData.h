@@ -11,6 +11,8 @@ struct Point3D
 
 	Point3D() { }
 	Point3D(float a, float b, float c) { x=a; y=b; z=c; }
+	bool operator==(const Point3D& a) const  { return a.x==x && a.y==y && a.z==z; }
+	bool operator!=(const Point3D& a) const  { return !operator==(a); }
 };
 
 struct Dots
