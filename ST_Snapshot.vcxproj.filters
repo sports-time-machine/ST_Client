@@ -18,6 +18,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="ReadMe.txt" />
+    <None Include="..\..\..\ST\Viewer\snapshot-config.psl">
+      <Filter>ソース ファイル</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\snapshot\snapshot_pch.h">
@@ -55,6 +58,9 @@
     </ClInclude>
     <ClInclude Include="src\St3dData.h">
       <Filter>ソース ファイル\stcl_cmn</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ViewerAppBase.h">
+      <Filter>ソース ファイル</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

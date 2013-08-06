@@ -7,6 +7,7 @@
 #include <FreeImage.h>
 #include <direct.h>
 #include "../MovieLib.h"
+#include "../psl_if.h"
 
 static const float PI = 3.1415f;
 
@@ -32,6 +33,27 @@ struct CamUnit
 };
 
 
+struct Config
+{
+	glRGBA
+		ground_rgba,
+		sky_rgba,
+		box_rgba,
+		body1_rgba,
+		body2_rgba,
+		body3_rgba,
+		body4_rgba,
+		body5_rgba,
+		body6_rgba;
+	float
+		body_dot_size;
+	string
+		folder_format,
+		file_format;
+
+	void from(PSL::PSLVM& vm);
+};
+
 class ViewerAppBase
 {
 public:
@@ -44,12 +66,15 @@ public:
 	int        view2d_width;
 	int        picture_interval;
 	bool       debug_show;
+	Config     config;
+	string     filebasename;
 
-	virtual void onInit()             {}
+	virtual bool onInit()             { return true; }
 	virtual void onProcessMouse()     {}
 	virtual void onProcessKeyboard()  {}
 	virtual void onFrameBegin()       {}
 	virtual void onFrameEnd()         {}
+
 	
 	static Point3D InvalidPoint3D()
 	{
@@ -65,14 +90,14 @@ public:
 		debug_show = true;
 	}
 
-	void init()
+	bool init()
 	{
 		font.init("C:/Windows/Fonts/Cour.ttf", 12);
 		eye.set(-4.2f, 1.5f, 5.4f, -1.0f, -0.2f);
 		eye.setTransitionTime(80);
 		eye.fast_set = false;
 		view2d_width = 0;
-		onInit();
+		return onInit();
 	}
 
 	static void DenugPrintln(const char* s)
@@ -81,8 +106,10 @@ public:
 		OutputDebugString("\n");
 	}
 
-	void load(const string& basename)
+	bool load(const string& basename)
 	{
+		filebasename = basename.substr(basename.rfind('\\')+1);
+
 		DenugPrintln("load");
 		DenugPrintln(basename.c_str());
 		for (int i=0; i<6; ++i)
@@ -90,8 +117,10 @@ public:
 			if (!cams[i].mov.load(basename+"-"+mi::Lib::to_s(1+i)+".stmov"))
 			{
 				DenugPrintln("load failed");
+				return false;
 			}
 		}
+		return true;
 	}
 
 	struct Data
@@ -132,6 +161,14 @@ public:
 		}
 	}
 
+	void replace(string& str, const string& from, const string& to)
+	{
+		string::size_type pos = str.find(from);
+printf("%d\n", pos);
+		if (pos==str.npos) return;
+		str.replace(pos, from.length(), to, 0, to.length());
+	}
+
 	void saveScreenShot(int frame_number)
 	{
 		int w,h;
@@ -143,7 +180,7 @@ public:
 		glReadBuffer(GL_BACK);
 
 		std::vector<RGBQUAD> vram;
-		vram.resize(640*480);
+		vram.resize(w*h);
 		
 		// バッファの内容を
 		// bmpオブジェクトのピクセルデータが格納されている領域に直接コピーする。
@@ -163,21 +200,21 @@ public:
 			}
 		}
 
-		char num[100];
-		sprintf_s(num, "%05d", frame_number);
+		string foldername = config.folder_format;
+		string filename   = config.file_format;
 
-		string foldername;
-		foldername += mi::Core::getDesktopFolder();
-		foldername += "/Pictures";
+		string num = mi::Lib::to_s(frame_number);
+		char num0[100];
+		sprintf_s(num0, "%05d", frame_number);
+		replace(foldername, "{desktop}",  mi::Core::getDesktopFolder());
+		replace(foldername, "{basename}", filebasename);
+		replace(filename,   "{num}",      num);
+		replace(filename,   "{num0}",     num0);
+
+		printf("[%s][%s]\n", foldername.c_str(), filename.c_str());
 		_mkdir(foldername.c_str());
 
-		string filename;
-		filename += foldername;
-		filename += "/picture";
-		filename += num;
-		filename += ".png";
-
-		FreeImage_Save(FIF_PNG, bmp, filename.c_str());
+		FreeImage_Save(FIF_PNG, bmp, (foldername+"/"+filename).c_str());
 
 		FreeImage_Unload(bmp);
 	}
@@ -242,7 +279,8 @@ public:
 		VoxGrafix::global.dot_count   = 0;
 		VoxGrafix::global.atari_count = 0;
 
-		gl::ClearGraphics(120,160,200);
+		const auto x = config.sky_rgba;
+		gl::ClearGraphics(x.r, x.g, x.b);
 		display3dSectionPrepare();
 		drawFieldGrid();
 		display3d();
@@ -256,9 +294,8 @@ public:
 		const float D = 0.0001f;
 
 		glRGBA  gline_color(0.0f, 0.1f, 0.3f);
-		glRGBA center_color(0.9f, 0.3f, 0.2f);
-		glRGBA   wall_color(0.92f, 0.85f, 0.88f, 0.25f);
 #if 0
+		glRGBA   wall_color(0.92f, 0.85f, 0.88f, 0.25f);
 		// 「向こう側」の壁
 		glBegin(GL_QUADS);
 			wall_color();
@@ -271,7 +308,7 @@ public:
 		// 床の格子
 		glLineWidth(0.5f);
 		glBegin(GL_LINES);
-			gline_color();
+			config.box_rgba();
 
 			// 前後のライン
 			for (double i=GROUND_LEFT; i<=GROUND_RIGHT; i+=0.5)
@@ -328,11 +365,18 @@ public:
 		const float z2 = +D;
 		const float y  = -0.002f;
 		glBegin(GL_QUADS);
-			glRGBA(0.3f, 0.2f, 0.2f)();
+			config.ground_rgba();
 			glVertex3f(x1, y, z1);
 			glVertex3f(x2, y, z1);
 			glVertex3f(x2, y, z2);
 			glVertex3f(x1, y, z2);
+		glEnd();
+		glBegin(GL_QUADS);
+			config.ground_rgba();
+			glVertex3f(x1, y, 0);
+			glVertex3f(x2, y, 0);
+			glVertex3f(x2, -999.0f, 0);
+			glVertex3f(x1, -999.0f, 0);
 		glEnd();
 	}
 
@@ -492,16 +536,14 @@ public:
 
 	void display3d()
 	{
-		int a = 230;
-		int x = 180;
-		glRGBA colors[6];
-		colors[0].set(a,x,x, 160);
-		colors[1].set(x,a,x, 160);
-		colors[2].set(x,x,a, 160);
-		colors[3].set(a,a,x, 160);
-		colors[4].set(a,x,a, 160);
-		colors[5].set(a,a,x, 160);
-
+		glRGBA colors[6]={
+			config.body1_rgba,
+			config.body2_rgba,
+			config.body3_rgba,
+			config.body4_rgba,
+			config.body5_rgba,
+			config.body6_rgba,
+			};
 		for (int i=0; i<6; ++i)
 		{
 			drawMovie(cams[i], i*4, colors[i]);

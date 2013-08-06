@@ -82,7 +82,9 @@ static void load_ver1_0(File& f, const FileHeader& header, MovieData& movie)
 //	f.read(movie.player_color);
 
 	// ŽÀ‰f‘œ
+#if 0
 	printf("Total frames: %d\n", header.total_frames);
+#endif
 	for (uint32 i=0; i<header.total_frames; ++i)
 	{
 		MovieData::Frame& frame = movie.frames[i];
@@ -90,16 +92,20 @@ static void load_ver1_0(File& f, const FileHeader& header, MovieData& movie)
 		frame.voxel_count = f.get32();
 
 		uint32 bytedata_size = f.get32();
+#if 0
 		printf("\rFrame %d/%d, %d voxels, %d bytes (%08X)",
 			1+i,
 			header.total_frames,
 			frame.voxel_count,
 			bytedata_size,
 			bytedata_size);
+#endif
 		frame.compressed.resize(bytedata_size);
 		f.read(frame.compressed.data(), bytedata_size);
 	}
+#if 0
 	printf("\n");
+#endif
 }
 
 int MovieData::getValidFrame(int frame) const

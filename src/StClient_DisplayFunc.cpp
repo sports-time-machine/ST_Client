@@ -295,7 +295,6 @@ void StClient::drawNormalGraphicsObi()
 //=================================
 // チーターなどのMovingObjectの描画
 //=================================
-#pragma optimize("",off)
 void StClient::drawMovingObject()
 {
 	volatile int frame = global.frame_index - global.game_start_frame;
@@ -336,7 +335,6 @@ void StClient::drawMovingObject()
 		mo.updateDistance();
 	}
 }
-#pragma optimize("",on)
 
 //============
 // Dotsの描画

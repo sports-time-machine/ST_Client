@@ -1,19 +1,19 @@
 #define THIS_IS_MAIN
 #include "../ViewerAppBase.h"
 
-
 class ViewerApp : public ViewerAppBase
 {
 public:
 	std::map<int,bool> tookPicture;
-	std::map<int,int> unitShown;
+	std::map<int,int> displayTimePerUnit;
+	bool quit_app;
 
 	bool isPictureTake(float x, int n)
 	{
 		switch (n)
 		{
 		default: return false;
-		case 0:  return (frame==350);
+		case 0:  return (data.frame_index>=350 && data.frame_index<=400);
 		case 1:  return (x>=0.00f);
 		case 2:  return (x>=0.00f);
 		case 3:  return (x>=0.00f);
@@ -28,14 +28,35 @@ public:
 		eye2d(4.0f*n, -0.40f, 40.0f, -PI/2, 0.0f, 40);
 	}
 
-	void onInit()
+	bool onInit()
 	{
+		PSL::PSLVM vm;
+		switch (vm.loadScript("snapshot-config.psl"))
+		{
+		case PSL::PSLVM::FOPEN_ERROR:
+			Msg::ErrorMessage("Cannot load config file.");
+			return false;
+		case PSL::PSLVM::PARSE_ERROR:
+			Msg::ErrorMessage("Parse error in config file.");
+			return false;
+		default:
+			vm.run();
+			config.from(vm);
+			break;
+		}
+
 		eyeCamUnit(1);
 		for (int i=0; i<6; ++i)
 		{
 			tookPicture[i] = false;
-			unitShown[i] = 0;
+			displayTimePerUnit[i] = 0;
 		}
+
+		this->quit_app = false;
+		this->debug_show = false;
+		this->data.frame_index = 300;
+		this->data.frame_auto = Data::INCR;
+		return true;
 	}
 
 	void onFrameBegin()
@@ -46,10 +67,10 @@ public:
 			if (cam.center==InvalidPoint3D())
 				continue;
 
-			++unitShown[i];
+			++displayTimePerUnit[i];
 
 			volatile float cx = cam.center.x;
-			if (unitShown[i]>=5 && cx>=-2.0f)
+			if (displayTimePerUnit[i]>=5 && cx>=-2.0f)
 			{
 				eyeCamUnit(i);
 				break;
@@ -65,11 +86,19 @@ public:
 			if (cam.center==InvalidPoint3D())
 				continue;
 
+			// 最低でもFRフレーム表示してからでないと
+			// スナップショットを撮らない
+			const int FR = 5;
+
 			volatile float cx = cam.center.x;
-			if (unitShown[i]>=5 && tookPicture[i]==false && isPictureTake(cx,i))
+			if (displayTimePerUnit[i]>=FR && tookPicture[i]==false && isPictureTake(cx,i))
 			{
 				tookPicture[i] = true;
-				saveScreenShot(i);
+				saveScreenShot(1+i);
+				if (i==5)
+				{
+					this->quit_app = true;
+				}
 				break;
 			}
 		}
@@ -81,85 +110,6 @@ public:
 
 	void onProcessKeyboard()
 	{
-		static bool prev[256];
-		static bool kbd[256];
-		{
-			BYTE _kbd[256] = {};
-			GetKeyboardState(_kbd);
-		
-			for (int i=0; i<256; ++i)
-			{
-				const BYTE KON = 0x80;
-				prev[i] = kbd[i];
-				kbd[i] = (_kbd[i] & KON)!=0;
-			}
-		}
-
-		if (kbd['1'])  { eyeCamUnit(0); }
-		if (kbd['2'])  { eyeCamUnit(1); }
-		if (kbd['3'])  { eyeCamUnit(2); }
-		if (kbd['4'])  { eyeCamUnit(3); }
-		if (kbd['5'])  { eyeCamUnit(4); }
-		if (kbd['6'])  { eyeCamUnit(5); }
-
-		const float mv = 0.100f;
-		const float mr = 0.025f;
-
-		auto move = [&](int r){
-			eye.x += cosf(eye.rh + r*PI/180) * mv;
-			eye.z += sinf(eye.rh + r*PI/180) * mv;
-		};
-
-		if (kbd[' '] || kbd['Z'])  { data.frame_auto=Data::NO_DIR; ++data.frame_index; }
-		if (kbd['X'])  { data.frame_auto=Data::NO_DIR; if (--data.frame_index<0){data.frame_index=0;} }
-		if (kbd['S'])  move(180);
-		if (kbd['W'])  move(0);
-		if (kbd['A'])  move(270);
-		if (kbd['D'])  move(90);
-		if (kbd['Q'])  { eye.rh += mr; move(270); }
-		if (kbd['E'])  { eye.rh -= mr; move( 90); }
-		if (kbd['R'])  { eye.y += mv; eye.v -= mr; }
-		if (kbd['F'])  { eye.y -= mv; eye.v += mr; }
-		if (kbd[VK_F11] && !prev[VK_F11]) { debug_show = !debug_show; }
-
-		incdec(
-			kbd['O'],
-			kbd['L'],
-			view2d_width, 1, 9999);
-		incdec(
-			kbd['I']&&!prev['I'],
-			kbd['K']&&!prev['K'],
-			picture_interval, 1, 30);
-
-		if (kbd[VK_F1])
-		{
-			data.frame_auto = Data::INCR;
-		}
-		if (kbd[VK_F2])
-		{
-			data.frame_auto = Data::NO_DIR;
-		}
-		if (kbd[VK_F3])//rewind
-		{
-			data.frame_auto = Data::NO_DIR;
-			data.frame_index = 0;
-			data.output_picture = false;
-		}
-		if (kbd[VK_F4])
-		{
-			data.frame_auto = Data::DECR;
-		}
-		if (kbd[VK_F7])//play with output
-		{
-			data.frame_auto = Data::INCR;
-			data.output_picture = true;
-			data.frame_index = 0;
-		}
-
-		if (kbd[VK_F8])
-		{
-			createObj();
-		}
 	}
 };
 
@@ -173,49 +123,68 @@ Point2D glfwGetWindowSize()
 
 static bool run_app(string arg)
 {
-	AppCore::initGraphics(false, "ST 3D Viewer");
+	ViewerApp app;
+	if (!app.init())
+	{
+		return false;
+	}
+	if (arg.length()==0)
+	{
+		Msg::ErrorMessage("Empty argument");
+		return false;
+	}
+
+	if (arg[0]=='"')
+	{
+		arg = arg.substr(1, arg.length()-2);
+	}
+	if (!app.load(ViewerAppBase::getBaseName(arg.c_str())))
+	{
+		Msg::ErrorMessage("Load error");
+		return false;
+	}
+
+	AppCore::initGraphics(false, "ST Snapshot");
 	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
 	glHint(GL_LINE_SMOOTH_HINT,    GL_NICEST);
 
-	ViewerApp app;
-	app.init();
-	if (arg.length()>0)
-	{
-		if (arg[0]=='"')
-		{
-			arg = arg.substr(1, arg.length()-2);
-		}
-
-		app.load(ViewerAppBase::getBaseName(arg.c_str()));
-	}
-
-	Point2D win_size = glfwGetWindowSize();
-
-	glfwSwapInterval(1);
+	glfwSwapInterval(0);
 	double prev_msec = 0.0;
 	while (glfwGetWindowParam(GLFW_OPENED))
 	{
-		const double curr_msec = mi::Timer::getMsec();
-
-		double sleep_msec = (prev_msec + 1000/30.0f) - curr_msec;
-		if (sleep_msec>0)
-		{
-			Sleep((int)sleep_msec);
-		}
-		prev_msec = curr_msec;
-
-		Point2D tmp = glfwGetWindowSize();
-		if (win_size!=tmp)
-		{
-			win_size = tmp;
-			glViewport(0, 0, win_size.x, win_size.y);
-		}
-
 		app.runFrame();
+		if (app.quit_app)
+			break;
 		glfwSwapBuffers();
 	}
 	glfwTerminate();
 	return true;
+}
+
+void Config::from(PSL::PSLVM& vm)
+{
+	auto PslvToRgb = [](PSL::variable v)->glRGBA
+	{
+		return glRGBA(v[0].toInt(), v[1].toInt(), v[2].toInt(), v[3].toInt());
+	};
+
+#define apply(NAME)     this->NAME = PSL::variable(vm.get(#NAME))
+#define applyStr(NAME)  this->NAME = PSL::variable(vm.get(#NAME)).toString().c_str()
+#define applyRGB(NAME)  this->NAME = PslvToRgb(PSL::variable(vm.get(#NAME)))
+	apply   (body_dot_size);
+	applyStr(folder_format);
+	applyStr(file_format);
+	applyRGB(ground_rgba);
+	applyRGB(box_rgba);
+	applyRGB(sky_rgba);
+	applyRGB(body1_rgba);
+	applyRGB(body2_rgba);
+	applyRGB(body3_rgba);
+	applyRGB(body4_rgba);
+	applyRGB(body5_rgba);
+	applyRGB(body6_rgba);
+#undef apply
+#undef applyRGB
 }
 
 int main(int argc, const char* argv[])

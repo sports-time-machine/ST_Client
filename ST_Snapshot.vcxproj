@@ -82,6 +82,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="..\..\..\ST\Viewer\snapshot-config.psl" />
     <None Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
@@ -97,6 +98,7 @@
     <ClInclude Include="src\mi\Udp.h" />
     <ClInclude Include="src\snapshot\snapshot_pch.h" />
     <ClInclude Include="src\St3dData.h" />
+    <ClInclude Include="src\ViewerAppBase.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\AppCore.cpp" />
