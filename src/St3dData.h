@@ -328,8 +328,8 @@ public:
 		mgl::glRGBA outer,
 		const char* movie_type,
 		DrawStyle style,
-		float  add_x    = 0.0f,
-		Dots** dots_ref = nullptr);
+		Dots& dots_ref,
+		float add_x = 0.0f);
 	static bool DrawVoxels(
 		const Dots& dots,
 		const DrawParam& param,

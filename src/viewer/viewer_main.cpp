@@ -178,7 +178,18 @@ public:
 
 		if (kbd[VK_F8])
 		{
-			createObj();
+			int max_count = 0;
+			for (int i=0; i<6; ++i)
+			{
+				max_count = max(max_count, cams[i].dots.length());
+			}
+			for (int i=0; i<6; ++i)
+			{
+				if (max_count==cams[i].dots.length())
+				{
+					createObj(cams[i].dots);
+				}
+			}
 		}
 	}
 };

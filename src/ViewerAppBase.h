@@ -28,9 +28,8 @@ struct Point2D
 struct CamUnit
 {
 	MovieData   mov;
-	Dots*       dots;
+	Dots        dots;
 	Point3D     center;
-	int         dot_count;
 };
 
 
@@ -283,7 +282,7 @@ printf("%d\n", pos);
 		onFrameEnd();
 	}
 
-	void createObj()
+	void createObj(const Dots& dots)
 	{
 		const string desktop = mi::Core::getDesktopFolder();
 		mi::File f;
@@ -292,10 +291,10 @@ printf("%d\n", pos);
 			return;
 		}
 
-		static Dots dots;
-		dots.init();
-		MovieLib::createDots(dots, *dots_original);
-		ObjWriter::create(output_dot_size, f, dots);
+		static Dots inner_dots;
+		inner_dots.init();
+		MovieLib::createDots(inner_dots, dots);
+		ObjWriter::create(output_dot_size, f, inner_dots);
 	}
 
 	void eye3d(float x, float y, float z, float h, float v)
@@ -497,7 +496,7 @@ printf("%d\n", pos);
 			freetype::print(font, 10,y+=h,
 				"cam%d dots = %d",
 				i+1,
-				cams[i].dot_count);
+				cams[i].dots.length());
 		}
 		freetype::print(font, 10,y+=h,
 			"eye={x:%.2f,y:%.2f,z:%.2f,rh:%.2f,%.2f} [a/s/d/w]",
@@ -549,9 +548,8 @@ printf("%d\n", pos);
 			glRGBA(50,200,0, 80),
 			"replay",
 			VoxGrafix::DRAW_VOXELS_PERSON,
-			add_x,
-			&cam.dots);
-		cam.dot_count = cam.dots->tail;
+			cam.dots,
+			add_x);
 		if (!res)
 		{
 			data.frame_index = 0;
@@ -562,7 +560,7 @@ printf("%d\n", pos);
 		float avg_y = 0.0f;
 		float avg_z = 0.0f;
 		int count = 0;
-		const auto& dots = *cam.dots;
+		const auto& dots = cam.dots;
 		for (int i=0; i<dots.length(); ++i)
 		{
 			Point3D p = dots[i];

@@ -13,7 +13,7 @@ using namespace vector_and_matrix;
 VoxGrafix::Static VoxGrafix::global;
 
 
-bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam& param_, int frame_index, glRGBA inner, glRGBA outer, const char* movie_type, DrawStyle style, float add_x, Dots** dots_ref)
+bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam& param_, int frame_index, glRGBA inner, glRGBA outer, const char* movie_type, DrawStyle style, Dots& dots, float add_x)
 {
 	if (mov.total_frames==0)
 	{
@@ -61,7 +61,6 @@ bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam&
 			break;
 		}
 
-		static Dots dots;
 		dots.init();
 		VoxGrafix::MixDepth(dots, depth1, mov.cam1);
 		VoxGrafix::MixDepth(dots, depth2, mov.cam2);
@@ -70,11 +69,6 @@ bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam&
 		param.dot_size = mov.dot_size;
 		param.add_x    = add_x;
 		VoxGrafix::DrawVoxels(dots, param, inner, outer, style);
-
-		if (dots_ref!=nullptr)
-		{
-			*dots_ref = &dots;
-		}
 	}
 	return true;
 }

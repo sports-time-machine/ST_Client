@@ -86,6 +86,8 @@ void StClient::display3dSection()
 		}
 	}
 
+	static Dots dots;
+
 	// ï¿ëñé“
 	if (gd.show_partner)
 	{
@@ -96,7 +98,8 @@ void StClient::display3dSection()
 			config.color.movie1,
 			glRGBA(50,50,50),
 			"partner1",
-			VoxGrafix::DRAW_VOXELS_MOVIE);
+			VoxGrafix::DRAW_VOXELS_MOVIE,
+			dots);
 	}
 
 	if (gd.show_replay)
@@ -108,7 +111,8 @@ void StClient::display3dSection()
 			global.gameinfo.movie.player_color_rgba,
 			glRGBA(50,200,0),
 			"replay",
-			VoxGrafix::DRAW_VOXELS_PERSON);
+			VoxGrafix::DRAW_VOXELS_PERSON,
+			dots);
 		if (!res)
 		{
 			// ÉäÉvÉåÉCèIÇÌÇË
