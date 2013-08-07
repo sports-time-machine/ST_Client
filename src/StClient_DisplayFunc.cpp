@@ -394,7 +394,7 @@ void StClient::drawRealDots(Dots& dots, const glRGBA color_body, float dot_size)
 		float avg_y = 0.0f;
 		float avg_z = 0.0f;
 		int count = 0;
-		for (int i=0; i<dots.size(); ++i)
+		for (int i=0; i<dots.length(); ++i)
 		{
 			Point3D p = dots[i];
 			if (p.x>=ATARI_LEFT && p.x<=ATARI_RIGHT && p.y>=ATARI_BOTTOM && p.y<=ATARI_TOP && p.z>=GROUND_NEAR && p.z<=GROUND_FAR)

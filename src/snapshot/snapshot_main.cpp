@@ -30,21 +30,8 @@ public:
 
 	bool onInit()
 	{
-		PSL::PSLVM vm;
-		switch (vm.loadScript("snapshot-config.psl"))
-		{
-		case PSL::PSLVM::FOPEN_ERROR:
-			Msg::ErrorMessage("Cannot load config file.");
-			return false;
-		case PSL::PSLVM::PARSE_ERROR:
-			Msg::ErrorMessage("Parse error in config file.");
-			return false;
-		default:
-			vm.run();
-			config.from(vm);
-			break;
-		}
-
+		loadConfigPsl();
+	
 		eyeCamUnit(1);
 		for (int i=0; i<6; ++i)
 		{
@@ -159,32 +146,6 @@ static bool run_app(string arg)
 	}
 	glfwTerminate();
 	return true;
-}
-
-void Config::from(PSL::PSLVM& vm)
-{
-	auto PslvToRgb = [](PSL::variable v)->glRGBA
-	{
-		return glRGBA(v[0].toInt(), v[1].toInt(), v[2].toInt(), v[3].toInt());
-	};
-
-#define apply(NAME)     this->NAME = PSL::variable(vm.get(#NAME))
-#define applyStr(NAME)  this->NAME = PSL::variable(vm.get(#NAME)).toString().c_str()
-#define applyRGB(NAME)  this->NAME = PslvToRgb(PSL::variable(vm.get(#NAME)))
-	apply   (body_dot_size);
-	applyStr(folder_format);
-	applyStr(file_format);
-	applyRGB(ground_rgba);
-	applyRGB(box_rgba);
-	applyRGB(sky_rgba);
-	applyRGB(body1_rgba);
-	applyRGB(body2_rgba);
-	applyRGB(body3_rgba);
-	applyRGB(body4_rgba);
-	applyRGB(body5_rgba);
-	applyRGB(body6_rgba);
-#undef apply
-#undef applyRGB
 }
 
 int main(int argc, const char* argv[])

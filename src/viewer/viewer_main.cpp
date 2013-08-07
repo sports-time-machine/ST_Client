@@ -15,21 +15,18 @@ template<typename T> T minmax(T val, T min, T max)
 	return (val<min) ? min : (val>max) ? max : val;
 }
 
-struct Point2D
-{
-	int x,y;
-	Point2D() {}
-	Point2D(int x, int y)            { set(x,y); }
-	void set(int x, int y)           { this->x = x; this->y = y; }
-	bool operator==(Point2D a) const { return x==a.x && y==a.y; }
-	bool operator!=(Point2D a) const { return !operator==(a); }
-};
-
 class ViewerApp : public ViewerAppBase
 {
 public:
 	ViewerApp()
 	{
+	}
+
+	bool onInit()
+	{
+		if (!loadConfigPsl())
+			return false;
+		return true;
 	}
 
 	struct MouseButton
@@ -63,7 +60,7 @@ public:
 	} md;
 	Point2D mleft_pos, mright_pos;
 
-	void processUserMouseInput()
+	void onProcessMouse()
 	{
 		mleft .update(glfwGetMouseButton(GLFW_MOUSE_BUTTON_LEFT )==GLFW_PRESS);
 		mright.update(glfwGetMouseButton(GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS);
@@ -95,7 +92,7 @@ public:
 		}
 	}
 
-	void processUserKeyInput()
+	void onProcessKeyboard()
 	{
 		static bool prev[256];
 		static bool kbd[256];
@@ -129,7 +126,8 @@ public:
 			eye.z += sinf(eye.rh + r*PI/180) * mv;
 		};
 
-		if (kbd[' '] || kbd['Z'])  { data.frame_auto=Data::NO_DIR; ++data.frame_index; }
+		if (kbd[' '] && !prev[' '])  { data.frame_auto=Data::NO_DIR; ++data.frame_index; }
+		if (kbd['Z'])  { data.frame_auto=Data::NO_DIR; ++data.frame_index; }
 		if (kbd['X'])  { data.frame_auto=Data::NO_DIR; if (--data.frame_index<0){data.frame_index=0;} }
 		if (kbd['S'])  move(180);
 		if (kbd['W'])  move(0);

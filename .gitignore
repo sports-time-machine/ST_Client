@@ -24,3 +24,5 @@
 
 /Release/ST_Snapshot.exe.intermediate.manifest
 /Release/ST_Snapshot.lastbuildstate
+
+/ST_Win32App.opensdf

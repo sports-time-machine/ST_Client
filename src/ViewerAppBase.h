@@ -30,6 +30,7 @@ struct CamUnit
 	MovieData   mov;
 	Dots*       dots;
 	Point3D     center;
+	int         dot_count;
 };
 
 
@@ -53,6 +54,34 @@ struct Config
 
 	void from(PSL::PSLVM& vm);
 };
+
+void Config::from(PSL::PSLVM& vm)
+{
+	auto PslvToRgb = [](PSL::variable v)->glRGBA
+	{
+		return glRGBA(v[0].toInt(), v[1].toInt(), v[2].toInt(), v[3].toInt());
+	};
+
+#define apply(NAME)     this->NAME = PSL::variable(vm.get(#NAME))
+#define applyStr(NAME)  this->NAME = PSL::variable(vm.get(#NAME)).toString().c_str()
+#define applyRGB(NAME)  this->NAME = PslvToRgb(PSL::variable(vm.get(#NAME)))
+	apply   (body_dot_size);
+	applyStr(folder_format);
+	applyStr(file_format);
+	applyRGB(ground_rgba);
+	applyRGB(box_rgba);
+	applyRGB(sky_rgba);
+	applyRGB(body1_rgba);
+	applyRGB(body2_rgba);
+	applyRGB(body3_rgba);
+	applyRGB(body4_rgba);
+	applyRGB(body5_rgba);
+	applyRGB(body6_rgba);
+#undef apply
+#undef applyRGB
+}
+
+
 
 class ViewerAppBase
 {
@@ -120,6 +149,23 @@ public:
 				return false;
 			}
 		}
+		return true;
+	}
+
+	bool loadConfigPsl()
+	{
+		PSL::PSLVM vm;
+		switch (vm.loadScript("snapshot-config.psl"))
+		{
+		case PSL::PSLVM::FOPEN_ERROR:
+			Msg::ErrorMessage("Cannot load config file.");
+			return false;
+		case PSL::PSLVM::PARSE_ERROR:
+			Msg::ErrorMessage("Parse error in config file.");
+			return false;
+		}
+		vm.run();
+		config.from(vm);
 		return true;
 	}
 
@@ -446,9 +492,13 @@ printf("%d\n", pos);
 			"%d frames, %d sec",
 			data.frame_index,
 			data.frame_index/30);
-		freetype::print(font, 10,y+=h,
-			"total dots = %d",
-			VoxGrafix::global.dot_count);
+		for (int i=0; i<6; ++i)
+		{
+			freetype::print(font, 10,y+=h,
+				"cam%d dots = %d",
+				i+1,
+				cams[i].dot_count);
+		}
 		freetype::print(font, 10,y+=h,
 			"eye={x:%.2f,y:%.2f,z:%.2f,rh:%.2f,%.2f} [a/s/d/w]",
 			eye.x,
@@ -501,6 +551,7 @@ printf("%d\n", pos);
 			VoxGrafix::DRAW_VOXELS_PERSON,
 			add_x,
 			&cam.dots);
+		cam.dot_count = cam.dots->tail;
 		if (!res)
 		{
 			data.frame_index = 0;
@@ -512,7 +563,7 @@ printf("%d\n", pos);
 		float avg_z = 0.0f;
 		int count = 0;
 		const auto& dots = *cam.dots;
-		for (int i=0; i<dots.size(); ++i)
+		for (int i=0; i<dots.length(); ++i)
 		{
 			Point3D p = dots[i];
 			if (p.x>=ATARI_LEFT && p.x<=ATARI_RIGHT && p.y>=ATARI_BOTTOM && p.y<=ATARI_TOP && p.z>=GROUND_NEAR && p.z<=GROUND_FAR)

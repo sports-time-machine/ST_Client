@@ -124,6 +124,7 @@ int MovieData::getValidFrame(int frame) const
 		// ƒtƒŒ[ƒ€‚ª‚È‚­‚È‚Á‚½‚ç•\¦‚ğ’ú‚ß‚é
 		if (frame<0)
 		{
+			OutputDebugString("frame not found! org\n");
 			return -1;
 		}
 	}

@@ -5,7 +5,7 @@ using namespace stclient;
 
 void MovieLib::createDots(Dots& dest, const Dots& src)
 {
-	for (int i=0; i<src.size(); ++i)
+	for (int i=0; i<src.length(); ++i)
 	{
 		const Point3D& po = src[i];
 		const float x = po.x;
@@ -80,7 +80,7 @@ static void output(float output_dot_size, mi::File& f, const Dots& dots)
 {
 	char line[1000];
 	const float SZ = 0.0025f * output_dot_size;
-	for (int i=0; i<dots.size(); ++i)
+	for (int i=0; i<dots.length(); ++i)
 	{
 		const auto& dot = dots[i];
 

@@ -33,7 +33,7 @@ bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam&
 	}
 
 	// 有効なフレームを探す
-	int disp_frame = mov.getValidFrame(frame_index);
+	const int disp_frame = mov.getValidFrame(frame_index);
 	if (frame_index != disp_frame)
 	{
 		fprintf(stderr, "フレーム補正 frame %d => %d\n",  frame_index, disp_frame);
@@ -54,6 +54,7 @@ bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam&
 
 		static Dots dots;
 		dots.init();
+
 		VoxGrafix::MixDepth(dots, depth1, mov.cam1);
 		VoxGrafix::MixDepth(dots, depth2, mov.cam2);
 		
@@ -115,14 +116,7 @@ bool VoxGrafix::DrawVoxels(const Dots& dots, const DrawParam& param, glRGBA inne
 	int& dot_count   = VoxGrafix::global.dot_count;
 	int& atari_count = VoxGrafix::global.atari_count;
 
-#if 0
-	// Create histogram
-	for (int i=0; i<dots.size(); ++i)
-	{
-		dots[i].
-	}
-#endif
-	for (int i=0; i<dots.size(); ++i)
+	for (int i=0; i<dots.length(); ++i)
 	{
 		const float x = dots[i].x;
 		const float y = dots[i].y;
@@ -172,7 +166,7 @@ bool VoxGrafix::DrawVoxels(const Dots& dots, const DrawParam& param, glRGBA inne
 		(style==DRAW_VOXELS_PERSON)
 			? mi::minmax(param.person_inc, MIN_VOXEL_INC, MAX_VOXEL_INC)
 			: mi::minmax(param.movie_inc,  MIN_VOXEL_INC, MAX_VOXEL_INC); 
-	const int SIZE16 = dots.size() << 4;
+	const int SIZE16 = dots.length() << 4;
 
 	const float add_y = 
 		(style==DRAW_VOXELS_PERSON)

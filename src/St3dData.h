@@ -20,7 +20,7 @@ struct Dots
 	std::vector<Point3D> dots;
 	int tail;
 
-	int size() const
+	int length() const
 	{
 		return tail;
 	}

@@ -578,7 +578,7 @@ void StClient::CreateAtariFromBodyCenter()
 
 void StClient::CreateAtariFromDepthMatrix(const Dots& dots)
 {
-	for (int i=0; i<dots.size(); i+=ATARI_INC)
+	for (int i=0; i<dots.length(); i+=ATARI_INC)
 	{
 		// ƒfƒvƒX‚ÍGreen‚Ì‚È‚©‚¾‚¯
 		Point3D p = dots[i];
