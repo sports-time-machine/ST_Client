@@ -36,25 +36,33 @@ bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam&
 	const int disp_frame = mov.getValidFrame(frame_index);
 	if (frame_index != disp_frame)
 	{
-		fprintf(stderr, "フレーム補正 frame %d => %d\n",  frame_index, disp_frame);
+#if 0
+		char buf[1000];
+		sprintf_s(buf, "フレーム補正 frame %d => %d\n",  frame_index, disp_frame);
+		OutputDebugString(buf);
+#endif
 	}
-	if (disp_frame>=0)
+	if (disp_frame<0)
+	{
+		OutputDebugString("frame<0\n");
+	}
+	else
 	{
 		// 描画用の独立したドット空間、デプスイメージをもっておく
 		static RawDepthImage depth1, depth2;
+		const auto frame = mov.frames.find(disp_frame)->second;
 		switch (mov.ver)
 		{
 		case MovieData::VER_1_0:
-			Depth10b6b::playback(depth1, depth2, mov.frames.find(disp_frame)->second);
+			Depth10b6b::playback(depth1, depth2, frame);
 			break;
 		case MovieData::VER_1_1:
-			Depth10b6b_v1_1::playback(depth1, depth2, mov.frames.find(disp_frame)->second);
+			Depth10b6b_v1_1::playback(depth1, depth2, frame);
 			break;
 		}
 
 		static Dots dots;
 		dots.init();
-
 		VoxGrafix::MixDepth(dots, depth1, mov.cam1);
 		VoxGrafix::MixDepth(dots, depth2, mov.cam2);
 		
@@ -62,7 +70,7 @@ bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam&
 		param.dot_size = mov.dot_size;
 		param.add_x    = add_x;
 		VoxGrafix::DrawVoxels(dots, param, inner, outer, style);
-	
+
 		if (dots_ref!=nullptr)
 		{
 			*dots_ref = &dots;

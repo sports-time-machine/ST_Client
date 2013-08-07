@@ -112,10 +112,20 @@ int MovieData::getValidFrame(int frame) const
 {
 	for (;;)
 	{
-		if (frames.find(frame)!=frames.end())
+		const auto itr = frames.find(frame);
+		if (itr!=frames.end())
 		{
-			// good!
-			return frame;
+			// フレームスキップした場合にはcompressedの中身が空になる
+			if (itr->second.compressed.size()>0)
+			{
+				// good!
+				return frame;
+			}
+			else
+			{
+				// フレームスキップしていた！調整が必要だ！
+				//#OutputDebugString("adjust!\n");
+			}
 		}
 
 		// 前のフレームを表示しようと試みる
