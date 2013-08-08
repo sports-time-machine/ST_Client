@@ -46,29 +46,43 @@ const std::string& Core::getComputerName()
 }
 
 
-
-void Folder::createFolder(const char* full_folder_name)
+void Folder::createFolder(const std::string& full_folder_name, bool filename_included)
 {
+	// ignore - null string
+	if (full_folder_name.length()==0)
+		return;
+
 	std::vector<std::string> lines;
-	char first  = full_folder_name[0];
-	char second = full_folder_name[1];
+	const char first  = full_folder_name[0];
+	const char second = full_folder_name[1];
+	const char last   = full_folder_name[full_folder_name.length()-1];
+
+	// ^folder/folder/folder/$
+	if (last=='/' || last=='\\')
+	{
+		filename_included = false;
+	}
 
 	// //SERVERNAME/folder/folder/folder...
 	bool netfolder = false;
+	int head = 0;
 	if ((first=='/' || first=='\\') && (second=='/' || second=='\\'))
 	{
 		netfolder = true;
-		full_folder_name += 2;
+		head = 2;
 	}
 
-	Lib::splitByChars(full_folder_name, "/\\", lines);
+	Lib::splitByChars(full_folder_name.c_str()+head, "/\\", lines);
 
 	std::string folder;
 	if (netfolder)
 	{
 		folder += "//";
 	}
-	for (size_t i=0; i<lines.size(); ++i)
+
+	size_t size = lines.size() - (filename_included ? 1 : 0);
+
+	for (size_t i=0; i<size; ++i)
 	{
 		folder += lines[i];
 		folder += "/";

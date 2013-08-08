@@ -65,6 +65,7 @@ public:
 	static void toggle(bool& ref)     { ref = !ref; }
 
 	static const char* to_s(int x);
+	static const char* to_s_num0(int x, int n);
 };
 
 }//namespace mi

@@ -110,3 +110,10 @@ const char* Lib::to_s(int x)
 	_ltoa_s(x, to_s_buf, 10);
 	return to_s_buf;
 }
+
+const char* Lib::to_s_num0(int x, int n)
+{
+	static char to_s_buf[1000];
+	sprintf_s(to_s_buf, "%0*d", n, x);
+	return to_s_buf;
+}

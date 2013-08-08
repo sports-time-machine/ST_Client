@@ -49,7 +49,8 @@ struct Config
 		body_dot_size;
 	string
 		folder_format,
-		file_format;
+		png_format,
+		obj_format;
 
 	void from(PSL::PSLVM& vm);
 };
@@ -66,7 +67,8 @@ void Config::from(PSL::PSLVM& vm)
 #define applyRGB(NAME)  this->NAME = PslvToRgb(PSL::variable(vm.get(#NAME)))
 	apply   (body_dot_size);
 	applyStr(folder_format);
-	applyStr(file_format);
+	applyStr(png_format);
+	applyStr(obj_format);
 	applyRGB(ground_rgba);
 	applyRGB(box_rgba);
 	applyRGB(sky_rgba);
@@ -89,7 +91,6 @@ public:
 	freetype::font_data font;
 	EyeCore    eye;
 	int        frame;
-	Dots*      dots_original;
 	float      output_dot_size;
 	int        view2d_width;
 	int        picture_interval;
@@ -208,10 +209,29 @@ public:
 
 	void replace(string& str, const string& from, const string& to)
 	{
-		string::size_type pos = str.find(from);
-printf("%d\n", pos);
-		if (pos==str.npos) return;
-		str.replace(pos, from.length(), to, 0, to.length());
+		for (;;)
+		{
+			string::size_type pos = str.find(from);
+			if (pos==str.npos) return;
+			str.replace(pos, from.length(), to, 0, to.length());
+		}
+	}
+
+	void replaceVars(string& s, int intnum)
+	{
+		time_t timeval;
+		time(&timeval);
+		tm t;
+		localtime_s(&t, &timeval);
+		
+		replace(s, "{desktop}",  mi::Core::getDesktopFolder());
+		replace(s, "{gameid}",   filebasename);
+		replace(s, "{num}",      mi::Lib::to_s(intnum));
+		replace(s, "{num00000}", mi::Lib::to_s_num0(intnum, 5));
+		replace(s, "{yyyy}",     mi::Lib::to_s_num0(t.tm_year+1900, 4));
+		replace(s, "{mm}",       mi::Lib::to_s_num0(t.tm_mon+1,     2));
+		replace(s, "{dd}",       mi::Lib::to_s_num0(t.tm_mday,      2));
+		replace(s, "{hh}",       mi::Lib::to_s_num0(t.tm_hour,      2));
 	}
 
 	void saveScreenShot(int frame_number)
@@ -238,28 +258,18 @@ printf("%d\n", pos);
 			{
 				RGBQUAD color;
 				color.rgbRed   = vram[addr].rgbBlue;
-				color.rgbGreen = vram[addr].rgbGreen ;
-				color.rgbBlue  = vram[addr].rgbRed ;
+				color.rgbGreen = vram[addr].rgbGreen;
+				color.rgbBlue  = vram[addr].rgbRed;
 				FreeImage_SetPixelColor(bmp, x, y, &color);
 				++addr;
 			}
 		}
 
-		string foldername = config.folder_format;
-		string filename   = config.file_format;
 
-		string num = mi::Lib::to_s(frame_number);
-		char num0[100];
-		sprintf_s(num0, "%05d", frame_number);
-		replace(foldername, "{desktop}",  mi::Core::getDesktopFolder());
-		replace(foldername, "{basename}", filebasename);
-		replace(filename,   "{num}",      num);
-		replace(filename,   "{num0}",     num0);
-
-		printf("[%s][%s]\n", foldername.c_str(), filename.c_str());
-		_mkdir(foldername.c_str());
-
-		FreeImage_Save(FIF_PNG, bmp, (foldername+"/"+filename).c_str());
+		string name = config.folder_format + config.png_format;
+		replaceVars(name, frame_number);
+		mi::Folder::createFolder(name, true);
+		FreeImage_Save(FIF_PNG, bmp, (name).c_str());
 
 		FreeImage_Unload(bmp);
 	}
@@ -293,7 +303,7 @@ printf("%d\n", pos);
 
 		static Dots inner_dots;
 		inner_dots.init();
-		MovieLib::createDots(inner_dots, dots);
+		MovieLib::createDots(inner_dots, dots, 0.0f);
 		ObjWriter::create(output_dot_size, f, inner_dots);
 	}
 
@@ -537,7 +547,6 @@ printf("%d\n", pos);
 		VoxGrafix::DrawParam param;
 		param.movie_inc  = 16;
 		param.person_inc = 16;
-		this->dots_original = nullptr;
 		cam.mov.dot_size = 1.6f;
 		const bool res = VoxGrafix::DrawMovieFrame(
 			cam.mov,

@@ -4,11 +4,13 @@
 class ViewerApp : public ViewerAppBase
 {
 public:
-	std::map<int,bool> tookPicture;
-	std::map<int,int> displayTimePerUnit;
-	bool quit_app;
+	bool   alreadyTook[6];
+	int    displayTimePerUnit[6];
+	std::vector<Dots> snap3d;
+	bool   quit_app;
 
-	bool isPictureTake(float x, int n)
+	// âùòH
+	bool isPictureTake_Go(float x, int n)
 	{
 		switch (n)
 		{
@@ -22,11 +24,33 @@ public:
 		}
 	}
 
+	// ïúòH
+	bool isPictureTake_Back(float x, int n)
+	{
+		switch (n)
+		{
+		default: return false;
+		case 0:  return (x<-0.50f);
+		case 1:  return (x< 0.00f);
+		case 2:  return (x< 0.00f);
+		case 3:  return (x< 0.00f);
+		case 4:  return (x< 0.00f);
+		case 5:  return (x< 0.50f);
+		}
+	}
+
 	// ÉJÉÅÉâî‘çÜ0Å`5
 	void eyeCamUnit(int n)
 	{
 		eye2d(4.0f*n, -0.40f, 40.0f, -PI/2, 0.0f, 40);
 	}
+
+	enum Direction
+	{
+		DIR_GO,
+		DIR_BACK,
+	};
+	Direction dir;
 
 	bool onInit()
 	{
@@ -35,14 +59,16 @@ public:
 		eyeCamUnit(1);
 		for (int i=0; i<6; ++i)
 		{
-			tookPicture[i] = false;
+			alreadyTook[i] = false;
 			displayTimePerUnit[i] = 0;
 		}
 
+		this->snap3d.resize(6);
 		this->quit_app = false;
 		this->debug_show = false;
 		this->data.frame_index = 300;
 		this->data.frame_auto = Data::INCR;
+		this->dir = DIR_GO;
 		return true;
 	}
 
@@ -65,6 +91,21 @@ public:
 		}
 	}
 
+	void saveObj(int num)
+	{
+		string obj_filename = config.folder_format + config.obj_format;
+		replaceVars(obj_filename, num);
+
+		File f;
+		f.openForWrite(obj_filename);
+
+		int face_base = 0;
+		for (int i=0; i<6; ++i)
+		{
+			face_base += ObjWriter::outputTetra(1.0f, f, snap3d[i], i*4.0f, face_base);
+		}
+	}
+
 	void onFrameEnd()
 	{
 		for (int i=0; i<6; ++i)
@@ -78,16 +119,49 @@ public:
 			const int FR = 5;
 
 			volatile float cx = cam.center.x;
-			if (displayTimePerUnit[i]>=FR && tookPicture[i]==false && isPictureTake(cx,i))
+			if (displayTimePerUnit[i]<FR) continue;
+			if (alreadyTook[i])           continue;
+
+			int save_num = 0;
+			bool snap = false;
+			bool save = false;
+
+			if (dir==DIR_GO)
 			{
-				tookPicture[i] = true;
-				saveScreenShot(1+i);
-				if (i==5)
-				{
-					this->quit_app = true;
-				}
-				break;
+				snap = isPictureTake_Go(cx,i);
+				save = (i==5);
+				save_num = 1;
 			}
+			else
+			{
+				snap = isPictureTake_Back(cx,i);
+				save = (i==0);
+				save_num = 2;
+			}
+
+			if (snap)
+			{
+				alreadyTook[i] = true;
+				saveScreenShot(1+i);
+				snap3d[i].copyFrom(cams[i].dots);
+				if (save)
+				{
+					saveObj(save_num);
+					for (int i=0; i<6; ++i)
+						alreadyTook[i] = false;
+						
+					switch (dir)
+					{
+					case DIR_GO:
+						dir = DIR_BACK;
+						break;
+					case DIR_BACK:
+						this->quit_app = true;
+						break;
+					}
+				}
+			}
+			break;
 		}
 	}
 

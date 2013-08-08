@@ -20,6 +20,12 @@ struct Dots
 	std::vector<Point3D> dots;
 	int tail;
 
+	void copyFrom(const Dots& src)
+	{
+		dots = src.dots;
+		tail = src.tail;
+	}
+
 	int length() const
 	{
 		return tail;

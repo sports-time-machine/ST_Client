@@ -39,7 +39,7 @@ struct RGBA_raw
 class Folder
 {
 public:
-	static void createFolder(const char* folder);
+	static void createFolder(const std::string& folder, bool filename_included);
 };
 
 class File
