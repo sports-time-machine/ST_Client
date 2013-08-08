@@ -46,7 +46,10 @@ struct Config
 		body5_rgba,
 		body6_rgba;
 	float
-		body_dot_size;
+		body_dot_size,
+		diff_2movies[2],
+		diff_3movies[3],
+		diff_4movies[4];
 	string
 		folder_format,
 		png_format,
@@ -61,10 +64,18 @@ void Config::from(PSL::PSLVM& vm)
 	{
 		return glRGBA(v[0].toInt(), v[1].toInt(), v[2].toInt(), v[3].toInt());
 	};
+	auto makeDiff = [](float* dest, int n, PSL::variable v)->void
+	{
+		for (int i=0; i<n; ++i)
+		{
+			dest[i] = v[i].toDouble();
+		}
+	};
 
-#define apply(NAME)     this->NAME = PSL::variable(vm.get(#NAME))
-#define applyStr(NAME)  this->NAME = PSL::variable(vm.get(#NAME)).toString().c_str()
-#define applyRGB(NAME)  this->NAME = PslvToRgb(PSL::variable(vm.get(#NAME)))
+#define apply(NAME)       this->NAME = PSL::variable(vm.get(#NAME))
+#define applyStr(NAME)    this->NAME = PSL::variable(vm.get(#NAME)).toString().c_str()
+#define applyRGB(NAME)    this->NAME = PslvToRgb(PSL::variable(vm.get(#NAME)))
+#define applyDiff(NAME,N) makeDiff(this->NAME,N,PSL::variable(vm.get(#NAME)))
 	apply   (body_dot_size);
 	applyStr(folder_format);
 	applyStr(png_format);
@@ -78,16 +89,23 @@ void Config::from(PSL::PSLVM& vm)
 	applyRGB(body4_rgba);
 	applyRGB(body5_rgba);
 	applyRGB(body6_rgba);
+	applyDiff(diff_2movies,2);
+	applyDiff(diff_3movies,3);
+	applyDiff(diff_4movies,4);
 #undef apply
 #undef applyRGB
 }
 
 
+struct CamSystem
+{
+	CamUnit  cams[6];
+};
 
 class ViewerAppBase
 {
 public:
-	std::map<int,CamUnit> cams;
+	std::map<int,CamSystem> camsys;
 	freetype::font_data font;
 	EyeCore    eye;
 	int        frame;
@@ -141,6 +159,8 @@ public:
 
 		DenugPrintln("load");
 		DenugPrintln(basename.c_str());
+		
+		auto& cams = camsys[camsys.size()].cams;
 		for (int i=0; i<6; ++i)
 		{
 			if (!cams[i].mov.load(basename+"-"+mi::Lib::to_s(1+i)+".stmov"))
@@ -506,7 +526,7 @@ public:
 			freetype::print(font, 10,y+=h,
 				"cam%d dots = %d",
 				i+1,
-				cams[i].dots.length());
+				camsys[0].cams[i].dots.length());
 		}
 		freetype::print(font, 10,y+=h,
 			"eye={x:%.2f,y:%.2f,z:%.2f,rh:%.2f,%.2f} [a/s/d/w]",
@@ -542,7 +562,7 @@ public:
 		pr("[X]   prev frame");
 	}
 
-	void drawMovie(CamUnit& cam, float add_x, glRGBA color)
+	void drawMovie(CamUnit& cam, float add_x, float add_z, glRGBA color)
 	{
 		VoxGrafix::DrawParam param;
 		param.movie_inc  = 16;
@@ -558,7 +578,8 @@ public:
 			"replay",
 			VoxGrafix::DRAW_VOXELS_PERSON,
 			cam.dots,
-			add_x);
+			add_x,
+			add_z);
 		if (!res)
 		{
 			data.frame_index = 0;
@@ -602,9 +623,19 @@ public:
 			config.body5_rgba,
 			config.body6_rgba,
 			};
-		for (int i=0; i<6; ++i)
+		for (size_t j=0; j<camsys.size(); ++j)
 		{
-			drawMovie(cams[i], i*4, colors[i]);
+			float add_z = 0.0f;
+			switch (camsys.size())
+			{
+			case 2:  add_z=config.diff_2movies[j];  break;
+			case 3:  add_z=config.diff_3movies[j];  break;
+			case 4:  add_z=config.diff_4movies[j];  break;
+			}
+			for (int i=0; i<6; ++i)
+			{
+				drawMovie(camsys[j].cams[i], i*4, add_z, colors[i]);
+			}
 		}
 	}
 

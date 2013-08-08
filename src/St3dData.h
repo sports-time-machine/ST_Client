@@ -301,6 +301,7 @@ public:
 		float        person_base_alpha;
 		bool         is_calibration;
 		float        add_x;
+		float        add_z;
 
 		DrawParam()
 		{
@@ -315,6 +316,7 @@ public:
 			person_base_alpha = 1.0f;
 			is_calibration    = false;
 			add_x             = 0.0f;
+			add_z             = 0.0f;
 		}
 	};
 
@@ -335,7 +337,8 @@ public:
 		const char* movie_type,
 		DrawStyle style,
 		Dots& dots_ref,
-		float add_x = 0.0f);
+		float add_x,
+		float add_z);
 	static bool DrawVoxels(
 		const Dots& dots,
 		const DrawParam& param,

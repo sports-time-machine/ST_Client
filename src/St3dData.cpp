@@ -13,7 +13,7 @@ using namespace vector_and_matrix;
 VoxGrafix::Static VoxGrafix::global;
 
 
-bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam& param_, int frame_index, glRGBA inner, glRGBA outer, const char* movie_type, DrawStyle style, Dots& dots, float add_x)
+bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam& param_, int frame_index, glRGBA inner, glRGBA outer, const char* movie_type, DrawStyle style, Dots& dots, float add_x, float add_z)
 {
 	if (mov.total_frames==0)
 	{
@@ -68,6 +68,7 @@ bool VoxGrafix::DrawMovieFrame(const MovieData& mov, const VoxGrafix::DrawParam&
 		VoxGrafix::DrawParam param = param_;
 		param.dot_size = mov.dot_size;
 		param.add_x    = add_x;
+		param.add_z    = add_z;
 		VoxGrafix::DrawVoxels(dots, param, inner, outer, style);
 	}
 	return true;
@@ -175,6 +176,7 @@ bool VoxGrafix::DrawVoxels(const Dots& dots, const DrawParam& param, glRGBA inne
 			? 0.0f
 			: param.partner_y;
 	const float add_x = param.add_x;
+	const float add_z = param.add_z;
 	
 	for (int i16=0; i16<SIZE16; i16+=inc)
 	{
@@ -245,7 +247,7 @@ bool VoxGrafix::DrawVoxels(const Dots& dots, const DrawParam& param, glRGBA inne
 			glVertex3f(
 				x + add_x,
 				y + add_y,
-				-z);
+				-(z + add_z));
 		}
 	}
 

@@ -178,7 +178,9 @@ public:
 
 		if (kbd[VK_F8])
 		{
+			// OBJèoóÕÇ…ä÷ÇµÇƒÇÕ1BODYÇµÇ©ëŒâûÇµÇ‹ÇπÇÒ
 			int max_count = 0;
+			auto& cams = camsys[0].cams;
 			for (int i=0; i<6; ++i)
 			{
 				max_count = max(max_count, cams[i].dots.length());
@@ -202,6 +204,54 @@ Point2D glfwGetWindowSize()
 	return Point2D(w,h);
 }
 
+
+std::vector<string> splitQuotedArg(const string& arg)
+{
+	const char QUOTE = '"';
+	std::vector<string> args;
+	size_t i=0;
+	for (;;)
+	{
+		while (i<arg.size())
+		{
+			if (isspace(arg[i]))
+				++i;
+			break;
+		}
+		if (i==arg.size())
+			break;
+
+		string work;
+		if (arg[i]!=QUOTE)
+		{
+			// raw-string
+			while (i<arg.size())
+			{
+				if (isspace(arg[i]))
+					break;
+				work += arg[i++];
+			}
+			args.push_back(work);
+		}
+		else
+		{
+			// "quoted-string"
+			++i;  //open quote
+			while (i<arg.size())
+			{
+				if (arg[i]==QUOTE)
+					break;
+				work += arg[i++];
+			}
+			++i;  // close quote
+			args.push_back(work);
+		}
+	}
+	return args;
+}
+
+
+
 static bool run_app(string arg)
 {
 	AppCore::initGraphics(false, "ST 3D Viewer");
@@ -210,15 +260,13 @@ static bool run_app(string arg)
 
 	ViewerApp app;
 	app.init();
-	if (arg.length()>0)
-	{
-		if (arg[0]=='"')
-		{
-			arg = arg.substr(1, arg.length()-2);
-		}
 
-		app.load(ViewerAppBase::getBaseName(arg.c_str()));
+	auto args = splitQuotedArg(arg);
+	for (size_t i=0; i<args.size(); ++i)
+	{
+		app.load(ViewerAppBase::getBaseName(args[i].c_str()));
 	}
+
 
 	Point2D win_size = glfwGetWindowSize();
 
