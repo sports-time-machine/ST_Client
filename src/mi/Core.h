@@ -148,8 +148,9 @@ public:
 	static int getSystemTick();
 	static void dialog(const char* title, const char* text=nullptr);
 	static void abort(const char* title, const char* text=nullptr);
-	static const std::string& getComputerName();
-	static const std::string& getDesktopFolder();
+	static std::string getComputerName();
+	static std::string getDesktopFolder();
+	static std::string getAppFolder();
 };
 
 

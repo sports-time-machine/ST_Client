@@ -20,10 +20,23 @@ struct Dots
 	std::vector<Point3D> dots;
 	int tail;
 
-	void copyFrom(const Dots& src)
+	void copyValidDots(const Dots& src)
 	{
 		dots = src.dots;
-		tail = src.tail;
+		tail = 0;
+		for (int i=0; i<src.length(); ++i)
+		{
+			const float x = src[i].x;
+			const float y = src[i].y;
+			const float z = src[i].z;
+			const bool in_x = (x>=GROUND_LEFT    && x<=GROUND_RIGHT);
+			const bool in_y = (y>=GROUND_XBOTTOM && y<=GROUND_XTOP);
+			const bool in_z = (z>=GROUND_XNEAR   && z<=GROUND_XFAR);
+			if (in_x && in_y && in_z)
+			{
+				push(src[i]);
+			}
+		}
 	}
 
 	int length() const

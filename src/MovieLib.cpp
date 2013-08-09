@@ -11,9 +11,9 @@ void MovieLib::createDots(Dots& dest, const Dots& src, float add_x)
 		const float x = po.x + add_x;
 		const float y = po.y;
 		const float z = po.z;
-		const bool in_x = (x>=GROUND_LEFT && x<=GROUND_RIGHT);
-		const bool in_y = (y>=GROUND_BOTTOM && y<=GROUND_TOP);
-		const bool in_z = (z>=GROUND_XNEAR && z<=GROUND_XFAR);
+		const bool in_x = (x>=GROUND_LEFT    && x<=GROUND_RIGHT);
+		const bool in_y = (y>=GROUND_XBOTTOM && y<=GROUND_XTOP);
+		const bool in_z = (z>=GROUND_XNEAR   && z<=GROUND_XFAR);
 
 		// out of box
 		if (!(in_x && in_y && in_z))

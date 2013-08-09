@@ -18,8 +18,20 @@ template<typename T> T minmax(T val, T min, T max)
 class ViewerApp : public ViewerAppBase
 {
 public:
+	enum AppMode
+	{
+		MODE_VIEW,
+		MODE_SNAP,
+		MODE_ONESHOT,
+	};
+
+	AppMode  appmode;
+	int      snapshot_cam_index;
+
 	ViewerApp()
 	{
+		appmode = MODE_VIEW;
+		snapshot_cam_index = 0;
 	}
 
 	bool onInit()
@@ -92,14 +104,21 @@ public:
 		}
 	}
 
-	void onProcessKeyboard()
+	void snapOne(int unit_index)
 	{
-		static bool prev[256];
-		static bool kbd[256];
+		this->snap(camsys[0].cams[unit_index].dots, unit_index, unit_index+1);
+	}
+
+	class KeyState
+	{
+	public:
+		bool on(int n) const          { return kbd[n]; }
+		bool operator()(int n) const  { return kbd[n] && !prev[n]; }
+
+		void update()
 		{
 			BYTE _kbd[256] = {};
 			GetKeyboardState(_kbd);
-		
 			for (int i=0; i<256; ++i)
 			{
 				const BYTE KON = 0x80;
@@ -107,16 +126,37 @@ public:
 				kbd[i] = (_kbd[i] & KON)!=0;
 			}
 		}
+	private:
+		bool kbd[256];
+		bool prev[256];
+	};
 
-		const float PI = 3.1415923f;
-		if (kbd['1'])  { eye3d(-4.2f, 1.5f, 5.4f, -1.0f, -0.2f); }
-		if (kbd['2'])  { eye3d(4.2f, 1.5f, 5.4f, -2.1f, -0.2f); }
-		if (kbd['3'])  { eye3d(-4.4f, +16.5f, +17.9f, -1.0f, -2.6f); }
-		if (kbd['4'])  { eye3d(-10.8f, 7.0f, 6.3f, -0.5f, -1.6f); }
-		if (kbd['5'])  { eye3d(29.9f, 7.0f, 7.9f, -2.6f, -1.6f); }
-		if (kbd['6'])  { eye3d(-7.1f, 1.5f, 1.7f, -0.4f, -0.2f); }
-		if (kbd['9'])  { eye2d(10.0f, 3.8f, 60.7f, -PI/2, -0.8f, 240); }
-		if (kbd['0'])  { eye2d(-25.3f, 4.1f, 20.5f, -0.55f, -0.85f, 150); }
+	KeyState keys;
+
+	void onProcessKeyboard_Common()
+	{
+		if (keys.on('X') || keys(VK_RIGHT) || keys.on(VK_NEXT))
+		{
+			data.frame_auto=Data::NO_DIR;
+			++data.frame_index;
+		}
+		if (keys.on('Z') || keys(VK_LEFT) || keys.on(VK_PRIOR))
+		{
+			data.frame_auto=Data::NO_DIR;
+			if (--data.frame_index<0){data.frame_index=0;}
+		}
+	}
+
+	void onProcessKeyboard_Viewer()
+	{
+		if (keys('1'))  { eye3d(-4.2f, 1.5f, 5.4f, -1.0f, -0.2f); }
+		if (keys('2'))  { eye3d(4.2f, 1.5f, 5.4f, -2.1f, -0.2f); }
+		if (keys('3'))  { eye3d(-4.4f, +16.5f, +17.9f, -1.0f, -2.6f); }
+		if (keys('4'))  { eye3d(-10.8f, 7.0f, 6.3f, -0.5f, -1.6f); }
+		if (keys('5'))  { eye3d(29.9f, 7.0f, 7.9f, -2.6f, -1.6f); }
+		if (keys('6'))  { eye3d(-7.1f, 1.5f, 1.7f, -0.4f, -0.2f); }
+		if (keys('9'))  { eye2d(10.0f, 3.8f, 60.7f, -PI/2, -0.8f, 240); }
+		if (keys('0'))  { eye2d(-25.3f, 4.1f, 20.5f, -0.55f, -0.85f, 150); }
 
 		const float mv = 0.100f;
 		const float mr = 0.025f;
@@ -126,72 +166,225 @@ public:
 			eye.z += sinf(eye.rh + r*PI/180) * mv;
 		};
 
-		if (kbd[' '] && !prev[' '])  { data.frame_auto=Data::NO_DIR; ++data.frame_index; }
-		if (kbd['Z'])  { data.frame_auto=Data::NO_DIR; ++data.frame_index; }
-		if (kbd['X'])  { data.frame_auto=Data::NO_DIR; if (--data.frame_index<0){data.frame_index=0;} }
-		if (kbd['S'])  move(180);
-		if (kbd['W'])  move(0);
-		if (kbd['A'])  move(270);
-		if (kbd['D'])  move(90);
-		if (kbd['Q'])  { eye.rh += mr; move(270); }
-		if (kbd['E'])  { eye.rh -= mr; move( 90); }
-		if (kbd['R'])  { eye.y += mv; eye.v -= mr; }
-		if (kbd['F'])  { eye.y -= mv; eye.v += mr; }
-		if (kbd[VK_F11] && !prev[VK_F11]) { debug_show = !debug_show; }
-
+		if (keys(' '))  { data.frame_auto=Data::NO_DIR; ++data.frame_index; }
+		if (keys.on('S'))  move(180);
+		if (keys.on('W'))  move(0);
+		if (keys.on('A'))  move(270);
+		if (keys.on('D'))  move(90);
+		if (keys.on('Q'))  { eye.rh += mr; move(270); }
+		if (keys.on('E'))  { eye.rh -= mr; move( 90); }
+		if (keys.on('R'))  { eye.y += mv; eye.v -= mr; }
+		if (keys.on('F'))  { eye.y -= mv; eye.v += mr; }
+		if (keys(VK_F11)) { debug_show = !debug_show; }
 		incdec(
-			kbd['O'],
-			kbd['L'],
+			keys.on('O'),
+			keys.on('L'),
 			view2d_width, 1, 9999);
 		incdec(
-			kbd['I']&&!prev['I'],
-			kbd['K']&&!prev['K'],
+			keys('I'),
+			keys('K'),
 			picture_interval, 1, 30);
 
-		if (kbd['N'])  output_dot_size = minmax(output_dot_size-0.1f, 0.1f, 10.0f);
-		if (kbd['M'])  output_dot_size = minmax(output_dot_size+0.1f, 0.1f, 10.0f);
+		if (keys('N'))  output_dot_size = minmax(output_dot_size-0.1f, 0.1f, 10.0f);
+		if (keys('M'))  output_dot_size = minmax(output_dot_size+0.1f, 0.1f, 10.0f);
 
-		if (kbd[VK_F1])
+		if (keys(VK_F1))
 		{
 			data.frame_auto = Data::INCR;
 		}
-		if (kbd[VK_F2])
+		if (keys(VK_F2))
 		{
 			data.frame_auto = Data::NO_DIR;
 		}
-		if (kbd[VK_F3])//rewind
+		if (keys(VK_F3))//rewind
 		{
 			data.frame_auto = Data::NO_DIR;
 			data.frame_index = 0;
 			data.output_picture = false;
 		}
-		if (kbd[VK_F4])
+		if (keys(VK_F4))
 		{
 			data.frame_auto = Data::DECR;
 		}
-		if (kbd[VK_F7])//play with output
+		if (keys(VK_F6))//play with output
 		{
 			data.frame_auto = Data::INCR;
 			data.output_picture = true;
 			data.frame_index = 0;
 		}
+	}
 
-		if (kbd[VK_F8])
+	void onProcessKeyboard_Snapshot()
+	{
+		auto select = [&](int n){
+			setEyeCamUnit(n);
+			snapshot_cam_index = n;
+		};
+
+		if (keys('1'))  { select(0); }
+		if (keys('2'))  { select(1); }
+		if (keys('3'))  { select(2); }
+		if (keys('4'))  { select(3); }
+		if (keys('5'))  { select(4); }
+		if (keys('6'))  { select(5); }
+
+		if (keys(' '))
 		{
-			// OBJo—Í‚ÉŠÖ‚µ‚Ä‚Í1BODY‚µ‚©‘Î‰ž‚µ‚Ü‚¹‚ñ
-			int max_count = 0;
-			auto& cams = camsys[0].cams;
-			for (int i=0; i<6; ++i)
+			appmode = MODE_ONESHOT;
+		}
+		if (keys('O'))
+		{
+			this->saveObj(1);
+		}
+		if (keys('P'))
+		{
+			this->saveObj(2);
+		}
+	}
+
+	void onProcessKeyboard()
+	{
+		keys.update();
+		onProcessKeyboard_Common();
+		switch (appmode)
+		{
+		case MODE_VIEW:
+			if (keys(VK_RETURN))
 			{
-				max_count = max(max_count, cams[i].dots.length());
+				appmode = MODE_SNAP;
+				setEyeCamUnit(snapshot_cam_index);
+				break;
 			}
-			for (int i=0; i<6; ++i)
+			onProcessKeyboard_Viewer();
+			break;
+		case MODE_SNAP:
+			if (keys(VK_RETURN))
 			{
-				if (max_count==cams[i].dots.length())
-				{
-					createObj(cams[i].dots);
-				}
+				appmode = MODE_VIEW;
+				setDefaultCam();
+				break;
 			}
+			onProcessKeyboard_Snapshot();
+			break;
+		case MODE_ONESHOT:
+			break;
+		}
+	}
+
+	void displayText_Frames()
+	{
+		freetype::print(font, 420,20,
+			"%5d frames, %3d sec",
+			data.frame_index,
+			data.frame_index/30);
+		freetype::print(font, 220,20,
+			"[Enter] change mode");
+	}
+
+	void displayText_View()
+	{
+		const int h = 20;
+		int y = 0;
+		glRGBA(60,30,0)();
+
+		auto pr = [&](const char* s){
+			freetype::print(font, 10,y+=h, s);
+		};
+
+		displayText_Frames();
+		pr("<< VIEWER MODE >>");
+		pr("");
+
+		for (int i=0; i<6; ++i)
+		{
+			freetype::print(font, 10,y+=h,
+				"cam%d dots = %6d (%5.2f)",
+				i+1,
+				camsys[0].cams[i].valid_dots,
+				camsys[0].cams[i].center.x);
+		}
+		freetype::print(font, 10,y+=h,
+			"eye={x:%.2f,y:%.2f,z:%.2f,rh:%.2f,%.2f} [a/s/d/w]",
+			eye.x,
+			eye.y,
+			eye.z,
+			eye.rh,
+			eye.v);
+		freetype::print(font, 10,y+=h,
+			"view_width=%.1f [o/l]",
+			view2d_width/10.0f);
+		freetype::print(font, 10,y+=h,
+			"picture_interval=%d frame/picture [i/k]",
+			picture_interval);
+		freetype::print(font, 10,y+=h,
+			"output dot size = %.1f [n/m]",
+			output_dot_size);
+		
+		pr("");
+		pr("[F1].....rewind");
+		pr("[F2].....reverse");
+		pr("[F3].....play");
+		pr("[F4].....pause");
+		pr("[F6].....play with save pictures");
+		pr("[1-6]....preset cam (2D)");
+		pr("[9,0]....preset cam (3D)");
+		pr("[Space]..next frame (one frame)");
+		pr("[Z][X]...prev/next frame (continuous)");
+	}
+
+	void displayText_Snapshot()
+	{
+		glRGBA(240,70,0)();
+		const int h = 20;
+		const int x = 10;
+		int y = 0;
+		auto pr = [&](const char* s){
+			freetype::print(font, 10,y+=h, s);
+		};
+
+		displayText_Frames();
+		pr("<< SNAPSHOT MODE >>");
+		pr("");
+		for (int i=0; i<6; ++i)
+		{
+			char buf[1000];
+			if (snap3d[i].exist)
+			{
+				sprintf_s(buf, "(frame:%d)",
+					snap3d[i].frame_index);
+			}
+			else
+			{
+				sprintf_s(buf, "empty");
+			}
+
+			freetype::print(font, x,y+=h,
+				"%s Camera[%d] = %s",
+				(i==snapshot_cam_index) ? "===>" : "    ",
+				i+1, buf);
+		}
+
+		pr("");
+		pr("[1-6]....Select camera 1 to 6");
+		pr("[Space]..Create PNG snapshot");
+		pr("[o]......Create <gameid-1.OBJ> snapshot");
+		pr("[p]......Create <gameid-2.OBJ> snapshot");
+	}
+
+	void onDisplay2D()
+	{
+		switch (appmode)
+		{
+		case MODE_VIEW:
+			displayText_View();
+			break;
+		case MODE_SNAP:
+			displayText_Snapshot();
+			break;
+		case MODE_ONESHOT:
+			snapOne(snapshot_cam_index);
+			appmode = MODE_SNAP;
+			break;
 		}
 	}
 };

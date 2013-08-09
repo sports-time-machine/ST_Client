@@ -124,9 +124,9 @@ bool VoxGrafix::DrawVoxels(const Dots& dots, const DrawParam& param, glRGBA inne
 		const float x = dots[i].x;
 		const float y = dots[i].y;
 		const float z = dots[i].z;
-		const bool in_x = (x>=GROUND_LEFT   && x<=GROUND_RIGHT);
-		const bool in_y = (y>=GROUND_BOTTOM && y<=GROUND_HEIGHT);
-		const bool in_z = (z>=GROUND_XNEAR  && z<=GROUND_XFAR);
+		const bool in_x = (x>=GROUND_LEFT    && x<=GROUND_RIGHT);
+		const bool in_y = (y>=GROUND_XBOTTOM && y<=GROUND_XTOP);
+		const bool in_z = (z>=GROUND_XNEAR   && z<=GROUND_XFAR);
 
 		if (in_x && in_y)
 		{
@@ -185,9 +185,9 @@ bool VoxGrafix::DrawVoxels(const Dots& dots, const DrawParam& param, glRGBA inne
 		const float x = dots[i].x;
 		const float y = dots[i].y;
 		const float z = dots[i].z;
-		const bool in_x = (x>=GROUND_LEFT   && x<=GROUND_RIGHT);
-		const bool in_y = (y>=GROUND_BOTTOM && y<=GROUND_HEIGHT);
-		const bool in_z = (z>=GROUND_XNEAR  && z<=GROUND_XFAR);
+		const bool in_x = (x>=GROUND_LEFT    && x<=GROUND_RIGHT);
+		const bool in_y = (y>=GROUND_XBOTTOM && y<=GROUND_XTOP);
+		const bool in_z = (z>=GROUND_XNEAR   && z<=GROUND_XFAR);
 
 #if 0
 		// Depth is alpha version

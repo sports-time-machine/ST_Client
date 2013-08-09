@@ -34,7 +34,7 @@ void Core::abort(const char* title, const char* text)
 	exit(-1);
 }
 
-const std::string& Core::getComputerName()
+std::string Core::getComputerName()
 {
 	static char name[1024];
 	DWORD size = sizeof(name);

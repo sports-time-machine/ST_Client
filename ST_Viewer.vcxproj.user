@@ -6,7 +6,7 @@
     <LocalDebuggerCommandArguments>C:\000Yamaguchi\00000AVYV0-1.stmov</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerCommandArguments>C:\ST\Viewer\00000SC7Y0-1.stmov C:\ST\Viewer\00000AVYV0-1.stmov C:\ST\Viewer\00000AVYV0-1.stmov </LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>C:\ST\mov\00000ITG01-1.stmov</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>C:\ST\Viewer</LocalDebuggerWorkingDirectory>
   </PropertyGroup>

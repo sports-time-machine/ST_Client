@@ -30,6 +30,7 @@ struct CamUnit
 	MovieData   mov;
 	Dots        dots;
 	Point3D     center;
+	int         valid_dots;
 };
 
 
@@ -47,6 +48,7 @@ struct Config
 		body6_rgba;
 	float
 		body_dot_size,
+		obj_dot_size,
 		diff_2movies[2],
 		diff_3movies[3],
 		diff_4movies[4];
@@ -54,6 +56,12 @@ struct Config
 		folder_format,
 		png_format,
 		obj_format;
+
+	Config()
+	{
+		body_dot_size = 1.0f;
+		obj_dot_size  = 1.0f;
+	}
 
 	void from(PSL::PSLVM& vm);
 };
@@ -77,6 +85,7 @@ void Config::from(PSL::PSLVM& vm)
 #define applyRGB(NAME)    this->NAME = PslvToRgb(PSL::variable(vm.get(#NAME)))
 #define applyDiff(NAME,N) makeDiff(this->NAME,N,PSL::variable(vm.get(#NAME)))
 	apply   (body_dot_size);
+	apply   (obj_dot_size);
 	applyStr(folder_format);
 	applyStr(png_format);
 	applyStr(obj_format);
@@ -102,6 +111,20 @@ struct CamSystem
 	CamUnit  cams[6];
 };
 
+struct Snap3D
+{
+	bool  exist;
+	Dots  dots;
+	int   frame_index;
+
+	Snap3D()
+	{
+		exist = false;
+		frame_index = 0;
+		dots.init();
+	}
+};
+
 class ViewerAppBase
 {
 public:
@@ -114,13 +137,26 @@ public:
 	int        picture_interval;
 	bool       debug_show;
 	Config     config;
-	string     filebasename;
+	string     game_id;
+	bool       quit_requested;
+	std::vector<Snap3D> snap3d;
 
 	virtual bool onInit()             { return true; }
 	virtual void onProcessMouse()     {}
 	virtual void onProcessKeyboard()  {}
 	virtual void onFrameBegin()       {}
 	virtual void onFrameEnd()         {}
+	virtual void onDisplay2D()        {}
+
+	void quitRequest()
+	{
+		quit_requested = true;
+	}
+
+	bool isQuitRequested() const
+	{
+		return quit_requested;
+	}
 
 	
 	static Point3D InvalidPoint3D()
@@ -130,19 +166,27 @@ public:
 
 	ViewerAppBase()
 	{
-		frame = 0;
-		output_dot_size = 1.0f;
-		view2d_width = 0;
+		frame            = 0;
+		output_dot_size  = 1.0f;
+		view2d_width     = 0;
 		picture_interval = 1;
-		debug_show = true;
+		debug_show       = true;
+		quit_requested   = false;
+		snap3d.resize(6);
+	}
+
+	void setDefaultCam()
+	{
+		view2d_width = 0;
+		eye3d(-4.2f, 1.5f, 5.4f, -1.0f, -0.2f);
 	}
 
 	bool init()
 	{
 		font.init("C:/Windows/Fonts/Cour.ttf", 12);
-		eye.set(-4.2f, 1.5f, 5.4f, -1.0f, -0.2f);
 		eye.setTransitionTime(80);
 		eye.fast_set = false;
+		setDefaultCam();
 		view2d_width = 0;
 		return onInit();
 	}
@@ -155,7 +199,7 @@ public:
 
 	bool load(const string& basename)
 	{
-		filebasename = basename.substr(basename.rfind('\\')+1);
+		this->game_id = basename.substr(basename.rfind('\\')+1);
 
 		DenugPrintln("load");
 		DenugPrintln(basename.c_str());
@@ -175,7 +219,8 @@ public:
 	bool loadConfigPsl()
 	{
 		PSL::PSLVM vm;
-		switch (vm.loadScript("snapshot-config.psl"))
+		string filename = mi::Core::getAppFolder()+"snapshot-config.psl";
+		switch (vm.loadScript(filename.c_str()))
 		{
 		case PSL::PSLVM::FOPEN_ERROR:
 			Msg::ErrorMessage("Cannot load config file.");
@@ -189,6 +234,12 @@ public:
 		return true;
 	}
 
+	// ƒJƒƒ‰”Ô†0`5
+	void setEyeCamUnit(int n)
+	{
+		eye2d(4.0f*n, -0.40f, 40.0f, -PI/2, 0.0f, 40);
+	}
+	
 	struct Data
 	{
 		enum FrameDir
@@ -245,7 +296,7 @@ public:
 		localtime_s(&t, &timeval);
 		
 		replace(s, "{desktop}",  mi::Core::getDesktopFolder());
-		replace(s, "{gameid}",   filebasename);
+		replace(s, "{gameid}",   game_id);
 		replace(s, "{num}",      mi::Lib::to_s(intnum));
 		replace(s, "{num00000}", mi::Lib::to_s_num0(intnum, 5));
 		replace(s, "{yyyy}",     mi::Lib::to_s_num0(t.tm_year+1900, 4));
@@ -285,13 +336,41 @@ public:
 			}
 		}
 
-
 		string name = config.folder_format + config.png_format;
 		replaceVars(name, frame_number);
 		mi::Folder::createFolder(name, true);
 		FreeImage_Save(FIF_PNG, bmp, (name).c_str());
 
 		FreeImage_Unload(bmp);
+	}
+
+	void snap(const Dots& dots, int unit_index, int png_index)
+	{
+		saveScreenShot(png_index);
+		Snap3D& sn = snap3d[unit_index];
+		sn.exist = true;
+		sn.frame_index = this->data.frame_index;
+		sn.dots.copyValidDots(dots);
+	}
+
+	void saveObj(int save_file_num)
+	{
+		string obj_filename = config.folder_format + config.obj_format;
+		replaceVars(obj_filename, save_file_num);
+
+		File f;
+		f.openForWrite(obj_filename);
+
+		int face_base = 0;
+		for (int i=0; i<6; ++i)
+		{
+			face_base += ObjWriter::outputTetra(
+				config.obj_dot_size,
+				f,
+				snap3d[i].dots,
+				i*4.0f,
+				face_base);
+		}
 	}
 
 	void runFrame()
@@ -361,6 +440,7 @@ public:
 		display3d();
 		display2dSectionPrepare();
 		if (debug_show) display2d();
+		onDisplay2D();
 	}
 
 	void drawFieldCube(float x_base)
@@ -513,53 +593,6 @@ public:
 			glVertex2f(0.25, 0.5);
 		glEnd();
 #endif
-		const int h = 20;
-		int y = 0;
-		glRGBA(60,30,0)();
-		++frame;
-		freetype::print(font, 10,y+=h,
-			"%d frames, %d sec",
-			data.frame_index,
-			data.frame_index/30);
-		for (int i=0; i<6; ++i)
-		{
-			freetype::print(font, 10,y+=h,
-				"cam%d dots = %d",
-				i+1,
-				camsys[0].cams[i].dots.length());
-		}
-		freetype::print(font, 10,y+=h,
-			"eye={x:%.2f,y:%.2f,z:%.2f,rh:%.2f,%.2f} [a/s/d/w]",
-			eye.x,
-			eye.y,
-			eye.z,
-			eye.rh,
-			eye.v);
-		freetype::print(font, 10,y+=h,
-			"view_width=%.1f [o/l]",
-			view2d_width/10.0f);
-		freetype::print(font, 10,y+=h,
-			"picture_interval=%d frame/picture [i/k]",
-			picture_interval);
-		freetype::print(font, 10,y+=h,
-			"output dot size = %.1f [n/m]",
-			output_dot_size);
-
-		auto pr = [&](const char* s){
-			freetype::print(font, 10,y+=h, s);
-		};
-		
-		pr("[F1]  play");
-		pr("[F2]  pause");
-		pr("[F3]  rewind");
-		pr("[F4]  reverse");
-		pr("[F7]  play with save pictures");
-		pr("[F8]  save .obj");
-		pr("[1-6] preset cam (2D)");
-		pr("[9,0] preset cam (3D)");
-		pr("[spc] next frame");
-		pr("[Z]   next frame");
-		pr("[X]   prev frame");
 	}
 
 	void drawMovie(CamUnit& cam, float add_x, float add_z, glRGBA color)
@@ -568,7 +601,7 @@ public:
 		param.movie_inc  = 16;
 		param.person_inc = 16;
 		cam.mov.dot_size = 1.6f;
-		const bool res = VoxGrafix::DrawMovieFrame(
+		const bool movie_is_end = VoxGrafix::DrawMovieFrame(
 			cam.mov,
 			param,
 			data.frame_index,
@@ -580,10 +613,11 @@ public:
 			cam.dots,
 			add_x,
 			add_z);
-		if (!res)
+		if (!movie_is_end)
 		{
 			data.frame_index = 0;
 			data.frame_auto = Data::NO_DIR;
+			quitRequest();
 		}
 
 		float avg_x = 0.0f;
@@ -594,7 +628,9 @@ public:
 		for (int i=0; i<dots.length(); ++i)
 		{
 			Point3D p = dots[i];
-			if (p.x>=ATARI_LEFT && p.x<=ATARI_RIGHT && p.y>=ATARI_BOTTOM && p.y<=ATARI_TOP && p.z>=GROUND_NEAR && p.z<=GROUND_FAR)
+			if (p.x>=ATARI_LEFT   && p.x<=ATARI_RIGHT
+			 && p.y>=ATARI_BOTTOM && p.y<=ATARI_TOP
+			 && p.z>=ATARI_NEAR   && p.z<=ATARI_FAR)
 			{
 				++count;
 				avg_x += p.x;
@@ -603,7 +639,9 @@ public:
 			}
 		}
 
-		if (count>=5000)
+		// "bar noise" dots are 1000-1500 voxels
+		cam.valid_dots = count;
+		if (count>=1500)
 		{
 			cam.center = Point3D(avg_x/count, avg_y/count, avg_z/count);
 		}

@@ -14,7 +14,9 @@ static const float
 	GROUND_XNEAR       = (0.00f),
 	GROUND_XFAR        = (GROUND_DEPTH-0.10f),   // 壁から10cm分は無視する
 	GROUND_TOP         = (GROUND_HEIGHT),
-	GROUND_BOTTOM      = (0.00f);
+	GROUND_BOTTOM      = (0.00f),
+	GROUND_XTOP        = (GROUND_HEIGHT),
+	GROUND_XBOTTOM     = (0.00f);
 
 // 床付近はノイズが多いので膝丈ぐらいからのみ有効
 // 画面の左右にマージンを設けることで、画面外にいきつつある場合であっても、
@@ -25,7 +27,9 @@ static const float
 	ATARI_LEFT         = (GROUND_LEFT  - ATARI_MARGIN),
 	ATARI_RIGHT        = (GROUND_RIGHT + ATARI_MARGIN),
 	ATARI_BOTTOM       = (0.50f),
-	ATARI_TOP          = (GROUND_HEIGHT);
+	ATARI_TOP          = (GROUND_HEIGHT),
+	ATARI_NEAR         = (0.00f),
+	ATARI_FAR          = (GROUND_DEPTH-0.20f);  //壁際はノイズが多いので省く
 
 static const float
 	LOOKAT_EYE_DEPTH   = (4.0f),

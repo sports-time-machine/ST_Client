@@ -1,13 +1,12 @@
 #define THIS_IS_MAIN
 #include "../ViewerAppBase.h"
 
+//#pragma optimize("",off)
 class ViewerApp : public ViewerAppBase
 {
 public:
-	bool   alreadyTook[6];
-	int    displayTimePerUnit[6];
-	std::vector<Dots> snap3d;
-	bool   quit_app;
+	bool     alreadyTook[6];
+	int      displayTimePerUnit[6];
 
 	// ‰˜H
 	bool isPictureTake_Go(float x, int n)
@@ -20,7 +19,7 @@ public:
 		case 2:  return (x>=0.00f);
 		case 3:  return (x>=0.00f);
 		case 4:  return (x>=0.00f);
-		case 5:  return (x>=0.50f);
+		case 5:  return (x>=0.00f);
 		}
 	}
 
@@ -30,19 +29,13 @@ public:
 		switch (n)
 		{
 		default: return false;
-		case 0:  return (x<-0.50f);
-		case 1:  return (x< 0.00f);
-		case 2:  return (x< 0.00f);
-		case 3:  return (x< 0.00f);
-		case 4:  return (x< 0.00f);
-		case 5:  return (x< 0.50f);
+		case 0:  return (x<0.0f);
+		case 1:  return (x<0.0f);
+		case 2:  return (x<0.0f);
+		case 3:  return (x<0.0f);
+		case 4:  return (x<0.0f);
+		case 5:  return (x<0.5f);
 		}
-	}
-
-	// ƒJƒƒ‰”Ô†0`5
-	void eyeCamUnit(int n)
-	{
-		eye2d(4.0f*n, -0.40f, 40.0f, -PI/2, 0.0f, 40);
 	}
 
 	enum Direction
@@ -56,15 +49,13 @@ public:
 	{
 		loadConfigPsl();
 	
-		eyeCamUnit(1);
+		setEyeCamUnit(1);
 		for (int i=0; i<6; ++i)
 		{
 			alreadyTook[i] = false;
 			displayTimePerUnit[i] = 0;
 		}
 
-		this->snap3d.resize(6);
-		this->quit_app = false;
 		this->debug_show = false;
 		this->data.frame_index = 300;
 		this->data.frame_auto = Data::INCR;
@@ -76,33 +67,18 @@ public:
 	{
 		for (int i=0; i<6; ++i)
 		{
-			const auto& cam = cams[i];
+			const auto& cam = camsys[0].cams[i];
 			if (cam.center==InvalidPoint3D())
 				continue;
 
 			++displayTimePerUnit[i];
 
-			volatile float cx = cam.center.x;
+			float cx = cam.center.x;
 			if (displayTimePerUnit[i]>=5 && cx>=-2.0f)
 			{
-				eyeCamUnit(i);
+				setEyeCamUnit(i);
 				break;
 			}
-		}
-	}
-
-	void saveObj(int num)
-	{
-		string obj_filename = config.folder_format + config.obj_format;
-		replaceVars(obj_filename, num);
-
-		File f;
-		f.openForWrite(obj_filename);
-
-		int face_base = 0;
-		for (int i=0; i<6; ++i)
-		{
-			face_base += ObjWriter::outputTetra(1.0f, f, snap3d[i], i*4.0f, face_base);
 		}
 	}
 
@@ -110,7 +86,7 @@ public:
 	{
 		for (int i=0; i<6; ++i)
 		{
-			const auto& cam = cams[i];
+			const auto& cam = camsys[0].cams[i];
 			if (cam.center==InvalidPoint3D())
 				continue;
 
@@ -141,12 +117,11 @@ public:
 
 			if (snap)
 			{
-				alreadyTook[i] = true;
-				saveScreenShot(1+i);
-				snap3d[i].copyFrom(cams[i].dots);
+				alreadyTook[i] = true;				
+				this->snap(camsys[0].cams[i].dots, i, 1+i+(save_num-1)*6);
 				if (save)
 				{
-					saveObj(save_num);
+					this->saveObj(save_num);
 					for (int i=0; i<6; ++i)
 						alreadyTook[i] = false;
 						
@@ -156,7 +131,7 @@ public:
 						dir = DIR_BACK;
 						break;
 					case DIR_BACK:
-						this->quit_app = true;
+						quitRequest();
 						break;
 					}
 				}
@@ -214,7 +189,7 @@ static bool run_app(string arg)
 	while (glfwGetWindowParam(GLFW_OPENED))
 	{
 		app.runFrame();
-		if (app.quit_app)
+		if (app.isQuitRequested())
 			break;
 		glfwSwapBuffers();
 	}
