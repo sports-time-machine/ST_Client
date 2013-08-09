@@ -19,7 +19,7 @@ public:
 		case 2:  return (x>=0.00f);
 		case 3:  return (x>=0.00f);
 		case 4:  return (x>=0.00f);
-		case 5:  return (x>=0.00f);
+		case 5:  return (x>=0.50f);
 		}
 	}
 
@@ -101,24 +101,27 @@ public:
 			int save_num = 0;
 			bool snap = false;
 			bool save = false;
+			int png_save_index = 0;
 
 			if (dir==DIR_GO)
 			{
 				snap = isPictureTake_Go(cx,i);
 				save = (i==5);
 				save_num = 1;
+				png_save_index = i+1; // 1-6
 			}
 			else
 			{
 				snap = isPictureTake_Back(cx,i);
 				save = (i==0);
 				save_num = 2;
+				png_save_index = 12-i; // 12-7
 			}
 
 			if (snap)
 			{
 				alreadyTook[i] = true;				
-				this->snap(camsys[0].cams[i].dots, i, 1+i+(save_num-1)*6);
+				this->snap(camsys[0].cams[i].dots, i, png_save_index);
 				if (save)
 				{
 					this->saveObj(save_num);
