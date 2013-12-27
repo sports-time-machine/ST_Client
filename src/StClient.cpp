@@ -1,3 +1,5 @@
+// スポーツタイムマシンの本体
+
 #include "mi/mi.h"
 #pragma warning(disable:4366)
 #define GL_GENERATE_MIPMAP_SGIS 0x8191

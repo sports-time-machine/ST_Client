@@ -1,3 +1,6 @@
+// Kinect‚©‚çdepth‚ğ‚à‚ç‚¤
+// ‚Ü‚½°Á‚µ‚à‚·‚é
+
 #include "St3dData.h"
 #include "StClient.h"
 #include "gl_funcs.h"

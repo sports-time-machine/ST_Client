@@ -1,3 +1,8 @@
+// ゲーム情報に関すること
+//   - 走行動画
+//   - 走行パートナー
+//   - カメラ位置
+
 #include "mi/mi.h"
 #include "StClient.h"
 

@@ -1,3 +1,5 @@
+// OpenGLŠÖŒW‚Ì×X‚µ‚½ƒc[ƒ‹
+
 #include "gl_funcs.h"
 #include <gl/glu.h>
 

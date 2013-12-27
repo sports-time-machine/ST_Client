@@ -1,3 +1,19 @@
+//==============================================
+// .stmovのファイルへのアクセスインターフェイス
+// 
+// .stmovは次の構成になっている
+//   struct FileHeader (32bytes)
+//    | signature      6bytes  'STMOV  '
+//    | major ver      1byte    1
+//    | minor ver      1byte    1
+//    | total_frames   4bytes
+//    | total_msec     4bytes
+//    | format        16bytes  'depth 2d 10b/6b '
+//   byte-stream
+//    | byte-streams
+//
+//==============================================
+
 #include "file_io.h"
 #include "St3dData.h"
 #include "mi/Libs.h"
@@ -168,16 +184,22 @@ bool MovieData::load(const string& path)
 	FileHeader header;
 	f.read(header);
 
+	// シグネチャの確認 -- これは常に同じです
 	if (!checkMagic(header.signature, STMOVIE_MAGIC_ID))
 	{
 		fprintf(stderr, "File is not ST-Movie format.\n");
 		return false;
 	}
+
+	// フォーマットのチェック
+	// 今後フォーマットが増えていけば、もう少し違う処理になります
 	if (!checkMagic(header.format, DEPTH_2D_10B6B))
 	{
 		fprintf(stderr, "Unsupport format.\n");
 		return false;
 	}
+
+	// フレーム数をいちおうチェックしています
 	if (header.total_frames<=0 || header.total_frames>999999)
 	{
 		fprintf(stderr, "Invalid total frames.\n");
@@ -187,6 +209,8 @@ bool MovieData::load(const string& path)
 	this->total_frames = header.total_frames;
 	this->ver = VER_INVALID;
 
+	// format:DEPTH_2D_10B6Bにおけるバージョンのチェック
+	// 他にフォーマットが増えればもう少し複雑な処理になると思います
 	if (header.ver_major==1 && header.ver_minor==0)
 	{
 		this->ver = VER_1_0;

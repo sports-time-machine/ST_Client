@@ -1,3 +1,5 @@
+// コンソールにログを出すための関数群
+
 #include "St3dData.h"
 #include "mi/Console.h"
 

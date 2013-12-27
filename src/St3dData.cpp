@@ -1,3 +1,5 @@
+// Voxelƒf[ƒ^‚ğ•`‰æ‚·‚é
+
 #include "St3dData.h"
 #include "vec4.h"
 #include "ConstValue.h"

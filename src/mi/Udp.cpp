@@ -1,3 +1,5 @@
+// 概ね汎用なUDPクラス
+
 #include "Udp.h"
 #include <WinSock2.h>
 #pragma comment(lib, "ws2_32.lib")
@@ -217,6 +219,7 @@ void UdpSender::destroy()
 
 bool UdpSender::send(const std::string& src)
 {
+	// STでのUDPは行ごとに判定するのでnewlineを追加する
 	std::string buf = src;
 	buf += "\n";
 

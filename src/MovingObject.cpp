@@ -1,3 +1,5 @@
+// •À‘–ŽÒ(MovingObject)
+
 #include "StClient.h"
 
 using namespace stclient;

@@ -1,3 +1,6 @@
+// スポーツタイムマシンの入力
+//   - キャリブレーション時の操作
+
 #include "StClient.h"
 #include <gl/glfw.h>
 

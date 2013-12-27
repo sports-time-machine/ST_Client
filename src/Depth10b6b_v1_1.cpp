@@ -1,3 +1,11 @@
+//==============================================================
+// .stmovのデータを読み書きするルーチン
+// Kinectからもらえる1-10000までのdepth情報を、
+// 0-1023におさめ、それをバイトストリームにおさめていく
+// バイトストリームには16ビット単位で追加していく
+// このときのビット配分が、データ10bits、ランレングス長6bitsなので
+// フォーマット名が10b/6bになっている。
+//==============================================================
 #include "St3dData.h"
 #include "file_io.h"
 #include "mi/Timer.h"
@@ -16,6 +24,7 @@ using namespace stclient;
 
 static void depth_to_store_aux(const RawDepthImage& depth, uint8*& store)
 {
+	// v1.0のときはここにバグがありました
 	// in:  0<=x<=10000
 	// out: 0<=x<=1023
 	auto depth_convert = [](int x)->int{
@@ -25,8 +34,13 @@ static void depth_to_store_aux(const RawDepthImage& depth, uint8*& store)
 	const int DEPTH_SIZE = 640*480;
 	for (int i=0; i<DEPTH_SIZE; ++i)
 	{
+		// focusは現在注目しているdepthデータ
+		// depth.image[i]は0-10000だが、変換して、
+		// 0-1023(10bit)におさまるようにしている
 		const int focus = depth_convert(depth.image[i]);
 		int run = 0;
+
+		// 32ラン(6bit)までランレングスを挑戦する
 		while (run<32)
 		{
 			int addr = i+run+1;
@@ -37,6 +51,7 @@ static void depth_to_store_aux(const RawDepthImage& depth, uint8*& store)
 			++run;
 		}
 
+		// バイトストリームに書き出す
 		i += run;
 		*store++ = (uint8)(focus & 0xFF);
 		*store++ = (uint8)((focus>>8) | (run<<2));
@@ -50,6 +65,10 @@ static void depth_to_store(const RawDepthImage& depth1, const RawDepthImage& dep
 	if (store_buffer.empty())
 	{
 		// 十分に大きなものにしておく
+		// 圧縮したデータがカメラ2つ分入る大きさである必要がある
+		// 640x480=300Kなので、ランレングスがワーストケースで
+		// 2倍にふくれても600K、カメラ2つ分で1.2Mだとしても、
+		// 8Mの容量があれば完全に大丈夫
 		const int MEGA = 1024*1024;
 		store_buffer.resize(8 * MEGA);
 		puts("ALLOCATE!");

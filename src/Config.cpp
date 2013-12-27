@@ -1,3 +1,5 @@
+// struct Config‚Æconfig.psl‚ÉŠÖ‚·‚é‚±‚Æ
+
 #include "StClient.h"
 #include "Config.h"
 #include "psl_if.h"

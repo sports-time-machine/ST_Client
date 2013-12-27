@@ -1,3 +1,6 @@
+// ƒoƒO‚ª‚ ‚Á‚½‚½‚ßobsolete‚Å‚·
+// Depth10b6b_v1_1.cpp‚Éˆø‚«Œp‚¬
+
 #include "St3dData.h"
 #include "file_io.h"
 #include "mi/Timer.h"

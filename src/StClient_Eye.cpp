@@ -1,3 +1,5 @@
+// 視点情報に関するプリセット
+
 #include "StClient.h"
 #include <gl/glu.h>
 

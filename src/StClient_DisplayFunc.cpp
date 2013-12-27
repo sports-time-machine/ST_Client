@@ -1,3 +1,5 @@
+// スポーツタイムマシンの描画補助
+
 #include "mi/mi.h"
 #include "StClient.h"
 

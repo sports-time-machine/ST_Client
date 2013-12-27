@@ -1,3 +1,5 @@
+// スポーツタイムマシンでのControllerとのUDP通信
+
 #include "StClient.h"
 #include "mi/Image.h"
 #include "mi/Udp.h"

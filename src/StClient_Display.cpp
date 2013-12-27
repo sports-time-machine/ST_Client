@@ -1,3 +1,5 @@
+// スポーツタイムマシンの描画部分
+
 #include "StClient.h"
 
 using namespace stclient;

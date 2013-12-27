@@ -1,3 +1,5 @@
+// Win32Ç‚OpenGLÇ…ä÷Ç∑ÇÈÉRÉAÇ»Ç±Ç∆
+
 #include "St3dData.h"
 #include "gl_funcs.h"
 #include <GL/glfw.h>

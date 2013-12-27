@@ -1,3 +1,8 @@
+// 初期化など
+//   - Kinect Device (kdev) の接続
+//   - StClientオブジェクトの生成
+//   - コンフィグのロード指示
+
 #define THIS_IS_MAIN
 #include <OpenNI.h>
 #include "StClient.h"
